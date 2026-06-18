@@ -20,6 +20,8 @@ PATTERNS = [
     (r"gh[pousr]_[A-Za-z0-9]{36,}", "GitHub token"),
     (r"xox[baprs]-[A-Za-z0-9-]{10,}", "Slack token"),
     (r"sk-[A-Za-z0-9]{32,}", "OpenAI-style secret key"),
+    (r"sk-(proj|svcacct|admin)-[A-Za-z0-9_-]{20,}", "OpenAI project/service key"),
+    (r"\b(sk|rk)_live_[0-9a-zA-Z]{24,}", "Stripe live key"),
     (r"sk-ant-[A-Za-z0-9_-]{20,}", "Anthropic API key"),
     (r"AIza[0-9A-Za-z_-]{35}", "Google API key"),
     (r"(?i)(secret|password|passwd|token|api[_-]?key)\s*[=:]\s*['\"][^'\"\s]{12,}['\"]",
