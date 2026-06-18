@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "forge",
+  "displayName": "Forge",
+  "version": "1.0.0",
+  "description": "An enterprise-grade Claude Code toolkit: specialized agents, progressive-disclosure skills, slash commands, and safety hooks that maximize the efficacy of LLMs in software engineering.",
+  "author": {
+    "name": "Alisina Karimi",
+    "email": "alisinakarimi.2003@gmail.com",
+    "url": "https://github.com/AlisinaDevelo"
+  },
+  "homepage": "https://github.com/AlisinaDevelo/md-files",
+  "repository": "https://github.com/AlisinaDevelo/md-files",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "agents",
+    "skills",
+    "hooks",
+    "slash-commands",
+    "ai-engineering",
+    "developer-tooling",
+    "prompt-engineering"
+  ]
+}
