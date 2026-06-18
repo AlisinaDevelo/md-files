@@ -1,0 +1,22 @@
+{
+  "name": "forge",
+  "owner": {
+    "name": "Alisina Karimi",
+    "email": "alisinakarimi.2003@gmail.com",
+    "url": "https://github.com/AlisinaDevelo"
+  },
+  "metadata": {
+    "description": "Forge — an enterprise-grade toolkit of Claude Code agents, skills, commands, and hooks for software engineering.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "forge",
+      "source": "./plugins/forge",
+      "description": "Specialized agents, skills, slash commands, and safety hooks that maximize LLM efficacy across the software development lifecycle.",
+      "version": "1.0.0",
+      "category": "developer-tooling",
+      "keywords": ["agents", "skills", "hooks", "code-review", "testing", "security"]
+    }
+  ]
+}
