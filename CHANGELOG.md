@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [1.0.1] — 2026-06-18
+
+### Fixed
+
+- **`scan-secrets` coverage** — the hook now detects Stripe live keys (`sk_live_…`) and
+  modern OpenAI project/service keys (`sk-proj-…`, `sk-svcacct-…`, `sk-admin-…`), which the
+  earlier `sk-[A-Za-z0-9]{32,}` pattern missed because of the hyphen. Found by dogfooding
+  the toolkit on itself. Hook test suite grows to 54.
+
+### Documented
+
+- The `guard-bash` match-anywhere trade-off (quoted/echoed/commented trigger text is
+  blocked) is now spelled out in the design rationale as a deliberate false-positive-over-
+  false-negative choice, with the fixture-assembly workaround.
+
 ## [1.0.0] — 2026-06-18
 
 All schemas verified against the official Claude Code documentation. The repo uses the
