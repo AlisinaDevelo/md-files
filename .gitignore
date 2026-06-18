@@ -1,0 +1,27 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*~
+
+# Local Claude state (never commit personal/project-local overrides)
+.claude/settings.local.json
+.claude/.session/
+.claude/logs/
+
+# Build / tooling output
+node_modules/
+.cache/
+*.log
+.markdownlint-cache
+tmp/
+
+# Python / test tooling
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/

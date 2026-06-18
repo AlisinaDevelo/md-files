@@ -1,0 +1,24 @@
+# markdownlint configuration
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+
+default: true
+
+# Line length is not meaningful for prose / tables in this repo.
+MD013: false
+
+# Allow inline HTML (badges, <details>, alignment in README).
+MD033: false
+
+# Allow duplicate headings in different sections (e.g. repeated "Example").
+MD024:
+  siblings_only: true
+
+# First line in a file need not be a top-level heading (frontmatter precedes it).
+MD041: false
+
+# Allow trailing punctuation in headings where it reads better.
+MD026: false
+
+# Don't enforce table cell padding style — tables here mix prose and emphasis,
+# and the padding is purely cosmetic.
+MD060: false
