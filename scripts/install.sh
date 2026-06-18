@@ -62,6 +62,7 @@ link_dir() {
 link_dir agents
 link_dir commands
 link_dir skills
+link_dir output-styles
 
 echo
 echo "Done. Restart Claude Code (or run /agents) to pick up the changes."
