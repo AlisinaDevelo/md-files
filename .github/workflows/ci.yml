@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate toolkit structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Validate frontmatter, JSON, and hook scripts
+        run: ./scripts/validate.sh
+
+  markdownlint:
+    name: Markdown lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DavidAnson/markdownlint-cli2-action@v16
+        with:
+          globs: "**/*.md"
+          config: .markdownlint.yaml
+
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: .
+          format: gcc
+          severity: warning
+
+  test:
+    name: Hook tests (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Install pytest
+        run: pip install pytest
+      - name: Run hook tests
+        run: pytest tests/ -v
+
+  evals:
+    name: Prompt-quality evals (static)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Run static prompt-quality eval
+        run: python3 evals/run.py
+
+  python-lint:
+    name: Hook scripts (ruff + compile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Compile hook + eval scripts
+        run: python -m py_compile plugins/forge/hooks/scripts/*.py evals/run.py tests/test_hooks.py
+      - name: Lint with ruff
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: check plugins/forge/hooks/scripts evals tests
+
+  plugin-manifest:
+    name: Plugin manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate plugin + marketplace JSON
+        run: |
+          jq empty plugins/forge/.claude-plugin/plugin.json && echo "plugin.json OK"
+          jq empty .claude-plugin/marketplace.json && echo "marketplace.json OK"
+          jq -e '.name' plugins/forge/.claude-plugin/plugin.json > /dev/null \
+            && echo "plugin.json has required name field"
+          jq -e '.name and .owner and .plugins' .claude-plugin/marketplace.json > /dev/null \
+            && echo "marketplace.json has required fields"
