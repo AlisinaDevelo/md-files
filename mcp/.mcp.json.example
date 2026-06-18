@@ -1,0 +1,32 @@
+{
+  "_comment": "Example MCP server config. Copy to your project root as .mcp.json, keep what you need, supply env via your shell — never commit real tokens.",
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "${PWD}"],
+      "_note": "Scope to the project dir; don't expose your whole home directory."
+    },
+    "git": {
+      "command": "uvx",
+      "args": ["mcp-server-git", "--repository", "${PWD}"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      },
+      "_note": "Use a fine-grained PAT with only the repos/scopes you need."
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "${DATABASE_URL}"],
+      "_note": "Prefer a read-only connection string for analysis work."
+    },
+    "fetch": {
+      "command": "uvx",
+      "args": ["mcp-server-fetch"],
+      "_note": "Lets the model fetch and read web pages."
+    }
+  }
+}
