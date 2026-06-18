@@ -134,6 +134,8 @@ SECRET_FIXTURES = [
     "key = " + _tok("sk-ant", "-api03-abcdefghij0123456789ABCDEF_-xyz"),
     'DB_PASSWORD = "sup3rs3cr3t-prod-value"',
     "google = " + _tok("AIza", "SyA1234567890abcdefghijklmnopqrstuv"),
+    "openai = " + _tok("sk-", "proj-abcdefghijklmnopqrstuvwxyz0123456789AB"),
+    "stripe = " + _tok("sk_", "live_51H8xabcdefghijklmnopqrstuvwx"),
 ]
 
 
