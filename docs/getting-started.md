@@ -52,4 +52,29 @@ commands, or instruction snippets you want into your own `~/.claude/` or project
 - **Layer your CLAUDE.md.** Start from `instructions/templates/global-CLAUDE.md` for your
   personal defaults, and use the project template per repo.
 
+## Using Forge in any project
+
+Forge is **project-agnostic** — install it once at user scope and it works in every repo
+you open. It assumes nothing about your stack, framework, language, or directory layout:
+
+- **Agents and skills** describe general engineering methods; the stack-specific ones
+  (`frontend-specialist`, `database-expert`, …) only trigger on relevant requests, so they
+  stay quiet in projects where they don't apply.
+- **Hooks adapt to the project they run in.** `session-context` reads the current repo's
+  git state (and no-ops outside a git repo); `format-file` runs whatever formatter is
+  installed for the file type (and silently does nothing if none is); `guard-bash` and
+  `scan-secrets` are content-based and language-agnostic. None of them hardcode a path.
+- **Nothing is wired to this repo.** The shipped plugin contains no absolute paths, no
+  author-specific assumptions, and no references to the `md-files` repo itself.
+
+So the recommended path — `/plugin marketplace add AlisinaDevelo/md-files` then
+`/plugin install forge@forge` — gives you the whole toolkit in any project. Per-project
+conventions belong in that project's `CLAUDE.md` (start from
+[`instructions/templates/`](../instructions/templates/)), not in Forge.
+
+**Forking it as your own toolkit?** Everything's plain Markdown and small scripts. Change
+the plugin `name`/`author` in `plugins/forge/.claude-plugin/plugin.json`, the marketplace
+`name`/`owner` in `.claude-plugin/marketplace.json`, and the install URLs in the README to
+point at your fork. The components themselves need no changes.
+
 See [usage-patterns.md](usage-patterns.md) for how the pieces combine in real workflows.
