@@ -1,0 +1,58 @@
+# CLAUDE.md
+
+<!--
+  Project memory for Claude Code. Keep it short and high-signal — it loads into
+  every session and competes for the model's attention. Delete sections that don't
+  apply; replace ALL-CAPS placeholders. Favor specific, testable instructions.
+-->
+
+## What this is
+
+ONE-PARAGRAPH description of the project: what it does, who uses it, the stack, and the
+single most important thing to know before changing anything.
+
+## Architecture
+
+- KEY DIRECTORIES and what lives in each (only the non-obvious ones).
+- IMPORTANT BOUNDARIES (services, modules, which DB, which API).
+- ANYTHING surprising about how the pieces fit (e.g. "two databases — check which one").
+
+## Commands
+
+```bash
+# Setup
+COMMAND          # install deps / bootstrap
+
+# Develop
+COMMAND          # run the dev server / watch
+
+# Test & verify (run before committing)
+COMMAND          # unit tests
+COMMAND          # lint / type-check / format
+
+# Build
+COMMAND          # production build
+```
+
+## Conventions
+
+- CODE STYLE that a formatter doesn't already enforce.
+- NAMING / FILE LAYOUT patterns to follow.
+- TESTING expectations (framework, where tests live, coverage bar).
+- COMMIT / PR conventions.
+
+## Working rules
+
+- Read relevant files and follow existing patterns before writing code.
+- Make the minimal change that solves the problem; don't refactor unrelated code.
+- State assumptions; ask when a decision is genuinely ambiguous.
+- DON'T do X (project-specific traps — e.g. "never edit generated files in `gen/`").
+
+## Gotchas
+
+- KNOWN traps, footguns, and "if you see X it means Y" knowledge that isn't in the code.
+
+<!--
+  Tip: nested CLAUDE.md files closer to a subsystem override/extend this one for that
+  subtree. Use them for module-specific rules instead of bloating this root file.
+-->
