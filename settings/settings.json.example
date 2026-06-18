@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_comment": "Example Claude Code settings. Copy the parts you want into ~/.claude/settings.json (user) or .claude/settings.json (project). Installing the Forge plugin brings its hooks automatically — you do NOT need to copy hooks here.",
+  "permissions": {
+    "allow": [
+      "Read",
+      "Grep",
+      "Glob",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(npm test:*)",
+      "Bash(npm run lint:*)",
+      "Bash(just test:*)",
+      "Bash(pytest:*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)"
+    ]
+  },
+  "env": {
+    "_comment": "Project-wide environment variables for tool runs (no secrets here).",
+    "FORGE_EXAMPLE": "1"
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/forge-statusline.sh",
+    "padding": 1
+  },
+  "outputStyle": "Concise Engineer"
+}
