@@ -1,0 +1,10 @@
+# Code owners for the Forge toolkit.
+# These owners are requested for review on any matching pull request.
+
+*                       @AlisinaDevelo
+
+/agents/                @AlisinaDevelo
+/skills/                @AlisinaDevelo
+/hooks/                 @AlisinaDevelo
+/commands/              @AlisinaDevelo
+/.github/               @AlisinaDevelo
