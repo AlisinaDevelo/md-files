@@ -7,14 +7,14 @@
   },
   "metadata": {
     "description": "Forge — an enterprise-grade toolkit of Claude Code agents, skills, commands, and hooks for software engineering.",
-    "version": "1.0.0"
+    "version": "1.0.1"
   },
   "plugins": [
     {
       "name": "forge",
       "source": "./plugins/forge",
       "description": "Specialized agents, skills, slash commands, and safety hooks that maximize LLM efficacy across the software development lifecycle.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "developer-tooling",
       "keywords": ["agents", "skills", "hooks", "code-review", "testing", "security"]
     }
