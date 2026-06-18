@@ -58,6 +58,19 @@ high-precision because a guard that cries wolf gets disabled — and a disabled 
 worse than none. This is why the test suite weighs true negatives (not crying wolf) as
 heavily as true positives.
 
+**Known limitation — `guard-bash` matches the command string, not the parsed command.**
+A dangerous pattern that appears only as quoted text (`echo "git push --force … main"`) or
+in a comment (`ls  # never rm -rf / here`) is still blocked, because the guard does a
+regex match over the raw command rather than parsing the shell. This is a deliberate
+trade-off, not an oversight: anchoring patterns to a command boundary to fix the false
+positive would *miss* the real threat when it's wrapped (`$(rm -rf /)`, `xargs rm -rf`,
+`eval "$cmd"`). For a last-line safety net, a false positive (you rephrase a command) is
+cheap; a false negative (a catastrophe slips through) is not. The same property means the
+`scan-secrets` hook will block an edit whose content includes a credential-shaped fixture
+— including, amusingly, edits to this toolkit's own scanner tests. When that happens,
+assemble the fixture from parts (see `tests/test_hooks.py`'s `_tok` helper) so no
+contiguous secret literal sits in the file.
+
 Hooks are also where determinism beats intelligence. A model can be talked out of its own
 instructions; a shell program that exits 2 cannot. Anything that *must* happen — blocking a
 catastrophe, formatting a file — belongs in a hook, not in a prompt that hopes the model
