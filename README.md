@@ -12,7 +12,7 @@ engineering.**
 [![Agents](https://img.shields.io/badge/agents-18-8b5cf6.svg)](plugins/forge/agents/)
 [![Skills](https://img.shields.io/badge/skills-15-06b6d4.svg)](plugins/forge/skills/)
 [![Commands](https://img.shields.io/badge/commands-12-22c55e.svg)](plugins/forge/commands/)
-[![Hook tests](https://img.shields.io/badge/hook%20tests-52%20passing-success.svg)](tests/)
+[![Hook tests](https://img.shields.io/badge/hook%20tests-54%20passing-success.svg)](tests/)
 [![Prompt evals](https://img.shields.io/badge/prompt%20evals-213%20checks-success.svg)](evals/)
 
 </div>
@@ -60,7 +60,7 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   auto-format edits, inject repo context at session start, and notify you on completion —
   deterministically, without relying on the model to remember.
 - **Proven, not asserted.** A real eval harness scores every prompt (213 static checks +
-  an opt-in LLM-judge behavioral eval) and a 52-test suite covers the safety hooks. Run
+  an opt-in LLM-judge behavioral eval) and a 54-test suite covers the safety hooks. Run
   them yourself — `just check`. This is the [evidence layer](evals/), not a README claim.
 - **Auditable & self-validating.** Read every prompt and script. CI validates structure,
   runs the tests, and scores the evals on every push.
@@ -188,7 +188,7 @@ Deterministic guardrails the harness runs on lifecycle events — no model memor
 
 - [`evals/`](evals/) — the proof the prompts work: 213 static prompt-quality checks (free,
   in CI) plus an opt-in LLM-judge behavioral eval that scores agents against real tasks.
-- [`tests/`](tests/) — a 52-test pytest suite covering the safety hooks (blocks the
+- [`tests/`](tests/) — a 54-test pytest suite covering the safety hooks (blocks the
   dangerous, allows the safe, fails open on garbage). `just check` runs it all.
 
 ## How the pieces fit
