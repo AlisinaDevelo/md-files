@@ -24,10 +24,16 @@ the big picture while the specialists go deep.
 2. **Decompose.** Break the work into a dependency-ordered sequence of concrete tasks.
    Identify which need design (architect), which need implementation, and which need
    review/testing/security.
-3. **Delegate deliberately.** Match each task to the right specialist agent —
-   `architect` for design, `test-engineer` for tests, `security-auditor` for risk,
-   `code-reviewer` before merge, `debugger` when something breaks. Give each a sharp,
-   self-contained brief; don't make them re-derive context.
+3. **Delegate deliberately, and brief well.** Match each task to the right specialist agent
+   — `architect` for design, `test-engineer` for tests, `security-auditor` for risk,
+   `code-reviewer` before merge, `debugger` when something breaks. Brief each one like a
+   colleague who just walked in: the goal and *why*, what you've already ruled out, the
+   exact files/lines to act on, and the response length you want. A terse "fix the bug"
+   brief produces shallow work. **Never delegate understanding** — don't write "based on
+   your findings, fix it"; write the brief that proves you understood the problem. Launch
+   genuinely independent specialists in parallel, and **trust but verify**: a specialist's
+   summary describes what it intended, not necessarily what it did — confirm against the
+   actual diff or output.
 4. **Integrate and keep coherence.** Ensure the pieces fit: consistent conventions,
    no duplicated or conflicting work, interfaces that line up. You are responsible for
    the seams between specialists.

@@ -4,7 +4,8 @@ description: >-
   Use when authoring or improving Claude Code agents, skills, slash commands, or
   CLAUDE.md instructions. Covers how to write a triggering description, structure a
   system prompt, scope tools, and apply progressive disclosure so the model
-  actually uses what you build.
+  actually uses what you build. See PATTERNS.md for operating-discipline techniques
+  distilled from production agent prompts.
 ---
 
 # Prompt Engineering for Claude Code
@@ -56,6 +57,14 @@ pattern.)
 Tell the model to express uncertainty, prefer evidence over assertion, and stop and ask
 when a decision is genuinely the user's. An agent that fabricates confidence is worse
 than one that says "I'm not sure — here's what would confirm it."
+
+## Operating-discipline patterns
+
+The sections above cover *structure* — how to make an agent load and be actionable. For the
+*behavioral* techniques that separate a sharp agent from a vague one (parallel tool use,
+read-before-edit, verify-with-evidence, autonomy and stop conditions, output contracts,
+delegation briefing), load **PATTERNS.md**. It distills what production coding agents
+converge on, so you can state the right discipline in each agent's Method/Boundaries.
 
 ## Test it
 
