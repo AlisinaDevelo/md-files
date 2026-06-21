@@ -6,6 +6,23 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-06-21
+
+### Added
+
+- **2 agents** — `data-engineer` (pipelines, ETL/ELT, warehouse modeling, data quality;
+  distinct from `database-expert`) and `sre` (SLOs, error budgets, capacity, toil; distinct
+  from `devops-engineer` and `incident-responder`).
+- **3 skills** — `feature-flags` (rollout + cleanup discipline), `caching-strategies`
+  (patterns, TTLs, invalidation, stampedes), `concurrency-and-parallelism` (races, locks,
+  async, idempotency).
+- **2 commands** — `/changelog` (draft from commits since the last release) and `/scaffold`
+  (scaffold a component matching repo conventions).
+- **`prompt-engineering` operating-patterns reference** (`PATTERNS.md`) distilled from
+  production agent prompts, plus a sharper `tech-lead` delegation briefing.
+
+Now 20 agents, 18 skills, 14 commands; the prompt-quality eval grows to 241 checks.
+
 ## [1.0.1] — 2026-06-18
 
 ### Fixed

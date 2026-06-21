@@ -9,11 +9,11 @@ engineering.**
 [![CI](https://github.com/AlisinaDevelo/md-files/actions/workflows/ci.yml/badge.svg)](https://github.com/AlisinaDevelo/md-files/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-d97757.svg)](https://docs.claude.com/en/docs/claude-code)
-[![Agents](https://img.shields.io/badge/agents-18-8b5cf6.svg)](plugins/forge/agents/)
-[![Skills](https://img.shields.io/badge/skills-15-06b6d4.svg)](plugins/forge/skills/)
-[![Commands](https://img.shields.io/badge/commands-12-22c55e.svg)](plugins/forge/commands/)
+[![Agents](https://img.shields.io/badge/agents-20-8b5cf6.svg)](plugins/forge/agents/)
+[![Skills](https://img.shields.io/badge/skills-18-06b6d4.svg)](plugins/forge/skills/)
+[![Commands](https://img.shields.io/badge/commands-14-22c55e.svg)](plugins/forge/commands/)
 [![Hook tests](https://img.shields.io/badge/hook%20tests-54%20passing-success.svg)](tests/)
-[![Prompt evals](https://img.shields.io/badge/prompt%20evals-213%20checks-success.svg)](evals/)
+[![Prompt evals](https://img.shields.io/badge/prompt%20evals-241%20checks-success.svg)](evals/)
 
 </div>
 
@@ -49,17 +49,17 @@ LLM coding agents are only as good as the scaffolding around them. The same mode
 produces dramatically different results depending on whether it has a sharp role, a
 proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
 
-- **Specialists, not a generalist.** Eighteen agents each with a focused role, a concrete
+- **Specialists, not a generalist.** Twenty agents each with a focused role, a concrete
   methodology, scoped tools, and a defined output format — a reviewer that thinks like a
   reviewer, a debugger that finds root causes, an auditor that traces taint to sinks.
-- **Methodology on tap.** Fifteen skills inject battle-tested practices — TDD, root-cause
+- **Methodology on tap.** Eighteen skills inject battle-tested practices — TDD, root-cause
   debugging, threat modeling, safe migrations — exactly when the situation calls for them.
-- **One-keystroke workflows.** Twelve slash commands wrap the everyday loop: review,
+- **One-keystroke workflows.** Fourteen slash commands wrap the everyday loop: review,
   test, debug, plan, commit, PR.
 - **Safety by default.** Lifecycle hooks block catastrophic commands and secret leaks,
   auto-format edits, inject repo context at session start, and notify you on completion —
   deterministically, without relying on the model to remember.
-- **Proven, not asserted.** A real eval harness scores every prompt (213 static checks +
+- **Proven, not asserted.** A real eval harness scores every prompt (241 static checks +
   an opt-in LLM-judge behavioral eval) and a 54-test suite covers the safety hooks. Run
   them yourself — `just check`. This is the [evidence layer](evals/), not a README claim.
 - **Auditable & self-validating.** Read every prompt and script. CI validates structure,
@@ -110,6 +110,8 @@ Delegated, autonomous specialists with their own context and scoped tools.
 | [`incident-responder`](plugins/forge/agents/incident-responder.md) | Triage, mitigate, then root-cause + postmortem |
 | [`code-archaeologist`](plugins/forge/agents/code-archaeologist.md) | Understand unfamiliar/legacy code before changing it |
 | [`migration-specialist`](plugins/forge/agents/migration-specialist.md) | Incremental, reversible framework/library/API migrations |
+| [`data-engineer`](plugins/forge/agents/data-engineer.md) | Data pipelines, ETL/ELT, warehouse modeling, data quality |
+| [`sre`](plugins/forge/agents/sre.md) | SLOs, error budgets, capacity, toil reduction, reliability |
 | [`tech-lead`](plugins/forge/agents/tech-lead.md) | Orchestrates large tasks across the specialists |
 
 ### Skills
@@ -134,7 +136,10 @@ files loaded only when needed.
 | [`technical-writing`](plugins/forge/skills/technical-writing/) | Writing developer docs |
 | [`git-workflow`](plugins/forge/skills/git-workflow/) | Branching, rebasing, conflicts, recovery, bisect |
 | [`error-handling`](plugins/forge/skills/error-handling/) | Designing robust failure paths |
-| [`prompt-engineering`](plugins/forge/skills/prompt-engineering/) | Authoring agents/skills/commands |
+| [`feature-flags`](plugins/forge/skills/feature-flags/) | Gating, progressive rollout, and flag cleanup |
+| [`caching-strategies`](plugins/forge/skills/caching-strategies/) | Cache patterns, TTLs, invalidation, stampedes |
+| [`concurrency-and-parallelism`](plugins/forge/skills/concurrency-and-parallelism/) | Races, locks, async, idempotency |
+| [`prompt-engineering`](plugins/forge/skills/prompt-engineering/) | Authoring agents/skills/commands (+ patterns) |
 
 ### Commands
 
@@ -154,6 +159,8 @@ User-triggered prompt templates with argument and shell injection.
 | `/explain` | Explain a file, symbol, or system |
 | `/docs` | Write docs grounded in the code |
 | `/tidy` | Remove cruft from the diff, behavior-preserving |
+| `/changelog` | Draft a changelog entry from commits since the last release |
+| `/scaffold` | Scaffold a new module/component matching repo conventions |
 
 ### Hooks
 
@@ -213,8 +220,8 @@ hooks keep it safe. The `tech-lead` agent orchestrates all of them for big tasks
 .claude-plugin/        marketplace manifest (catalog of plugins)
 plugins/forge/         the Forge plugin
   .claude-plugin/        plugin manifest
-  agents/                18 specialist subagents
-  skills/                15 progressive-disclosure skills
+  agents/                20 specialist subagents
+  skills/                18 progressive-disclosure skills
   commands/              12 slash commands
   hooks/                 5 lifecycle hooks (session-context, guard, secrets, format, notify)
   output-styles/         selectable system-prompt modes
