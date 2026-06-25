@@ -57,6 +57,63 @@ system-prompt modes), and the repo provides a **status line** script and example
 round out the configuration. The **evidence layer** (`evals/`, `tests/`) is tooling, not a
 runtime component — it proves the components behave as described.
 
+## How the pieces fit
+
+```mermaid
+flowchart TD
+  market["marketplace.json<br/>(catalog)"] --> plugin["forge plugin<br/>(plugin.json)"]
+  plugin --> agents["agents/*.md<br/>delegated workers"]
+  plugin --> skills["skills/*/SKILL.md<br/>progressive knowledge"]
+  plugin --> commands["commands/*.md<br/>/slash templates"]
+  plugin --> hooks["hooks.json + scripts<br/>deterministic guardrails"]
+  plugin --> styles["output-styles/*.md"]
+  agents --> cc(["Claude Code session"])
+  skills --> cc
+  commands --> cc
+  hooks --> cc
+  styles --> cc
+  evidence["evals/ + tests/"] -. validates .-> plugin
+```
+
+### A hook intercepting a tool call
+
+Hooks are the only deterministic component — the harness runs them on lifecycle events,
+so a guardrail never depends on the model remembering it.
+
+```mermaid
+sequenceDiagram
+  actor User
+  participant CC as Claude Code
+  participant Hook as PreToolUse hook
+  participant Tool
+
+  User->>CC: prompt
+  CC->>CC: decide to call a tool (Edit / Bash / ...)
+  CC->>Hook: event + tool input (matcher fires)
+  Hook->>Hook: evaluate against policy
+  alt safe
+    Hook-->>CC: allow (exit 0)
+    CC->>Tool: run tool
+    Tool-->>CC: result
+  else blocked
+    Hook-->>CC: block + reason
+    CC-->>User: action prevented, with explanation
+  end
+```
+
+### Progressive disclosure of a skill
+
+```mermaid
+flowchart LR
+  conv["conversation context"] --> match{"matches a skill's<br/>description?"}
+  match -->|no| skip["nothing loaded<br/>context stays lean"]
+  match -->|yes| load["load SKILL.md"]
+  load --> need{"needs deep reference?"}
+  need -->|no| done["apply methodology"]
+  need -->|yes| refs["load sibling refs<br/>CHECKLIST.md · CATALOG.md · PATTERNS.md"]
+  refs --> done
+```
+
 ## Design principles
 
 - **Plain text, auditable.** No build step, no magic. You can read every line of what
