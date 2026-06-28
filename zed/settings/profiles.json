@@ -1,0 +1,46 @@
+{
+  "forge-concise": {
+    "name": "Forge: Concise Engineer",
+    "tools": {
+      "read_file": true,
+      "write_file": true,
+      "edit_file": true,
+      "grep": true,
+      "find_path": true,
+      "list_directory": true,
+      "terminal": true,
+      "create_directory": true,
+      "delete_path": true,
+      "copy_path": true,
+      "move_path": true
+    },
+    "enable_all_context_servers": true,
+    "context_servers": {},
+    "default_model": {
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-5"
+    }
+  },
+  "forge-mentor": {
+    "name": "Forge: Mentor",
+    "tools": {
+      "read_file": true,
+      "write_file": true,
+      "edit_file": true,
+      "grep": true,
+      "find_path": true,
+      "list_directory": true,
+      "terminal": true,
+      "create_directory": true,
+      "delete_path": true,
+      "copy_path": true,
+      "move_path": true
+    },
+    "enable_all_context_servers": true,
+    "context_servers": {},
+    "default_model": {
+      "provider": "anthropic",
+      "model": "claude-sonnet-4-5"
+    }
+  }
+}

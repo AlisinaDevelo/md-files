@@ -6,6 +6,23 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-06-29
+
+### Added
+
+- **Forge for Zed** — full port of Forge to Zed's agent system (`zed/` directory).
+  - **52 skills** installed globally to `~/.agents/skills/`: 18 methodology skills
+    (unchanged), 20 specialist agent skills (`forge-<name>`), and 14 slash command
+    skills (`forge-cmd-<name>` with `disable-model-invocation: true` so they appear
+    in the `/` menu).
+  - **2 agent profiles** — `Forge: Concise Engineer` and `Forge: Mentor` — added to
+    `~/.config/zed/settings.json` under `agent.profiles`.
+  - **Global `AGENTS.md`** at `~/.config/zed/AGENTS.md` with engineering principles,
+    skill catalog, profile descriptions, and honest documentation of what doesn't port
+    (hooks, which Zed doesn't support yet).
+  - **`zed/install.sh`** — idempotent installer that symlinks or copies all skills,
+    the AGENTS.md, and the profiles into the right Zed locations.
+
 ## [1.2.0] — 2026-06-29
 
 ### Added
