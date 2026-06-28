@@ -200,14 +200,19 @@ Deterministic guardrails the harness runs on lifecycle events — no model memor
 
 ## How the pieces fit
 
-```text
-        plan ──▶ implement ──▶ review ──▶ test ──▶ debug ──▶ ship
-         │                       │          │        │         │
-     architect              code-reviewer  test-   debugger  /commit
-       /plan                  /review     engineer  /debug    /pr
-                                           /test
+```mermaid
+flowchart LR
+  plan["plan\narchitect / /plan"] --> impl[implement]
+  impl --> review["review\ncode-reviewer / /review"]
+  review --> test["test\ntest-engineer / /test"]
+  test --> debug["debug\ndebugger / /debug"]
+  debug --> ship["ship\n/commit · /pr"]
 
-   guardrails (always on):  guard-bash · scan-secrets · format-file · notify
+  guard(["guardrails — always on\nguard-bash · scan-secrets · format-file · notify"])
+  guard -. wraps .-> impl
+  guard -. wraps .-> review
+  guard -. wraps .-> debug
+  guard -. wraps .-> ship
 ```
 
 Agents go deep on focused jobs; skills supply the method; commands trigger the loop;

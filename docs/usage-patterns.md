@@ -5,12 +5,14 @@ designed so the right capability surfaces at the right moment — these are the 
 
 ## The development loop
 
-```text
-plan → implement → review → test → debug → commit → PR
- │        │           │        │       │        │       │
-architect          code-     test-  debugger  /commit  /pr
-/plan              reviewer  engineer
-                   /review   /test  /debug
+```mermaid
+flowchart LR
+  plan["plan\narchitect / /plan"] --> impl[implement]
+  impl --> review["review\ncode-reviewer / /review"]
+  review --> test["test\ntest-engineer / /test"]
+  test --> debug["debug\ndebugger / /debug"]
+  debug --> commit["/commit"]
+  commit --> pr["/pr"]
 ```
 
 1. **Plan.** For anything non-trivial, start with `/plan` (or the `architect` agent). Get

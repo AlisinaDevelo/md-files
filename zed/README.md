@@ -24,16 +24,20 @@ cd zed
 ## Usage
 
 ### Skills (auto-triggered)
+
 Forge skills load automatically when the situation matches their description. You can also mention them explicitly: "use the forge-debugger approach" or `@forge-debugger`.
 
 ### Slash commands
+
 Type `/forge-cmd-` in the agent panel to see all 14 commands. Examples:
+
 - `/forge-cmd-review` — review the current diff
 - `/forge-cmd-commit` — draft a Conventional Commit
 - `/forge-cmd-plan your feature idea` — get an implementation plan
 - `/forge-cmd-debug the failing test` — root-cause a bug
 
 ### Profiles
+
 Select **Forge: Concise Engineer** or **Forge: Mentor** from the profile selector in the agent panel. Concise leads with the answer; Mentor explains the why.
 
 ## What doesn't port (yet)
@@ -51,7 +55,7 @@ Hook scripts are still available at `../plugins/forge/hooks/scripts/` for use as
 
 ## Files
 
-```
+```text
 zed/
 ├── README.md               this file
 ├── install.sh              idempotent install script

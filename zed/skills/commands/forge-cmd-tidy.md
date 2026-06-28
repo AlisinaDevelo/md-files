@@ -11,6 +11,7 @@ Use any text the user typed after the command as a target path to scope the tidy
 Start by running `git status --short` and `git diff HEAD` to see what's changed.
 
 Look for and fix, behavior-preserving:
+
 - Debug output, commented-out code, stray `console.log`/`print`/`dump`.
 - Now-unused imports, variables, and functions left by the change.
 - Obvious duplication introduced by the diff that has a clean shared form.

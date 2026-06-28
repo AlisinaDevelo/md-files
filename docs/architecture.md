@@ -61,11 +61,11 @@ runtime component — it proves the components behave as described.
 
 ```mermaid
 flowchart TD
-  market["marketplace.json<br/>(catalog)"] --> plugin["forge plugin<br/>(plugin.json)"]
-  plugin --> agents["agents/*.md<br/>delegated workers"]
-  plugin --> skills["skills/*/SKILL.md<br/>progressive knowledge"]
-  plugin --> commands["commands/*.md<br/>/slash templates"]
-  plugin --> hooks["hooks.json + scripts<br/>deterministic guardrails"]
+  market["marketplace.json\n(catalog)"] --> plugin["forge plugin\n(plugin.json)"]
+  plugin --> agents["agents/*.md\ndelegated workers"]
+  plugin --> skills["skills/*/SKILL.md\nprogressive knowledge"]
+  plugin --> commands["commands/*.md\n/slash templates"]
+  plugin --> hooks["hooks.json + scripts\ndeterministic guardrails"]
   plugin --> styles["output-styles/*.md"]
   agents --> cc(["Claude Code session"])
   skills --> cc
@@ -105,12 +105,12 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-  conv["conversation context"] --> match{"matches a skill's<br/>description?"}
-  match -->|no| skip["nothing loaded<br/>context stays lean"]
+  conv["conversation context"] --> match{"matches a skill's\ndescription?"}
+  match -->|no| skip["nothing loaded\ncontext stays lean"]
   match -->|yes| load["load SKILL.md"]
   load --> need{"needs deep reference?"}
   need -->|no| done["apply methodology"]
-  need -->|yes| refs["load sibling refs<br/>CHECKLIST.md · CATALOG.md · PATTERNS.md"]
+  need -->|yes| refs["load sibling refs\nCHECKLIST.md · CATALOG.md · PATTERNS.md"]
   refs --> done
 ```
 

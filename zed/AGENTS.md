@@ -61,6 +61,7 @@ The following specialist skills are available globally. The agent will invoke th
 automatically when the situation matches, or you can request them by name:
 
 **Specialists (automatically triggered):**
+
 - `forge-code-reviewer` — review a diff or PR before merge
 - `forge-debugger` — root-cause a bug or failing test
 - `forge-security-auditor` — defensive security review
@@ -83,6 +84,7 @@ automatically when the situation matches, or you can request them by name:
 - `forge-tech-lead` — orchestrates large tasks across the specialists
 
 **Slash commands (type `/forge-cmd-` to see them):**
+
 - `/forge-cmd-review` — review current diff
 - `/forge-cmd-commit` — draft a Conventional Commit
 - `/forge-cmd-test` — write tests for a target
@@ -99,6 +101,7 @@ automatically when the situation matches, or you can request them by name:
 - `/forge-cmd-scaffold` — scaffold new module/component
 
 **Methodology skills (automatically triggered):**
+
 - `test-driven-development`, `root-cause-debugging`, `code-review-rubric`,
   `refactoring-catalog`, `conventional-commits`, `pull-request-authoring`,
   `api-design`, `threat-modeling`, `safe-database-migrations`,

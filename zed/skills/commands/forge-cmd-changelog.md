@@ -9,6 +9,7 @@ Draft a changelog entry in Keep a Changelog style from the commits since the las
 Use any text the user typed after the command as a version tag, tag range, or version number for the new entry.
 
 Start by running:
+
 - `git describe --tags --abbrev=0 2>/dev/null || echo "(none)"` to find the last tag
 - `git log <last-tag>..HEAD --oneline` (or `git log --oneline -30` if no tag) to get commits since
 

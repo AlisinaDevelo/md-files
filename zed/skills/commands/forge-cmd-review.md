@@ -9,6 +9,7 @@ Review the code changes in this project for correctness, security, reliability, 
 Use any text the user typed after the command as a scope hint (a branch name or file path) to narrow the diff.
 
 Start by running:
+
 - `git status --short` to see what's changed
 - `git diff --staged` to see staged changes
 - `git diff` to see unstaged changes
@@ -18,6 +19,7 @@ If the user provided a scope hint (a branch or path), apply it to narrow the dif
 Apply the priority order: correctness → security → reliability → tests → API → readability.
 
 Report findings grouped by severity:
+
 - 🔴 Blocking — must fix before merge (bugs, security, data loss)
 - 🟡 Should-fix — real issues, not merge-blockers
 - 🟢 Nit — optional polish

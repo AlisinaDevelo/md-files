@@ -20,6 +20,7 @@ Trace untrusted input to every sink. Check, anchored to OWASP/CWE:
 - Security headers, CORS, cookie flags, sensitive-data exposure.
 
 Report findings by severity (CRITICAL/HIGH/MEDIUM/LOW) with:
+
 - Location (`file:line`)
 - Why it's exploitable
 - A concrete attack scenario

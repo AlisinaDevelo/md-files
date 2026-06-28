@@ -17,6 +17,7 @@ Work the hypothesis-driven method:
 5. **Trace to the origin** — walk backward to where reality first diverged from intent.
 
 Then report:
+
 - Symptom (what fails, exact error, repro command)
 - Root cause (with `file:line` and the symptom ← cause chain)
 - Evidence that proves it

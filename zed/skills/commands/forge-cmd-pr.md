@@ -9,6 +9,7 @@ Draft a pull request description for the current branch.
 Use any text the user typed after the command as a base branch name or additional context for the PR.
 
 Start by running:
+
 - `git branch --show-current` to get the current branch
 - `git log --oneline @{u}.. 2>/dev/null || git log --oneline -15` to see commits on this branch
 - `git diff --stat HEAD` to see the diff summary
