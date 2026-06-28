@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-06-29
+
+### Added
+
+- **Architecture diagrams** — three Mermaid diagrams in `docs/architecture.md`: component
+  overview, hook lifecycle sequence, and skill-loading flow. Makes the internals inspectable
+  at a glance.
+
 ## [1.1.0] — 2026-06-21
 
 ### Added
