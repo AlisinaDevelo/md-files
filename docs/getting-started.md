@@ -1,9 +1,9 @@
 # Getting Started
 
-Forge is a Claude Code toolkit. You can use it three ways, from lowest to highest
-commitment.
+Forge is a Claude Code toolkit and Codex-compatible skill pack. You can use it several
+ways, from lowest to highest commitment.
 
-## Option 1 — Install as a plugin (recommended)
+## Option 1 — Install as a Claude Code plugin (recommended)
 
 This wires up agents, skills, commands, **and** hooks in one step, and keeps them
 updated with a `git pull`.
@@ -17,7 +17,19 @@ updated with a `git pull`.
 Restart Claude Code. Verify with `/agents` (you'll see the Forge agents), `/help` (the
 slash commands), and by triggering a skill.
 
-## Option 2 — Symlink into your user config
+## Option 2 — Install as a Codex plugin
+
+This gives Codex the Forge methodology skills, including orchestration, task ledgers, and
+the solve loop.
+
+```bash
+codex plugin marketplace add AlisinaDevelo/md-files
+codex plugin add forge@forge
+```
+
+Start a new Codex thread after installing so the plugin skills are loaded.
+
+## Option 3 — Symlink into your Claude user config
 
 Installs agents, skills, and commands at the user level (`~/.claude`). Hooks are left to
 you to review and wire up (they run shell commands).
@@ -28,7 +40,18 @@ cd md-files
 ./scripts/install.sh            # symlink (or --copy, or --dry-run)
 ```
 
-## Option 3 — Cherry-pick
+## Option 4 — Install `.agents` skills for Codex or Zed
+
+This installs the Forge methodology skills plus specialist and command shims into
+`~/.agents/skills`, which both Zed and this Codex environment can read.
+
+```bash
+git clone https://github.com/AlisinaDevelo/md-files.git
+cd md-files/zed
+./install.sh            # symlink (or --copy, or --dry-run)
+```
+
+## Option 5 — Cherry-pick
 
 Everything here is plain Markdown and small scripts. Copy the individual agents, skills,
 commands, or instruction snippets you want into your own `~/.claude/` or project
@@ -39,6 +62,9 @@ commands, or instruction snippets you want into your own `~/.claude/` or project
 - Run `/review` on a branch with changes — get a severity-ranked review of your diff.
 - Ask Claude to "plan" a feature — the `architect` agent / `/plan` command produces a
   step-by-step plan before any code.
+- Ask for "Forge orchestration" on a large goal — `/orchestrate` plans at Opus/Fable,
+  writes a task ledger, routes tasks by agent/model, and drains the ledger with
+  `/solve-loop`.
 - Make an edit that includes a fake AWS key — watch the secret-scanner hook block it.
 - Ask Claude to "debug" a failing test — the root-cause method kicks in.
 
@@ -73,8 +99,9 @@ conventions belong in that project's `CLAUDE.md` (start from
 [`instructions/templates/`](../instructions/templates/)), not in Forge.
 
 **Forking it as your own toolkit?** Everything's plain Markdown and small scripts. Change
-the plugin `name`/`author` in `plugins/forge/.claude-plugin/plugin.json`, the marketplace
-`name`/`owner` in `.claude-plugin/marketplace.json`, and the install URLs in the README to
-point at your fork. The components themselves need no changes.
+the plugin `name`/`author` in `plugins/forge/.claude-plugin/plugin.json` and
+`plugins/forge/.codex-plugin/plugin.json`, the marketplace metadata in
+`.claude-plugin/marketplace.json` and `.agents/plugins/marketplace.json`, and the install
+URLs in the README to point at your fork. The components themselves need no changes.
 
 See [usage-patterns.md](usage-patterns.md) for how the pieces combine in real workflows.

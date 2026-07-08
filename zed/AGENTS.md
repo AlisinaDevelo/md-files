@@ -99,6 +99,9 @@ automatically when the situation matches, or you can request them by name:
 - `/forge-cmd-tidy` — clean up diff cruft
 - `/forge-cmd-changelog` — draft changelog entry
 - `/forge-cmd-scaffold` — scaffold new module/component
+- `/forge-cmd-orchestrate` — plan, ledger, route, and drive a big goal to done
+- `/forge-cmd-tasks` — create, list, update, or GitHub-sync the task ledger
+- `/forge-cmd-solve-loop` — drain ready ledger tasks until done or blocked
 
 **Methodology skills (automatically triggered):**
 
@@ -107,7 +110,8 @@ automatically when the situation matches, or you can request them by name:
   `api-design`, `threat-modeling`, `safe-database-migrations`,
   `performance-profiling`, `observability`, `technical-writing`,
   `git-workflow`, `error-handling`, `feature-flags`, `caching-strategies`,
-  `concurrency-and-parallelism`, `prompt-engineering`
+  `concurrency-and-parallelism`, `prompt-engineering`, `orchestration`,
+  `task-ledger`, `iterate-to-done`
 
 ---
 

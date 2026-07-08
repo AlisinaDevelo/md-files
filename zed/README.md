@@ -1,14 +1,16 @@
 # Forge for Zed
 
-Forge ported to [Zed](https://zed.dev) — the same specialist expertise and engineering discipline, adapted to what Zed's agent actually supports.
+Forge ported to [Zed](https://zed.dev) and `.agents`-based Codex setups — the same
+specialist expertise, orchestration discipline, and engineering methods adapted to what
+the host agent actually supports.
 
 ## What's included
 
 | Component | Count | Zed mechanism |
 |---|---|---|
-| Methodology skills | 18 | `~/.agents/skills/<name>/` |
+| Methodology skills | 21 | `~/.agents/skills/<name>/` |
 | Specialist agent skills | 20 | `~/.agents/skills/forge-<name>/` |
-| Slash command skills | 14 | `~/.agents/skills/forge-cmd-<name>/` with `disable-model-invocation: true` |
+| Slash command skills | 17 | `~/.agents/skills/forge-cmd-<name>/` with `disable-model-invocation: true` |
 | Agent profiles | 2 | `~/.config/zed/settings.json` → `agent.profiles` |
 | Global instructions | 1 | `~/.config/zed/AGENTS.md` |
 
@@ -29,12 +31,15 @@ Forge skills load automatically when the situation matches their description. Yo
 
 ### Slash commands
 
-Type `/forge-cmd-` in the agent panel to see all 14 commands. Examples:
+Type `/forge-cmd-` in the agent panel to see all 17 commands. Examples:
 
 - `/forge-cmd-review` — review the current diff
 - `/forge-cmd-commit` — draft a Conventional Commit
 - `/forge-cmd-plan your feature idea` — get an implementation plan
 - `/forge-cmd-debug the failing test` — root-cause a bug
+- `/forge-cmd-orchestrate ship this feature` — plan, ledger, route, and solve
+- `/forge-cmd-tasks list` — inspect or update the task ledger
+- `/forge-cmd-solve-loop` — drain ready tasks until done or blocked
 
 ### Profiles
 
@@ -60,9 +65,9 @@ zed/
 ├── README.md               this file
 ├── install.sh              idempotent install script
 ├── skills/                 all 52 SKILL.md files (symlink targets)
-│   ├── methodology/        18 methodology skills
+│   ├── methodology/        21 methodology skills
 │   ├── agents/             20 specialist agent skills
-│   └── commands/           14 slash command skills
+│   └── commands/           17 slash command skills
 ├── settings/
 │   └── profiles.json       the two Forge profiles to merge into settings.json
 └── AGENTS.md               global instructions for ~/.config/zed/AGENTS.md

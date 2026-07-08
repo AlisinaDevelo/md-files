@@ -1,0 +1,44 @@
+{
+  "name": "forge",
+  "version": "2.0.0",
+  "description": "A Codex-compatible engineering toolkit with orchestration methods, task ledgers, solve loops, and disciplined software delivery skills.",
+  "author": {
+    "name": "Alisina Karimi",
+    "email": "alisinakarimi.2003@gmail.com",
+    "url": "https://github.com/AlisinaDevelo"
+  },
+  "homepage": "https://github.com/AlisinaDevelo/md-files",
+  "repository": "https://github.com/AlisinaDevelo/md-files",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "orchestration",
+    "skills",
+    "task-ledger",
+    "developer-tooling",
+    "prompt-engineering"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Forge",
+    "shortDescription": "Engineering skills and orchestration loops for Codex",
+    "longDescription": "Forge gives Codex a disciplined software-engineering toolkit: orchestration, task ledgers, solve loops, code review, testing, debugging, security, architecture, documentation, and release workflow skills. It is the Codex-compatible side of the Forge toolkit; Claude Code also gets agents, slash commands, and hooks from the same repo.",
+    "developerName": "Alisina Karimi",
+    "category": "Engineering",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/AlisinaDevelo/md-files",
+    "privacyPolicyURL": "https://github.com/AlisinaDevelo/md-files",
+    "termsOfServiceURL": "https://github.com/AlisinaDevelo/md-files",
+    "defaultPrompt": [
+      "Use Forge orchestration to plan and execute this goal.",
+      "Create a Forge task ledger for this feature.",
+      "Run the Forge solve loop on the ready tasks."
+    ],
+    "brandColor": "#64748B",
+    "screenshots": []
+  }
+}

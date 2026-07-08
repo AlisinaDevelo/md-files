@@ -40,9 +40,40 @@ Pull in a specialist agent when a task needs depth:
 
 ## Orchestrating big work
 
-For a large, ambiguous task, the `tech-lead` agent decomposes it, delegates to the
-specialists, integrates their output, and verifies against the definition of done — so
-you describe the goal once and get a coherent result.
+For a large, ambiguous task, run `/orchestrate <goal>`. The main conversation acts as the
+conductor because it can spawn specialist subagents; subagents themselves cannot spawn
+more subagents. That one fact keeps the design honest: plan and coordinate from the main
+loop, then delegate concrete tasks outward.
+
+```mermaid
+flowchart LR
+  goal["goal"] --> plan["plan at Opus/Fable"]
+  plan --> ledger[".forge/tasks ledger"]
+  ledger --> route["route agent + model"]
+  route --> dispatch["dispatch ready tasks"]
+  dispatch --> verify["verify acceptance criteria"]
+  verify --> update["update ledger"]
+  update --> route
+  update --> done["done or blocked"]
+```
+
+The default backend is local markdown: `.forge/tasks/<id>-<slug>.md` plus an optional
+`.forge/tasks/README.md` board. Each task records status, dependencies, acceptance
+criteria, assigned specialist, and model tier. Use GitHub issues with `/tasks sync-gh`
+when GitHub should be the source of truth; use Jira/Linear through MCP if those servers
+are connected.
+
+Model routing is explicit:
+
+- **Opus/Fable** — planning, architecture, hard debugging, security design, ambiguous
+  "figure out how" work.
+- **Sonnet** — implementation, tests, docs, normal refactors, most concrete tasks.
+- **Haiku** — mechanical edits, broad searches, scaffolding, format/lint sweeps.
+
+Use `/solve-loop` to drain an existing ledger. It repeatedly finds ready tasks, dispatches
+them, verifies real evidence against acceptance criteria, and updates status until the
+ledger is done or genuinely blocked. The ledger is the source of truth; a specialist
+summary is never enough to mark a task done.
 
 ## Always-on guardrails
 

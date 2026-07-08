@@ -6,6 +6,38 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-07-08
+
+### Added
+
+- **Multi-model orchestration** — new `orchestration` skill with a conductor loop for
+  planning at Opus/Fable, decomposing into a ledger, routing concrete tasks to the right
+  specialist/model tier, integrating results, and verifying before done.
+- **Task ledger** — new `task-ledger` skill and task template for Jira/GitHub-issue-like
+  local markdown tasks under `.forge/tasks/`, with status, dependencies, acceptance
+  criteria, assigned agent, and model tier. Includes GitHub issue and MCP-backed tracker
+  guidance.
+- **Solve loops** — new `iterate-to-done` skill plus `/solve-loop` command to repeatedly
+  drain ready tasks, verify evidence against acceptance criteria, and stop cleanly on done,
+  blocked, budget, or no-progress conditions.
+- **Orchestration commands** — `/orchestrate`, `/tasks`, and `/solve-loop` for driving
+  large goals end to end from the main conversation, where subagent spawning actually
+  works.
+- **Codex plugin support** — `.agents/plugins/marketplace.json` and
+  `plugins/forge/.codex-plugin/plugin.json` so Forge can install as a Codex marketplace
+  plugin in addition to Claude Code.
+- **Codex/Zed command shims** — `.agents` skills for `forge-cmd-orchestrate`,
+  `forge-cmd-tasks`, and `forge-cmd-solve-loop`.
+
+### Changed
+
+- Bumped Forge manifests to `2.0.0`.
+- Updated docs and install instructions for Claude Code, Codex plugin installs, and
+  `.agents` skill installs.
+- Forge now ships 20 agents, 21 methodology skills, 17 Claude slash commands, and 58
+  `.agents` skills for Codex/Zed-style installs. Static prompt eval coverage grows to 259
+  checks.
+
 ## [1.3.0] — 2026-06-29
 
 ### Added
@@ -100,5 +132,6 @@ plugin under `plugins/forge/`.
 - **Docs** — getting started, usage patterns, architecture, design rationale, and CI &
   headless usage guides.
 
-[Unreleased]: https://github.com/AlisinaDevelo/md-files/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/AlisinaDevelo/md-files/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v2.0.0
 [1.0.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v1.0.0

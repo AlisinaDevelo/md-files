@@ -2,28 +2,29 @@
 
 # 🔨 Forge
 
-**An enterprise-grade Claude Code toolkit — specialized agents, progressive-disclosure
-skills, slash commands, and safety hooks that maximize the efficacy of LLMs in software
-engineering.**
+**An enterprise-grade Claude Code and Codex toolkit — specialized agents,
+progressive-disclosure skills, orchestration loops, slash commands, and safety hooks that
+maximize the efficacy of LLMs in software engineering.**
 
 [![CI](https://github.com/AlisinaDevelo/md-files/actions/workflows/ci.yml/badge.svg)](https://github.com/AlisinaDevelo/md-files/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-d97757.svg)](https://docs.claude.com/en/docs/claude-code)
 [![Agents](https://img.shields.io/badge/agents-20-8b5cf6.svg)](plugins/forge/agents/)
-[![Skills](https://img.shields.io/badge/skills-18-06b6d4.svg)](plugins/forge/skills/)
-[![Commands](https://img.shields.io/badge/commands-14-22c55e.svg)](plugins/forge/commands/)
+[![Skills](https://img.shields.io/badge/skills-21-06b6d4.svg)](plugins/forge/skills/)
+[![Commands](https://img.shields.io/badge/commands-17-22c55e.svg)](plugins/forge/commands/)
 [![Hook tests](https://img.shields.io/badge/hook%20tests-54%20passing-success.svg)](tests/)
-[![Prompt evals](https://img.shields.io/badge/prompt%20evals-241%20checks-success.svg)](evals/)
+[![Prompt evals](https://img.shields.io/badge/prompt%20evals-259%20checks-success.svg)](evals/)
 
 </div>
 
 ---
 
-Forge is a curated, batteries-included configuration for [Claude Code](https://docs.claude.com/en/docs/claude-code).
-It packages the patterns that make an AI coding agent genuinely effective — clear role
-definitions, disciplined methodologies, the right tools for each job, and guardrails that
-keep it safe — into one installable plugin. Every artifact is plain Markdown or a small,
-auditable script: no build step, no magic, nothing hidden from you.
+Forge is a curated, batteries-included configuration for [Claude Code](https://docs.claude.com/en/docs/claude-code)
+and a Codex-compatible skill pack. It packages the patterns that make an AI coding agent
+genuinely effective — clear role definitions, disciplined methodologies, task ledgers,
+model routing, the right tools for each job, and guardrails that keep it safe — into one
+installable toolkit. Every artifact is plain Markdown or a small, auditable script: no
+build step, no magic, nothing hidden from you.
 
 ## Table of contents
 
@@ -52,14 +53,17 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
 - **Specialists, not a generalist.** Twenty agents each with a focused role, a concrete
   methodology, scoped tools, and a defined output format — a reviewer that thinks like a
   reviewer, a debugger that finds root causes, an auditor that traces taint to sinks.
-- **Methodology on tap.** Eighteen skills inject battle-tested practices — TDD, root-cause
-  debugging, threat modeling, safe migrations — exactly when the situation calls for them.
-- **One-keystroke workflows.** Fourteen slash commands wrap the everyday loop: review,
-  test, debug, plan, commit, PR.
+- **Orchestration for big work.** Plan at Opus/Fable, decompose into a task ledger, route
+  implementation to Sonnet, fan out mechanical work to Haiku, and iterate to verified done.
+- **Methodology on tap.** Twenty-one skills inject battle-tested practices — TDD,
+  root-cause debugging, threat modeling, safe migrations, orchestration, task ledgers, and
+  solve loops — exactly when the situation calls for them.
+- **One-keystroke workflows.** Seventeen slash commands wrap the everyday loop: review,
+  test, debug, plan, commit, PR, orchestrate, tasks, solve-loop.
 - **Safety by default.** Lifecycle hooks block catastrophic commands and secret leaks,
   auto-format edits, inject repo context at session start, and notify you on completion —
   deterministically, without relying on the model to remember.
-- **Proven, not asserted.** A real eval harness scores every prompt (241 static checks +
+- **Proven, not asserted.** A real eval harness scores every prompt (259 static checks +
   an opt-in LLM-judge behavioral eval) and a 54-test suite covers the safety hooks. Run
   them yourself — `just check`. This is the [evidence layer](evals/), not a README claim.
 - **Auditable & self-validating.** Read every prompt and script. CI validates structure,
@@ -67,7 +71,7 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
 
 ## Install
 
-**As a plugin (recommended — includes hooks):**
+**Claude Code plugin (recommended — includes agents, commands, and hooks):**
 
 ```bash
 # In Claude Code:
@@ -75,11 +79,25 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
 /plugin install forge@forge
 ```
 
-**As user-level symlinks (agents, skills, commands):**
+**Codex plugin (skills and orchestration methods):**
+
+```bash
+codex plugin marketplace add AlisinaDevelo/md-files
+codex plugin add forge@forge
+```
+
+**As user-level symlinks (Claude agents, skills, commands):**
 
 ```bash
 git clone https://github.com/AlisinaDevelo/md-files.git && cd md-files
 ./scripts/install.sh        # or --copy / --dry-run
+```
+
+**As `.agents` skills (Codex and Zed):**
+
+```bash
+git clone https://github.com/AlisinaDevelo/md-files.git && cd md-files/zed
+./install.sh                # installs Forge skills into ~/.agents/skills
 ```
 
 **Cherry-pick:** everything is plain Markdown — copy any file into your own `~/.claude/`
@@ -140,6 +158,9 @@ files loaded only when needed.
 | [`caching-strategies`](plugins/forge/skills/caching-strategies/) | Cache patterns, TTLs, invalidation, stampedes |
 | [`concurrency-and-parallelism`](plugins/forge/skills/concurrency-and-parallelism/) | Races, locks, async, idempotency |
 | [`prompt-engineering`](plugins/forge/skills/prompt-engineering/) | Authoring agents/skills/commands (+ patterns) |
+| [`orchestration`](plugins/forge/skills/orchestration/) | Multi-model planning, delegation, integration, and verification |
+| [`task-ledger`](plugins/forge/skills/task-ledger/) | Jira/GitHub-issue-like local tasks with status, deps, agent, and model |
+| [`iterate-to-done`](plugins/forge/skills/iterate-to-done/) | Solve-loop discipline for draining a ledger until done or blocked |
 
 ### Commands
 
@@ -161,6 +182,9 @@ User-triggered prompt templates with argument and shell injection.
 | `/tidy` | Remove cruft from the diff, behavior-preserving |
 | `/changelog` | Draft a changelog entry from commits since the last release |
 | `/scaffold` | Scaffold a new module/component matching repo conventions |
+| `/orchestrate` | Plan a big goal, create a task ledger, route work by agent/model, and drive it to done |
+| `/tasks` | Create, list, update, or GitHub-sync the task ledger |
+| `/solve-loop` | Drain ready ledger tasks with verify-before-done discipline |
 
 ### Hooks
 
@@ -193,7 +217,7 @@ Deterministic guardrails the harness runs on lifecycle events — no model memor
 
 ### Evidence — evals & tests
 
-- [`evals/`](evals/) — the proof the prompts work: 213 static prompt-quality checks (free,
+- [`evals/`](evals/) — the proof the prompts work: 259 static prompt-quality checks (free,
   in CI) plus an opt-in LLM-judge behavioral eval that scores agents against real tasks.
 - [`tests/`](tests/) — a 54-test pytest suite covering the safety hooks (blocks the
   dangerous, allows the safe, fails open on garbage). `just check` runs it all.
@@ -202,6 +226,11 @@ Deterministic guardrails the harness runs on lifecycle events — no model memor
 
 ```mermaid
 flowchart LR
+  goal["big goal\n/orchestrate"] --> ledger["task ledger\n/tasks"]
+  ledger --> route["route by agent + model\nOpus/Fable · Sonnet · Haiku"]
+  route --> loop["solve loop\n/solve-loop"]
+  loop --> done["verified done"]
+
   plan["plan\narchitect / /plan"] --> impl[implement]
   impl --> review["review\ncode-reviewer / /review"]
   review --> test["test\ntest-engineer / /test"]
@@ -216,18 +245,21 @@ flowchart LR
 ```
 
 Agents go deep on focused jobs; skills supply the method; commands trigger the loop;
-hooks keep it safe. The `tech-lead` agent orchestrates all of them for big tasks. See
+hooks keep it safe. For big tasks, the main conversation acts as the conductor so it can
+spawn specialists in parallel; the ledger keeps the run honest. See
 [docs/usage-patterns.md](docs/usage-patterns.md).
 
 ## Repository layout
 
 ```text
-.claude-plugin/        marketplace manifest (catalog of plugins)
+.claude-plugin/        Claude Code marketplace manifest
+.agents/plugins/       Codex marketplace manifest
 plugins/forge/         the Forge plugin
   .claude-plugin/        plugin manifest
+  .codex-plugin/         Codex plugin manifest
   agents/                20 specialist subagents
-  skills/                18 progressive-disclosure skills
-  commands/              12 slash commands
+  skills/                21 progressive-disclosure skills
+  commands/              17 slash commands
   hooks/                 5 lifecycle hooks (session-context, guard, secrets, format, notify)
   output-styles/         selectable system-prompt modes
 instructions/          CLAUDE.md templates, principles, language guides

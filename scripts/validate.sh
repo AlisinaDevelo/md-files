@@ -77,7 +77,11 @@ printf '\nHook scripts\n'
 while IFS= read -r -d '' s; do
   if [[ -x "$s" ]]; then ok "$s (executable)"; else err "$s — not executable (chmod +x)"; fi
   if [[ "$s" == *.py ]]; then
-    python3 -m py_compile "$s" 2>/dev/null && ok "$s (compiles)" || err "$s — syntax error"
+    if python3 -m py_compile "$s" 2>/dev/null; then
+      ok "$s (compiles)"
+    else
+      err "$s — syntax error"
+    fi
   fi
 done < <(find "$PLUGIN/hooks/scripts" -type f -print0)
 

@@ -85,7 +85,8 @@ echo "======================="
 echo ""
 
 # ── 1. Methodology skills (from plugins/forge/skills/) ──────────────────────
-echo "Installing 18 methodology skills..."
+methodology_count="$(find "$SKILLS_SRC" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
+echo "Installing $methodology_count methodology skills..."
 for skill_dir in "$SKILLS_SRC"/*/; do
   [ -d "$skill_dir" ] || continue
   install_skill "$skill_dir"
@@ -93,7 +94,8 @@ done
 echo ""
 
 # ── 2. Agent skills (from zed/skills/agents/) ───────────────────────────────
-echo "Installing 20 specialist agent skills..."
+agent_count="$(find "$ZED_SRC/skills/agents" -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ')"
+echo "Installing $agent_count specialist agent skills..."
 for skill_file in "$ZED_SRC/skills/agents/"*.md; do
   [ -f "$skill_file" ] || continue
   name="$(basename "$skill_file" .md)"
@@ -102,7 +104,8 @@ done
 echo ""
 
 # ── 3. Command skills (from zed/skills/commands/) ───────────────────────────
-echo "Installing 14 slash command skills..."
+command_count="$(find "$ZED_SRC/skills/commands" -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ')"
+echo "Installing $command_count slash command skills..."
 for skill_file in "$ZED_SRC/skills/commands/"*.md; do
   [ -f "$skill_file" ] || continue
   name="$(basename "$skill_file" .md)"
@@ -133,4 +136,4 @@ echo ""
 echo "Next steps:"
 echo "  • Restart or reload Zed — skills are discovered automatically."
 echo "  • Select 'Forge: Concise Engineer' or 'Forge: Mentor' in the agent panel."
-echo "  • Type /forge-cmd- to see all 14 slash commands."
+echo "  • Type /forge-cmd- to see all $command_count slash commands."
