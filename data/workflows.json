@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "workflows": [
+    {
+      "id": "ship-feature",
+      "name": "Ship a Feature",
+      "steps": ["/forge", "/plan or /orchestrate", "implement", "/test", "/review", "/commit", "/pr"]
+    },
+    {
+      "id": "orchestrated-release",
+      "name": "Run an Orchestrated Release",
+      "steps": ["/orchestrate", "/tasks list", "/solve-loop", "/changelog", "/review", "/security-scan", "tag or publish"]
+    },
+    {
+      "id": "production-hardening",
+      "name": "Harden a Production App",
+      "steps": ["threat-modeling", "/security-scan", "dependency-auditor", "/optimize", "observability", "sre"]
+    },
+    {
+      "id": "stabilize-flaky-system",
+      "name": "Stabilize a Flaky System",
+      "steps": ["/debug", "specialist method", "/test", "/solve-loop if multi-task", "/review"]
+    }
+  ]
+}

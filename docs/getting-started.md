@@ -60,6 +60,7 @@ commands, or instruction snippets you want into your own `~/.claude/` or project
 ## First things to try
 
 - Run `/review` on a branch with changes — get a severity-ranked review of your diff.
+- Run `/forge <goal>` when you are not sure which Forge capability to use.
 - Ask Claude to "plan" a feature — the `architect` agent / `/plan` command produces a
   step-by-step plan before any code.
 - Ask for "Forge orchestration" on a large goal — `/orchestrate` plans at Opus/Fable,
@@ -105,3 +106,5 @@ the plugin `name`/`author` in `plugins/forge/.claude-plugin/plugin.json` and
 URLs in the README to point at your fork. The components themselves need no changes.
 
 See [usage-patterns.md](usage-patterns.md) for how the pieces combine in real workflows.
+See [bundles-and-workflows.md](bundles-and-workflows.md) and [CATALOG.md](../CATALOG.md)
+when choosing a focused Forge route.

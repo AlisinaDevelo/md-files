@@ -10,10 +10,10 @@ maximize the efficacy of LLMs in software engineering.**
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-d97757.svg)](https://docs.claude.com/en/docs/claude-code)
 [![Agents](https://img.shields.io/badge/agents-20-8b5cf6.svg)](plugins/forge/agents/)
-[![Skills](https://img.shields.io/badge/skills-21-06b6d4.svg)](plugins/forge/skills/)
-[![Commands](https://img.shields.io/badge/commands-17-22c55e.svg)](plugins/forge/commands/)
+[![Skills](https://img.shields.io/badge/skills-22-06b6d4.svg)](plugins/forge/skills/)
+[![Commands](https://img.shields.io/badge/commands-18-22c55e.svg)](plugins/forge/commands/)
 [![Hook tests](https://img.shields.io/badge/hook%20tests-54%20passing-success.svg)](tests/)
-[![Prompt evals](https://img.shields.io/badge/prompt%20evals-259%20checks-success.svg)](evals/)
+[![Prompt evals](https://img.shields.io/badge/prompt%20evals-265%20checks-success.svg)](evals/)
 
 </div>
 
@@ -55,15 +55,18 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   reviewer, a debugger that finds root causes, an auditor that traces taint to sinks.
 - **Orchestration for big work.** Plan at Opus/Fable, decompose into a task ledger, route
   implementation to Sonnet, fan out mechanical work to Haiku, and iterate to verified done.
-- **Methodology on tap.** Twenty-one skills inject battle-tested practices — TDD,
-  root-cause debugging, threat modeling, safe migrations, orchestration, task ledgers, and
-  solve loops — exactly when the situation calls for them.
-- **One-keystroke workflows.** Seventeen slash commands wrap the everyday loop: review,
-  test, debug, plan, commit, PR, orchestrate, tasks, solve-loop.
+- **Discoverability without bloat.** `/forge`, [CATALOG.md](CATALOG.md), bundles, and
+  workflows route work to the smallest useful capability instead of dumping every skill
+  into context.
+- **Methodology on tap.** Twenty-two skills inject battle-tested practices — TDD,
+  root-cause debugging, threat modeling, safe migrations, orchestration, catalogs, task
+  ledgers, and solve loops — exactly when the situation calls for them.
+- **One-keystroke workflows.** Eighteen slash commands wrap the everyday loop: forge,
+  review, test, debug, plan, commit, PR, orchestrate, tasks, solve-loop.
 - **Safety by default.** Lifecycle hooks block catastrophic commands and secret leaks,
   auto-format edits, inject repo context at session start, and notify you on completion —
   deterministically, without relying on the model to remember.
-- **Proven, not asserted.** A real eval harness scores every prompt (259 static checks +
+- **Proven, not asserted.** A real eval harness scores every prompt (265 static checks +
   an opt-in LLM-judge behavioral eval) and a 54-test suite covers the safety hooks. Run
   them yourself — `just check`. This is the [evidence layer](evals/), not a README claim.
 - **Auditable & self-validating.** Read every prompt and script. CI validates structure,
@@ -158,6 +161,7 @@ files loaded only when needed.
 | [`caching-strategies`](plugins/forge/skills/caching-strategies/) | Cache patterns, TTLs, invalidation, stampedes |
 | [`concurrency-and-parallelism`](plugins/forge/skills/concurrency-and-parallelism/) | Races, locks, async, idempotency |
 | [`prompt-engineering`](plugins/forge/skills/prompt-engineering/) | Authoring agents/skills/commands (+ patterns) |
+| [`forge-catalog`](plugins/forge/skills/forge-catalog/) | Choose the right Forge command, agent, skill, bundle, or workflow |
 | [`orchestration`](plugins/forge/skills/orchestration/) | Multi-model planning, delegation, integration, and verification |
 | [`task-ledger`](plugins/forge/skills/task-ledger/) | Jira/GitHub-issue-like local tasks with status, deps, agent, and model |
 | [`iterate-to-done`](plugins/forge/skills/iterate-to-done/) | Solve-loop discipline for draining a ledger until done or blocked |
@@ -168,6 +172,7 @@ User-triggered prompt templates with argument and shell injection.
 
 | Command | Does |
 |---------|------|
+| `/forge` | Choose the right Forge agent, skill, command, bundle, or workflow |
 | `/review` | Review the current diff, severity-ranked |
 | `/commit` | Draft a Conventional Commit for staged changes |
 | `/test` | Write tests matching the repo's harness |
@@ -217,7 +222,7 @@ Deterministic guardrails the harness runs on lifecycle events — no model memor
 
 ### Evidence — evals & tests
 
-- [`evals/`](evals/) — the proof the prompts work: 259 static prompt-quality checks (free,
+- [`evals/`](evals/) — the proof the prompts work: 265 static prompt-quality checks (free,
   in CI) plus an opt-in LLM-judge behavioral eval that scores agents against real tasks.
 - [`tests/`](tests/) — a 54-test pytest suite covering the safety hooks (blocks the
   dangerous, allows the safe, fails open on garbage). `just check` runs it all.
@@ -254,12 +259,13 @@ spawn specialists in parallel; the ledger keeps the run honest. See
 ```text
 .claude-plugin/        Claude Code marketplace manifest
 .agents/plugins/       Codex marketplace manifest
+data/                  generated catalog, bundles, and workflow metadata
 plugins/forge/         the Forge plugin
   .claude-plugin/        plugin manifest
   .codex-plugin/         Codex plugin manifest
   agents/                20 specialist subagents
-  skills/                21 progressive-disclosure skills
-  commands/              17 slash commands
+  skills/                22 progressive-disclosure skills
+  commands/              18 slash commands
   hooks/                 5 lifecycle hooks (session-context, guard, secrets, format, notify)
   output-styles/         selectable system-prompt modes
 instructions/          CLAUDE.md templates, principles, language guides
@@ -277,6 +283,9 @@ scripts/               validate.sh, install.sh
 
 - [Getting started](docs/getting-started.md) — install options and first steps
 - [Usage patterns](docs/usage-patterns.md) — how the components combine in real workflows
+- [Bundles & workflows](docs/bundles-and-workflows.md) — focused capability sets and ordered playbooks
+- [Quality bar](docs/quality-bar.md) — validation and safety standards for Forge components
+- [Competitive audit](docs/competitive-audit.md) — what Forge borrows from larger skill libraries
 - [Architecture](docs/architecture.md) — how the repo is organized and why
 - [Design rationale](docs/design-rationale.md) — the decisions and trade-offs behind Forge
 - [CI & headless usage](docs/ci-and-headless.md) — run Forge in pipelines and automated review

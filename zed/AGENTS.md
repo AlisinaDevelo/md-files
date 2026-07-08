@@ -86,6 +86,7 @@ automatically when the situation matches, or you can request them by name:
 **Slash commands (type `/forge-cmd-` to see them):**
 
 - `/forge-cmd-review` — review current diff
+- `/forge-cmd-forge` — choose the right Forge route
 - `/forge-cmd-commit` — draft a Conventional Commit
 - `/forge-cmd-test` — write tests for a target
 - `/forge-cmd-debug` — diagnose a bug
@@ -110,8 +111,8 @@ automatically when the situation matches, or you can request them by name:
   `api-design`, `threat-modeling`, `safe-database-migrations`,
   `performance-profiling`, `observability`, `technical-writing`,
   `git-workflow`, `error-handling`, `feature-flags`, `caching-strategies`,
-  `concurrency-and-parallelism`, `prompt-engineering`, `orchestration`,
-  `task-ledger`, `iterate-to-done`
+  `concurrency-and-parallelism`, `prompt-engineering`, `forge-catalog`,
+  `orchestration`, `task-ledger`, `iterate-to-done`
 
 ---
 

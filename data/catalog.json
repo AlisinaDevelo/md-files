@@ -1,0 +1,486 @@
+{
+  "version": 1,
+  "total": 60,
+  "components": [
+    {
+      "id": "accessibility-auditor",
+      "kind": "agent",
+      "path": "plugins/forge/agents/accessibility-auditor.md",
+      "description": "Use this agent to audit and fix web/UI accessibility against WCAG \u2014 semantics, keyboard navigation, ARIA, contrast, focus management, and screen-reader support. Invoke when building or reviewing user-facing UI, or when a11y compliance is required. Examples \u2014 (1) User: \"Is this modal accessible?\" (2) User: \"Audit our checkout form for WCAG 2.2 AA.\" \u2192 launch accessibility-auditor.",
+      "model": "sonnet",
+      "risk": "safe"
+    },
+    {
+      "id": "api-designer",
+      "kind": "agent",
+      "path": "plugins/forge/agents/api-designer.md",
+      "description": "Use this agent to design or review APIs \u2014 REST, GraphQL, gRPC, or library interfaces \u2014 for consistency, evolvability, and a good developer experience. Invoke when adding endpoints, designing a public interface, or reviewing API surface before it ships and becomes hard to change. Examples \u2014 (1) User: \"Design the REST API for our orders service.\" (2) User: \"Review this endpoint's contract before we publish it.\"",
+      "model": "sonnet",
+      "risk": "safe"
+    },
+    {
+      "id": "architect",
+      "kind": "agent",
+      "path": "plugins/forge/agents/architect.md",
+      "description": "Use this agent to design an implementation strategy before writing code \u2014 for non-trivial features, refactors, or anything touching multiple systems. It returns a step-by-step plan, identifies the critical files, and weighs architectural trade-offs. Invoke when the user asks \"how should I build X\" or before a task large enough to benefit from a plan. Examples \u2014 (1) User: \"I want to add multi-tenant billing.\" (2) User: \"Plan the migration from REST to gRPC.\"",
+      "model": "opus",
+      "risk": "safe"
+    },
+    {
+      "id": "code-archaeologist",
+      "kind": "agent",
+      "path": "plugins/forge/agents/code-archaeologist.md",
+      "description": "Use this agent to understand an unfamiliar, large, or legacy codebase \u2014 tracing how a feature works, reconstructing intent, and mapping data and control flow before you change anything. Invoke when onboarding to a repo, before modifying code you didn't write, or when asked \"how does X work here?\". Examples \u2014 (1) User: \"How does authentication flow through this app?\" (2) User: \"I need to change the billing logic but I don't understand it yet.\" \u2192 launch code-archaeologist first.",
+      "model": "sonnet",
+      "risk": "safe"
+    },
+    {
+      "id": "code-reviewer",
+      "kind": "agent",
+      "path": "plugins/forge/agents/code-reviewer.md",
+      "description": "Use this agent to review a diff, pull request, or recently written code for correctness, security, readability, and maintainability. Invoke it proactively after a logical chunk of work is complete and before committing or opening a PR. Examples \u2014 (1) User: \"I just finished the auth refactor, can you look it over?\" \u2192 launch code-reviewer on the diff. (2) After implementing a feature yourself, proactively launch code-reviewer to catch regressions before handing back.",
+      "model": "sonnet",
+      "risk": "security-sensitive"
+    },
+    {
+      "id": "data-engineer",
+      "kind": "agent",
+      "path": "plugins/forge/agents/data-engineer.md",
+      "description": "Use this agent for data-pipeline and analytics-infrastructure work \u2014 ETL/ELT design, batch vs streaming, warehouse/lakehouse modeling, partitioning, and data quality. Invoke when building or fixing pipelines, modeling analytical tables, or debugging a data-correctness issue. Distinct from database-expert (OLTP schemas and query tuning). Examples \u2014 (1) User: \"Design the pipeline that loads events into our warehouse.\" (2) User: \"Our nightly job double-counts revenue \u2014 find why.\"",
+      "model": "sonnet",
+      "risk": "safe"
+    },
+    {
+      "id": "database-expert",
+      "kind": "agent",
+      "path": "plugins/forge/agents/database-expert.md",
+      "description": "Use this agent for database work \u2014 schema design, query optimization, indexing, migrations, and data-integrity decisions across SQL and NoSQL stores. Invoke when designing a data model, debugging a slow query, planning a migration, or choosing a storage strategy. Examples \u2014 (1) User: \"Design the schema for a subscription billing system.\" (2) User: \"This query does a full table scan \u2014 fix it.\" (3) User: \"Write a zero-downtime migration to add a NOT NULL column.\"",
+      "model": "sonnet",
+      "risk": "safe"
+    },
+    {
+      "id": "debugger",
+      "kind": "agent",
+      "path": "plugins/forge/agents/debugger.md",
+      "description": "Use this agent to diagnose a failing test, exception, crash, or incorrect behavior and find the root cause before any fix is written. Invoke it when the user reports a bug, pastes a stack trace, or says something \"doesn't work.\" Examples \u2014 (1) User: \"This test fails intermittently in CI but passes locally.\" \u2192 launch debugger to isolate the flake. (2) User pastes a NullPointerException \u2192 launch debugger to trace it to the originating assumption.",
+      "model": "sonnet",
+      "risk": "safe"
+    },
+    {
+      "id": "dependency-auditor",
+      "kind": "agent",
+      "path": "plugins/forge/agents/dependency-auditor.md",
+      "description": "Use this agent to audit project dependencies for known vulnerabilities, license risk, staleness, and supply-chain hygiene \u2014 and to plan safe upgrades. Invoke before a release, during routine maintenance, or when a CVE is reported. Examples \u2014 (1) User: \"Audit our dependencies before the release.\" (2) User: \"Is it safe to upgrade from React 18 to 19?\" \u2192 launch dependency-auditor.",
+      "model": "sonnet",
+      "risk": "safe"
+    },
+    {
+      "id": "devops-engineer",
+      "kind": "agent",
+      "path": "plugins/forge/agents/devops-engineer.md",
+      "description": "Use this agent for CI/CD, containerization, infrastructure-as-code, deployment, and observability work. Invoke when writing pipelines, Dockerfiles, Terraform, Kubernetes manifests, or debugging a deploy. Examples \u2014 (1) User: \"Write a multi-stage Dockerfile for this Go service.\" (2) User: \"Our GitHub Actions pipeline is slow and flaky \u2014 fix it.\" (3) User: \"Set up zero-downtime deploys.\"",
+      "model": "sonnet",
+      "risk": "safe"
+    },
+    {
+      "id": "docs-writer",
+      "kind": "agent",
+      "path": "plugins/forge/agents/docs-writer.md",
+      "description": "Use this agent to write or improve documentation \u2014 READMEs, API references, architecture docs, runbooks, ADRs, docstrings, and onboarding guides \u2014 grounded in the actual code. Invoke when docs are missing, stale, or unclear. Examples \u2014 (1) User: \"Write a README for this service.\" (2) User: \"Document the public API of this module.\" \u2192 launch docs-writer to produce accurate, example-driven docs.",
+      "model": "sonnet",
+      "risk": "safe"
+    },
+    {
+      "id": "frontend-specialist",
+      "kind": "agent",
+      "path": "plugins/forge/agents/frontend-specialist.md",
+      "description": "Use this agent for frontend work \u2014 component architecture, state management, rendering performance, and correct, accessible, responsive UI in React/Vue/Svelte and modern web stacks. Invoke when building or reviewing UI, debugging render behavior, or improving perceived performance. Examples \u2014 (1) User: \"Build a data table with sorting and virtualization.\" (2) User: \"This component re-renders too much \u2014 why?\" (3) User: \"Make this layout responsive.\"",
+      "model": "sonnet",
+      "risk": "critical"
+    },
+    {
+      "id": "incident-responder",
+      "kind": "agent",
+      "path": "plugins/forge/agents/incident-responder.md",
+      "description": "Use this agent during a production incident to triage, mitigate, and find the cause under time pressure \u2014 and to drive the blameless postmortem afterward. Invoke when something is down or degraded in production. Examples \u2014 (1) User: \"The API is returning 500s in prod right now.\" (2) User: \"Latency spiked 10x after the last deploy.\" \u2192 launch incident-responder to stabilize first, diagnose second.",
+      "model": "sonnet",
+      "risk": "safe"
+    },
+    {
+      "id": "migration-specialist",
+      "kind": "agent",
+      "path": "plugins/forge/agents/migration-specialist.md",
+      "description": "Use this agent to plan and execute a migration \u2014 a framework or library major upgrade, a language version bump, or an API/schema cutover \u2014 incrementally and reversibly. Invoke when a dependency has breaking changes, or when moving from one technology/pattern to another across a codebase. Examples \u2014 (1) User: \"Upgrade us from React 18 to 19.\" (2) User: \"Migrate from the deprecated v1 client to v2 across the repo.\" (3) User: \"Move our tests from Mocha to Vitest.\"",
+      "model": "sonnet",
+      "risk": "critical"
+    },
+    {
+      "id": "performance-optimizer",
+      "kind": "agent",
+      "path": "plugins/forge/agents/performance-optimizer.md",
+      "description": "Use this agent to diagnose and fix performance problems \u2014 slow endpoints, high latency, excessive memory/CPU, N+1 queries, or scaling issues. It measures before it optimizes. Invoke when something is \"slow,\" a profile/benchmark needs interpreting, or before scaling a hot path. Examples \u2014 (1) User: \"This page takes 4 seconds to load.\" (2) User: \"Our worker is OOMing under load.\" \u2192 launch performance-optimizer to find the bottleneck.",
+      "model": "sonnet",
+      "risk": "safe"
+    },
+    {
+      "id": "refactoring-specialist",
+      "kind": "agent",
+      "path": "plugins/forge/agents/refactoring-specialist.md",
+      "description": "Use this agent to improve the structure of existing code without changing its behavior \u2014 reducing duplication, untangling complexity, improving names, and extracting seams. Invoke when code is hard to change, when the user asks to \"clean up\" or \"simplify,\" or after a feature lands and the surrounding code needs tidying. Examples \u2014 (1) User: \"This 400-line function is unmaintainable.\" (2) User: \"Refactor this to remove the duplicated validation logic.\"",
+      "model": "sonnet",
+      "risk": "critical"
+    },
+    {
+      "id": "security-auditor",
+      "kind": "agent",
+      "path": "plugins/forge/agents/security-auditor.md",
+      "description": "Use this agent for defensive security review of code, configuration, or dependencies \u2014 threat modeling, finding vulnerabilities, and hardening. Invoke before shipping anything that handles auth, secrets, user input, payments, or PII. Examples \u2014 (1) User: \"Audit this login endpoint before we deploy.\" (2) User: \"We're adding file uploads \u2014 what could go wrong?\" \u2192 launch security-auditor to threat-model the feature. Defensive use only; refuse to build offensive tooling.",
+      "model": "sonnet",
+      "risk": "security-sensitive"
+    },
+    {
+      "id": "sre",
+      "kind": "agent",
+      "path": "plugins/forge/agents/sre.md",
+      "description": "Use this agent for reliability engineering \u2014 defining SLOs and error budgets, capacity and load planning, reducing toil, and hardening a service against failure before it breaks. Invoke proactively when designing for scale/reliability or when asked \"is this production-ready?\". Distinct from incident-responder (active outages) and devops-engineer (CI/CD and infra plumbing). Examples \u2014 (1) User: \"Set SLOs for our checkout API.\" (2) User: \"Will this service hold up at 10x traffic?\"",
+      "model": "sonnet",
+      "risk": "safe"
+    },
+    {
+      "id": "tech-lead",
+      "kind": "agent",
+      "path": "plugins/forge/agents/tech-lead.md",
+      "description": "Use this agent to coordinate a large or ambiguous task end-to-end \u2014 breaking it down, deciding which specialists to involve, sequencing the work, and keeping the whole effort coherent. Invoke for multi-faceted requests that span planning, implementation, review, and testing. Examples \u2014 (1) User: \"Ship a complete password-reset feature.\" (2) User: \"Take this vague request and drive it to done.\" \u2192 launch tech-lead to orchestrate.",
+      "model": "opus",
+      "risk": "safe"
+    },
+    {
+      "id": "test-engineer",
+      "kind": "agent",
+      "path": "plugins/forge/agents/test-engineer.md",
+      "description": "Use this agent to design and write tests \u2014 unit, integration, property-based, or regression \u2014 that assert behavior and meaningfully reduce risk. Invoke after implementing a feature, when coverage is thin, or when reproducing a bug as a failing test. Examples \u2014 (1) User: \"Add tests for the new pricing module.\" (2) User: \"Write a failing test that reproduces this bug first.\" \u2192 launch test-engineer to capture the defect before the fix.",
+      "model": "sonnet",
+      "risk": "safe"
+    },
+    {
+      "id": "api-design",
+      "kind": "skill",
+      "path": "plugins/forge/skills/api-design/SKILL.md",
+      "description": "Use when designing or reviewing an API \u2014 REST, GraphQL, gRPC, or a library interface. Covers consistency, resource modeling, versioning and evolution, error contracts, pagination, and idempotency so the interface stays usable and changeable after it ships.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
+      "id": "caching-strategies",
+      "kind": "skill",
+      "path": "plugins/forge/skills/caching-strategies/SKILL.md",
+      "description": "Use when designing or debugging a cache \u2014 choosing a caching pattern, setting TTLs and invalidation, picking a layer (client/CDN/app/DB), or fixing staleness, a low hit rate, or a stampede. Complements performance-profiling (which finds the bottleneck); this decides whether and how to cache it.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
+      "id": "code-review-rubric",
+      "kind": "skill",
+      "path": "plugins/forge/skills/code-review-rubric/SKILL.md",
+      "description": "Use when reviewing code or a pull request to apply a consistent quality bar. Provides a severity-ranked rubric covering correctness, security, tests, readability, and maintainability, plus how to write feedback that gets fixed. See CHECKLIST.md for the full pre-merge checklist.",
+      "model": "",
+      "risk": "security-sensitive"
+    },
+    {
+      "id": "concurrency-and-parallelism",
+      "kind": "skill",
+      "path": "plugins/forge/skills/concurrency-and-parallelism/SKILL.md",
+      "description": "Use when writing or reviewing concurrent code \u2014 threads, async/await, shared state, locks, and parallel work \u2014 or diagnosing a race condition, deadlock, or heisenbug that only appears under load. Covers the patterns that make concurrency correct and the traps that make it intermittently wrong.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
+      "id": "conventional-commits",
+      "kind": "skill",
+      "path": "plugins/forge/skills/conventional-commits/SKILL.md",
+      "description": "Use when writing git commit messages and structuring commits. Covers the Conventional Commits format, choosing the right type/scope, breaking-change notation, and how to split work into small, atomic, reviewable commits.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
+      "id": "error-handling",
+      "kind": "skill",
+      "path": "plugins/forge/skills/error-handling/SKILL.md",
+      "description": "Use when designing how code handles failure \u2014 where to catch, what to propagate, fail-fast vs recover, retries and idempotency, and error types. Covers building robust failure paths without swallowing bugs or over-engineering for impossible cases.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
+      "id": "feature-flags",
+      "kind": "skill",
+      "path": "plugins/forge/skills/feature-flags/SKILL.md",
+      "description": "Use when adding, rolling out, or cleaning up feature flags \u2014 gating a change, doing a progressive/canary release, building a kill switch, or removing a stale flag. Covers flag types, safe rollout, and the discipline that keeps flags from becoming permanent tech debt.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
+      "id": "forge-catalog",
+      "kind": "skill",
+      "path": "plugins/forge/skills/forge-catalog/SKILL.md",
+      "description": "Use when choosing which Forge agent, skill, command, bundle, or workflow should handle a request; when comparing Forge capabilities; when building a focused install surface; or when a user asks \"what should I use?\" before starting work. Routes to the smallest useful Forge capability instead of loading everything.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
+      "id": "git-workflow",
+      "kind": "skill",
+      "path": "plugins/forge/skills/git-workflow/SKILL.md",
+      "description": "Use when working with git beyond writing a commit message \u2014 branching, rebasing vs merging, resolving conflicts, recovering lost work, and bisecting to find a bad commit. Covers what is safe on shared branches and what is not.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
+      "id": "iterate-to-done",
+      "kind": "skill",
+      "path": "plugins/forge/skills/iterate-to-done/SKILL.md",
+      "description": "Use when running a solve-loop over a task ledger \u2014 repeatedly pick the next ready task, dispatch it, verify against acceptance criteria, update the ledger, and repeat until done or blocked. Covers the loop, its stop conditions, and how to drive it recurring or in the background with the harness (/loop, the scheduler, background agents).",
+      "model": "",
+      "risk": "safe"
+    },
+    {
+      "id": "observability",
+      "kind": "skill",
+      "path": "plugins/forge/skills/observability/SKILL.md",
+      "description": "Use when adding logging, metrics, or tracing to code, or designing how a service is monitored. Covers the three pillars, structured logging, what to measure (RED/ USE), useful alerts, and the SLO mindset \u2014 so failures are debuggable after the fact.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
+      "id": "orchestration",
+      "kind": "skill",
+      "path": "plugins/forge/skills/orchestration/SKILL.md",
+      "description": "Use when driving a large, multi-part task end to end with multiple models \u2014 planning at a high tier, decomposing into a task ledger, and delegating each piece to the right specialist at the right model (plan with Opus/Fable, implement with Sonnet, mechanical work with Haiku). Covers the conductor loop and how to delegate. See MODEL-ROUTING.md for the tier policy.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
+      "id": "performance-profiling",
+      "kind": "skill",
+      "path": "plugins/forge/skills/performance-profiling/SKILL.md",
+      "description": "Use when investigating a performance problem \u2014 slow endpoints, high latency, memory/CPU pressure, or N+1 queries. A measure-first method to find the real bottleneck and verify the gain, instead of guessing at optimizations.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
+      "id": "prompt-engineering",
+      "kind": "skill",
+      "path": "plugins/forge/skills/prompt-engineering/SKILL.md",
+      "description": "Use when authoring or improving Claude Code agents, skills, slash commands, or CLAUDE.md instructions. Covers how to write a triggering description, structure a system prompt, scope tools, and apply progressive disclosure so the model actually uses what you build. See PATTERNS.md for operating-discipline techniques distilled from production agent prompts.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
+      "id": "pull-request-authoring",
+      "kind": "skill",
+      "path": "plugins/forge/skills/pull-request-authoring/SKILL.md",
+      "description": "Use when opening a pull request \u2014 writing the description, sizing the change, and making it easy and fast to review. Covers PR structure, what reviewers need, and how to keep PRs small enough to actually get good review.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
+      "id": "refactoring-catalog",
+      "kind": "skill",
+      "path": "plugins/forge/skills/refactoring-catalog/SKILL.md",
+      "description": "Use when improving the structure of existing code without changing behavior \u2014 identifying code smells and applying the right named refactoring safely. Covers the discipline of behavior-preserving change; see CATALOG.md for the smell\u2192fix reference.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
+      "id": "root-cause-debugging",
+      "kind": "skill",
+      "path": "plugins/forge/skills/root-cause-debugging/SKILL.md",
+      "description": "Use when diagnosing a bug, failing test, crash, or wrong output. A disciplined, hypothesis-driven method for finding the true root cause from evidence instead of guessing or masking symptoms. Use before writing any fix.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
+      "id": "safe-database-migrations",
+      "kind": "skill",
+      "path": "plugins/forge/skills/safe-database-migrations/SKILL.md",
+      "description": "Use when writing or reviewing a database schema migration, especially on a live system. Covers the expand/contract pattern for zero-downtime changes, avoiding long locks, safe backfills, and always having a rollback path.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
+      "id": "task-ledger",
+      "kind": "skill",
+      "path": "plugins/forge/skills/task-ledger/SKILL.md",
+      "description": "Use when turning a plan into trackable tasks and working them to done \u2014 a lightweight issue tracker for an orchestrated run. Covers the task format (acceptance criteria, status, dependencies, assigned agent + model) and three backends: local markdown files (default), GitHub issues via gh, or Jira/Linear via MCP. See TEMPLATE.md for the issue format.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
+      "id": "technical-writing",
+      "kind": "skill",
+      "path": "plugins/forge/skills/technical-writing/SKILL.md",
+      "description": "Use when writing developer-facing documentation \u2014 READMEs, API references, architecture docs, ADRs, runbooks, and docstrings. Covers structure by document type, writing for the reader's task, and keeping docs accurate against the code.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
+      "id": "test-driven-development",
+      "kind": "skill",
+      "path": "plugins/forge/skills/test-driven-development/SKILL.md",
+      "description": "Use when implementing a feature or fixing a bug test-first: write a failing test, make it pass with the minimum code, then refactor. Covers the red-green-refactor loop, what is worth testing, and the common pitfalls that make TDD backfire.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
+      "id": "threat-modeling",
+      "kind": "skill",
+      "path": "plugins/forge/skills/threat-modeling/SKILL.md",
+      "description": "Use when designing or reviewing a feature for security before it ships \u2014 to systematically identify what can go wrong and where the defenses must be. Covers the STRIDE method, trust boundaries, and turning threats into concrete controls. Defensive use only.",
+      "model": "",
+      "risk": "security-sensitive"
+    },
+    {
+      "id": "changelog",
+      "kind": "command",
+      "path": "plugins/forge/commands/changelog.md",
+      "description": "Draft a changelog entry from the commits since the last release",
+      "model": "sonnet",
+      "risk": "critical"
+    },
+    {
+      "id": "commit",
+      "kind": "command",
+      "path": "plugins/forge/commands/commit.md",
+      "description": "Create a well-formed Conventional Commit for the staged changes",
+      "model": "sonnet",
+      "risk": "critical"
+    },
+    {
+      "id": "debug",
+      "kind": "command",
+      "path": "plugins/forge/commands/debug.md",
+      "description": "Diagnose a bug or failing test and find the root cause before fixing",
+      "model": "sonnet",
+      "risk": "safe"
+    },
+    {
+      "id": "docs",
+      "kind": "command",
+      "path": "plugins/forge/commands/docs.md",
+      "description": "Write or update documentation grounded in the actual code",
+      "model": "sonnet",
+      "risk": "safe"
+    },
+    {
+      "id": "explain",
+      "kind": "command",
+      "path": "plugins/forge/commands/explain.md",
+      "description": "Explain how a file, function, or system works \u2014 clearly and accurately",
+      "model": "sonnet",
+      "risk": "safe"
+    },
+    {
+      "id": "forge",
+      "kind": "command",
+      "path": "plugins/forge/commands/forge.md",
+      "description": "Choose the right Forge agent, skill, command, bundle, or workflow for a goal",
+      "model": "sonnet",
+      "risk": "safe"
+    },
+    {
+      "id": "optimize",
+      "kind": "command",
+      "path": "plugins/forge/commands/optimize.md",
+      "description": "Diagnose and fix a performance problem, measuring before and after",
+      "model": "sonnet",
+      "risk": "safe"
+    },
+    {
+      "id": "orchestrate",
+      "kind": "command",
+      "path": "plugins/forge/commands/orchestrate.md",
+      "description": "Plan a big goal at a high tier, decompose into a task ledger, and solve it by delegating each task to the right specialist and model",
+      "model": "opus",
+      "risk": "critical"
+    },
+    {
+      "id": "plan",
+      "kind": "command",
+      "path": "plugins/forge/commands/plan.md",
+      "description": "Produce a step-by-step implementation plan before writing code",
+      "model": "opus",
+      "risk": "safe"
+    },
+    {
+      "id": "pr",
+      "kind": "command",
+      "path": "plugins/forge/commands/pr.md",
+      "description": "Draft a pull request description from the branch's commits and diff",
+      "model": "sonnet",
+      "risk": "critical"
+    },
+    {
+      "id": "refactor",
+      "kind": "command",
+      "path": "plugins/forge/commands/refactor.md",
+      "description": "Refactor code to improve structure while preserving behavior exactly",
+      "model": "sonnet",
+      "risk": "critical"
+    },
+    {
+      "id": "review",
+      "kind": "command",
+      "path": "plugins/forge/commands/review.md",
+      "description": "Review the current diff for correctness, security, and maintainability",
+      "model": "sonnet",
+      "risk": "security-sensitive"
+    },
+    {
+      "id": "scaffold",
+      "kind": "command",
+      "path": "plugins/forge/commands/scaffold.md",
+      "description": "Scaffold a new module/component matching the repo's existing conventions",
+      "model": "sonnet",
+      "risk": "critical"
+    },
+    {
+      "id": "security-scan",
+      "kind": "command",
+      "path": "plugins/forge/commands/security-scan.md",
+      "description": "Defensive security review of the current diff or a target path",
+      "model": "sonnet",
+      "risk": "security-sensitive"
+    },
+    {
+      "id": "solve-loop",
+      "kind": "command",
+      "path": "plugins/forge/commands/solve-loop.md",
+      "description": "Drain the current task ledger by repeatedly dispatching ready tasks, verifying results, and updating task status",
+      "model": "opus",
+      "risk": "critical"
+    },
+    {
+      "id": "tasks",
+      "kind": "command",
+      "path": "plugins/forge/commands/tasks.md",
+      "description": "Create, list, or update the task ledger (local files, or GitHub issues via gh)",
+      "model": "sonnet",
+      "risk": "critical"
+    },
+    {
+      "id": "test",
+      "kind": "command",
+      "path": "plugins/forge/commands/test.md",
+      "description": "Write or extend tests for the given code, matching the repo's harness",
+      "model": "sonnet",
+      "risk": "safe"
+    },
+    {
+      "id": "tidy",
+      "kind": "command",
+      "path": "plugins/forge/commands/tidy.md",
+      "description": "Clean up the current diff \u2014 remove cruft and simplify, without changing behavior",
+      "model": "sonnet",
+      "risk": "critical"
+    }
+  ]
+}

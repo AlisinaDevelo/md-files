@@ -2,8 +2,8 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "forge",
   "displayName": "Forge",
-  "version": "2.0.0",
-  "description": "An enterprise-grade Claude Code toolkit: specialized agents, orchestration skills, task ledgers, solve loops, slash commands, and safety hooks that maximize the efficacy of LLMs in software engineering.",
+  "version": "2.1.0",
+  "description": "An enterprise-grade Claude Code toolkit: specialized agents, orchestration skills, task ledgers, solve loops, catalogs, slash commands, and safety hooks that maximize the efficacy of LLMs in software engineering.",
   "author": {
     "name": "Alisina Karimi",
     "email": "alisinakarimi.2003@gmail.com",
@@ -22,6 +22,7 @@
     "developer-tooling",
     "prompt-engineering",
     "orchestration",
-    "task-ledger"
+    "task-ledger",
+    "catalog"
   ]
 }

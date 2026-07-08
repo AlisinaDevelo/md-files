@@ -6,15 +6,15 @@
     "url": "https://github.com/AlisinaDevelo"
   },
   "metadata": {
-    "description": "Forge — an enterprise-grade toolkit of Claude Code agents, orchestration skills, commands, and hooks for software engineering.",
-    "version": "2.0.0"
+    "description": "Forge — an enterprise-grade toolkit of Claude Code agents, orchestration skills, catalogs, commands, and hooks for software engineering.",
+    "version": "2.1.0"
   },
   "plugins": [
     {
       "name": "forge",
       "source": "./plugins/forge",
-      "description": "Specialized agents, orchestration skills, task ledgers, solve-loop commands, and safety hooks that maximize LLM efficacy across the software development lifecycle.",
-      "version": "2.0.0",
+      "description": "Specialized agents, orchestration skills, task ledgers, solve-loop commands, catalogs, and safety hooks that maximize LLM efficacy across the software development lifecycle.",
+      "version": "2.1.0",
       "category": "developer-tooling",
       "keywords": ["agents", "skills", "orchestration", "task-ledger", "hooks", "code-review", "testing", "security"]
     }

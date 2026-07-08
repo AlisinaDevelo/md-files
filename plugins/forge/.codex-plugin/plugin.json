@@ -1,7 +1,7 @@
 {
   "name": "forge",
-  "version": "2.0.0",
-  "description": "A Codex-compatible engineering toolkit with orchestration methods, task ledgers, solve loops, and disciplined software delivery skills.",
+  "version": "2.1.0",
+  "description": "A Codex-compatible engineering toolkit with orchestration methods, task ledgers, solve loops, catalogs, and disciplined software delivery skills.",
   "author": {
     "name": "Alisina Karimi",
     "email": "alisinakarimi.2003@gmail.com",
@@ -16,13 +16,14 @@
     "skills",
     "task-ledger",
     "developer-tooling",
-    "prompt-engineering"
+    "prompt-engineering",
+    "catalog"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "Forge",
-    "shortDescription": "Engineering skills and orchestration loops for Codex",
-    "longDescription": "Forge gives Codex a disciplined software-engineering toolkit: orchestration, task ledgers, solve loops, code review, testing, debugging, security, architecture, documentation, and release workflow skills. It is the Codex-compatible side of the Forge toolkit; Claude Code also gets agents, slash commands, and hooks from the same repo.",
+    "shortDescription": "Engineering skills, catalogs, and orchestration loops for Codex",
+    "longDescription": "Forge gives Codex a disciplined software-engineering toolkit: catalogs, orchestration, task ledgers, solve loops, code review, testing, debugging, security, architecture, documentation, and release workflow skills. It is the Codex-compatible side of the Forge toolkit; Claude Code also gets agents, slash commands, and hooks from the same repo.",
     "developerName": "Alisina Karimi",
     "category": "Engineering",
     "capabilities": [

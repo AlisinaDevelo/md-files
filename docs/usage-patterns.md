@@ -5,6 +5,9 @@ designed so the right capability surfaces at the right moment — these are the 
 
 ## The development loop
 
+When you are unsure which Forge route fits, start with `/forge <goal>`. It chooses the
+smallest useful agent, skill, command, bundle, or workflow.
+
 ```mermaid
 flowchart LR
   plan["plan\narchitect / /plan"] --> impl[implement]

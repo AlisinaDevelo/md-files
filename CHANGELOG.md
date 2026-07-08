@@ -6,6 +6,33 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [2.1.0] — 2026-07-08
+
+### Added
+
+- **Forge Catalog** — generated [CATALOG.md](CATALOG.md) and `data/catalog.json` covering
+  agents, skills, commands, model defaults, paths, and risk labels.
+- **`/forge` command** — a new front door that chooses the smallest useful Forge agent,
+  skill, command, bundle, or workflow for a goal.
+- **`forge-catalog` skill** — routing guidance for capability selection, bundles, and
+  workflows.
+- **Bundles and workflows** — [docs/bundles-and-workflows.md](docs/bundles-and-workflows.md),
+  `data/bundles.json`, and `data/workflows.json` for focused role-based starts and ordered
+  execution paths.
+- **Quality bar** — [docs/quality-bar.md](docs/quality-bar.md) defines component standards,
+  risk labels, and release gates.
+- **Competitive audit** — [docs/competitive-audit.md](docs/competitive-audit.md) captures
+  what Forge borrows from larger skill libraries and where Forge should deliberately differ.
+- **Catalog generator** — `scripts/generate_catalog.py` plus validation that fails when the
+  generated catalog is stale.
+
+### Changed
+
+- Bumped Forge manifests to `2.1.0`.
+- Forge now ships 20 agents, 22 methodology skills, 18 Claude slash commands, and 60
+  `.agents` skills for Codex/Zed-style installs. Static prompt eval coverage grows to 265
+  checks.
+
 ## [2.0.0] — 2026-07-08
 
 ### Added
@@ -132,6 +159,7 @@ plugin under `plugins/forge/`.
 - **Docs** — getting started, usage patterns, architecture, design rationale, and CI &
   headless usage guides.
 
-[Unreleased]: https://github.com/AlisinaDevelo/md-files/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/AlisinaDevelo/md-files/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v2.1.0
 [2.0.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v2.0.0
 [1.0.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v1.0.0

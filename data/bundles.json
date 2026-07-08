@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "bundles": [
+    {
+      "id": "core-engineering",
+      "name": "Core Engineering",
+      "description": "Everyday planning, implementation, tests, review, and shipping.",
+      "components": ["/plan", "test-driven-development", "/test", "/review", "/debug", "/commit", "/pr"]
+    },
+    {
+      "id": "orchestration",
+      "name": "Orchestration",
+      "description": "Plan high, create a task ledger, route work, and run the solve loop.",
+      "components": ["/forge", "/orchestrate", "orchestration", "task-ledger", "/tasks", "iterate-to-done", "/solve-loop"]
+    },
+    {
+      "id": "production-hardening",
+      "name": "Production Hardening",
+      "description": "Security, dependency, performance, observability, and reliability checks before shipping.",
+      "components": ["security-auditor", "/security-scan", "dependency-auditor", "performance-optimizer", "/optimize", "observability", "sre"]
+    },
+    {
+      "id": "data-backend",
+      "name": "Data and Backend",
+      "description": "APIs, databases, migrations, caching, data pipelines, and concurrency.",
+      "components": ["api-designer", "database-expert", "data-engineer", "safe-database-migrations", "caching-strategies", "concurrency-and-parallelism"]
+    },
+    {
+      "id": "frontend-product",
+      "name": "Frontend Product",
+      "description": "User-facing frontend work, accessibility, docs, review, and tests.",
+      "components": ["frontend-specialist", "accessibility-auditor", "technical-writing", "/docs", "code-reviewer", "test-engineer"]
+    }
+  ]
+}

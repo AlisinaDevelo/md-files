@@ -9,6 +9,10 @@ default:
 validate:
     ./scripts/validate.sh
 
+# Regenerate the Forge component catalog
+catalog:
+    python3 scripts/generate_catalog.py
+
 # Run the hook test suite (installs pytest if missing)
 test:
     @python3 -c "import pytest" 2>/dev/null || pip install --quiet pytest

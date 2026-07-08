@@ -8,9 +8,9 @@ the host agent actually supports.
 
 | Component | Count | Zed mechanism |
 |---|---|---|
-| Methodology skills | 21 | `~/.agents/skills/<name>/` |
+| Methodology skills | 22 | `~/.agents/skills/<name>/` |
 | Specialist agent skills | 20 | `~/.agents/skills/forge-<name>/` |
-| Slash command skills | 17 | `~/.agents/skills/forge-cmd-<name>/` with `disable-model-invocation: true` |
+| Slash command skills | 18 | `~/.agents/skills/forge-cmd-<name>/` with `disable-model-invocation: true` |
 | Agent profiles | 2 | `~/.config/zed/settings.json` → `agent.profiles` |
 | Global instructions | 1 | `~/.config/zed/AGENTS.md` |
 
@@ -31,8 +31,9 @@ Forge skills load automatically when the situation matches their description. Yo
 
 ### Slash commands
 
-Type `/forge-cmd-` in the agent panel to see all 17 commands. Examples:
+Type `/forge-cmd-` in the agent panel to see all 18 commands. Examples:
 
+- `/forge-cmd-forge` — choose the right Forge route
 - `/forge-cmd-review` — review the current diff
 - `/forge-cmd-commit` — draft a Conventional Commit
 - `/forge-cmd-plan your feature idea` — get an implementation plan
@@ -65,9 +66,9 @@ zed/
 ├── README.md               this file
 ├── install.sh              idempotent install script
 ├── skills/                 all 52 SKILL.md files (symlink targets)
-│   ├── methodology/        21 methodology skills
+│   ├── methodology/        22 methodology skills
 │   ├── agents/             20 specialist agent skills
-│   └── commands/           17 slash command skills
+│   └── commands/           18 slash command skills
 ├── settings/
 │   └── profiles.json       the two Forge profiles to merge into settings.json
 └── AGENTS.md               global instructions for ~/.config/zed/AGENTS.md

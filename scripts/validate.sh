@@ -102,6 +102,14 @@ for p in m.get("plugins", []):
     print(s if isinstance(s, str) else "")
 ')
 
+# --- Generated catalog is up to date ---
+printf '\nGenerated catalog\n'
+if python3 scripts/generate_catalog.py --check >/dev/null 2>&1; then
+  ok "CATALOG.md and data/catalog.json are up to date"
+else
+  err "catalog is stale — run python3 scripts/generate_catalog.py"
+fi
+
 printf '\n'
 if ((fail)); then
   printf '❌ Validation failed.\n'; exit 1
