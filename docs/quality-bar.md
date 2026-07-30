@@ -46,8 +46,10 @@ claude plugin validate plugins/forge
 python3 ~/.codex/skills/.system/plugin-creator/scripts/validate_plugin.py plugins/forge
 ```
 
-If a component changes behavior, add or update an eval. If the change only updates docs,
-catalogs, or install surfaces, the structural checks and markdown lint are usually enough.
+The gate also requires Claude, Codex, and marketplace version parity; executable and
+compilable nested skill scripts; and `.agents` installation that preserves references and
+scripts. If a component changes behavior, add or update an eval. Executable engines need
+subprocess tests for their failure and recovery paths.
 
 ## What Forge Should Not Copy
 

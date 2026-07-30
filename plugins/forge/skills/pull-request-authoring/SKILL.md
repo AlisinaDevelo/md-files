@@ -57,6 +57,17 @@ better. Don't make them reverse-engineer the goal from the code.
 - Respond to feedback by fixing or discussing — don't relitigate settled decisions.
 - Keep the branch up to date but don't force-push over in-progress review threads.
 
+## Stacked pull requests
+
+When a feature cannot stay reviewable as one PR, use the `stacked-changes` skill. Each PR
+must target its immediate parent, represent one independently understandable step, and
+include stack position/navigation. Review and land from the trunk-adjacent PR upward.
+
+Do not calculate a stacked PR against trunk: that repeats every downstack change and
+misstates ownership. Use `<parent>...HEAD`. After changing a lower branch, restack and
+reverify every affected incremental diff. Rewriting a pushed stack requires explicit
+ownership, recovery refs, and `--force-with-lease`.
+
 ## Anti-patterns
 
 A 2,000-line PR titled "updates." Mixing a dependency bump with a feature. A description

@@ -23,13 +23,16 @@ Run the conductor loop:
    dependencies, and a routed **agent + model tier** (per `MODEL-ROUTING.md`:
    Opus/Fable for design & hard reasoning, Sonnet for implementation/tests/docs, Haiku for
    mechanical/parallel work). Write a `.forge/tasks/README.md` status board.
-3. **Solve the ledger** with the iterate-to-done loop: dispatch each `ready` task to its
+3. **Choose review topology.** If the change has several dependent, independently
+   reviewable slices, use `stacked-changes` and create `.forge/stack.json`. Task
+   dependencies and branch ancestry remain separate.
+4. **Solve the ledger** with the iterate-to-done loop: dispatch each `ready` task to its
    specialist **with an explicit `model` override**, running independent tasks in parallel in
    a single turn. Brief each subagent like a colleague who just walked in — goal, what's
    ruled out, exact files/acceptance criteria — never delegate understanding.
-4. **Verify against acceptance criteria** before marking a task `done` — confirm the real
+5. **Verify against acceptance criteria** before marking a task `done` — confirm the real
    diff/tests/output, not the subagent's summary. Keep the pieces coherent.
-5. **Iterate** until the ledger is drained or genuinely blocked; then report the outcome
+6. **Iterate** until the ledger is drained or genuinely blocked; then report the outcome
    mapped back to the definition of done, with the evidence.
 
 Keep the ledger the single source of truth and update it as you go. If the goal is small

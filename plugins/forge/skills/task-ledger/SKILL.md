@@ -49,6 +49,10 @@ to its assigned specialist at its model tier, moves it through the lifecycle, an
 acceptance criteria before `done`. The `iterate-to-done` skill covers the loop that drains
 the ledger and its stop conditions.
 
+For stacked delivery, a task may record an optional `change` id that points to a branch in
+`.forge/stack.json`. This is traceability only: `depends_on` controls task readiness;
+stack `parent` controls Git/PR ancestry. Never infer one graph from the other.
+
 ## Discipline
 
 - **One source of truth.** The ledger reflects reality — update status as work happens, don't

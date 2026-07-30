@@ -6,6 +6,45 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [3.0.0] — 2026-07-31
+
+### Added
+
+- **GitHub-native stacked delivery** — the `stacked-changes` skill defaults to GitHub's
+  first-party `gh stack`, released July 2026, with explicit adapters for vanilla
+  Git/GitHub CLI, Graphite, Aviator, Sapling, and classic ghstack.
+- **Portable stack engine** — an auditable standard-library CLI with a versioned
+  `.forge/stack.json` manifest, provider selection, graph validation, real Git ancestry
+  inspection, incremental commit/file counts, PR linking/body navigation, and safe
+  submit/restack/land plans that never mutate by default.
+- **`/stack` and `/stack-review`** — author/conductor and bottom-up reviewer workflows for
+  planning, checking, submitting, restacking, repairing, reviewing, and landing stacks.
+- **Stacked Delivery bundle and workflow** — machine-readable and human-readable routing
+  from orchestration through incremental review and protected landing.
+- **Industry research and recovery guide** — current GitHub/Graphite/Aviator/Sapling/
+  ghstack comparison, CI/merge-queue guidance, signed-commit behavior, partial-push
+  handling, rejected-lease recovery, and provider-specific failure modes.
+- **Behavior contracts** — deterministic evals now enforce safety and review invariants for
+  high-risk skills, commands, and scripts.
+- **Stack workflow tests** — 20 new tests cover manifests, invalid graphs, Git ancestry,
+  adapters, plan safety, PR navigation, CLI behavior, and force-with-lease guard behavior.
+
+### Changed
+
+- Orchestration now chooses both a delivery task graph and, when useful, a separate review
+  stack graph.
+- `/pr` resolves the immediate stack parent and includes committed changes using a
+  parent-to-HEAD diff.
+- Git workflow guidance permits documented rebasing of explicitly owned stack branches
+  only with recovery refs, post-state verification, and `--force-with-lease`.
+- `.agents` installation now preserves complete nested skill directories, including
+  references and executable scripts.
+- Catalog validation is genuinely read-only in `--check` mode; release validation now
+  enforces manifest version parity, Codex marketplace resolution, and skill-script health.
+- GitHub Actions CI now supports `merge_group` checks for Merge Queue.
+- Forge now ships 20 agents, 23 skills, 20 Claude slash commands, and 63 `.agents`
+  surfaces, backed by 304 deterministic eval checks and 74 tests.
+
 ## [2.1.0] — 2026-07-08
 
 ### Added
@@ -159,7 +198,8 @@ plugin under `plugins/forge/`.
 - **Docs** — getting started, usage patterns, architecture, design rationale, and CI &
   headless usage guides.
 
-[Unreleased]: https://github.com/AlisinaDevelo/md-files/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/AlisinaDevelo/md-files/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.0.0
 [2.1.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v2.1.0
 [2.0.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v2.0.0
 [1.0.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v1.0.0

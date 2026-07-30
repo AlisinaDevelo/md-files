@@ -38,6 +38,8 @@ Create `plugins/forge/skills/<name>/SKILL.md`. The `description` must be situati
 ("Use when…"). Keep `SKILL.md` lean; push exhaustive references (checklists, catalogs)
 into sibling files and point to them by name (progressive disclosure — see
 `plugins/forge/skills/code-review-rubric/` and `plugins/forge/skills/refactoring-catalog/`).
+Nested references and scripts are supported by Claude, Codex, and `.agents` installs.
+Make skill scripts executable and add subprocess tests for mutating or stateful behavior.
 
 ## Adding a command
 
@@ -68,7 +70,9 @@ Test it by piping a sample payload (see the examples in the PR that added the gu
 ## Local checks
 
 ```bash
-./scripts/validate.sh                      # frontmatter, JSON, hook scripts
+./scripts/validate.sh                      # structure, manifests, scripts, catalog
+python3 evals/run.py                       # prompt checks + behavior contracts
+python3 -m pytest tests/ -q                # hook + deterministic engine tests
 npx markdownlint-cli2 "**/*.md"            # markdown lint
 shellcheck plugins/forge/hooks/scripts/*.sh scripts/*.sh # shell lint (if installed)
 ```

@@ -66,6 +66,9 @@ commands, or instruction snippets you want into your own `~/.claude/` or project
 - Ask for "Forge orchestration" on a large goal — `/orchestrate` plans at Opus/Fable,
   writes a task ledger, routes tasks by agent/model, and drains the ledger with
   `/solve-loop`.
+- Run `/stack status` in a large feature — Forge chooses GitHub native or another explicit
+  provider, checks every parent edge, and plans reviewable dependent PRs without mutating
+  Git or GitHub by default.
 - Make an edit that includes a fake AWS key — watch the secret-scanner hook block it.
 - Ask Claude to "debug" a failing test — the root-cause method kicks in.
 
@@ -108,3 +111,5 @@ URLs in the README to point at your fork. The components themselves need no chan
 See [usage-patterns.md](usage-patterns.md) for how the pieces combine in real workflows.
 See [bundles-and-workflows.md](bundles-and-workflows.md) and [CATALOG.md](../CATALOG.md)
 when choosing a focused Forge route.
+See [stacked-changes.md](stacked-changes.md) for the current GitHub-native stack workflow,
+provider comparison, safety model, and CI guidance.

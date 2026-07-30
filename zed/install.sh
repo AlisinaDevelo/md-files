@@ -39,29 +39,26 @@ run() {
 }
 
 install_skill() {
-  local src="$1"
+  local src="${1%/}"
   local name
   name="$(basename "$src")"
   local dest="$SKILLS_DEST/$name"
 
-  if [ -d "$dest" ] && ! $USE_COPY; then
-    log "↻  $name (already linked — skipping)"
-    return
-  fi
-
   run mkdir -p "$dest"
-  for f in "$src"/*.md; do
-    [ -f "$f" ] || continue
-    local fname
-    fname="$(basename "$f")"
+  while IFS= read -r -d '' f; do
+    local relative
+    local target
+    relative="${f:${#src}+1}"
+    target="$dest/$relative"
+    run mkdir -p "$(dirname "$target")"
     if $USE_COPY; then
-      run cp "$f" "$dest/$fname"
-      log "✓  $name/$fname (copied)"
+      run cp "$f" "$target"
+      log "✓  $name/$relative (copied)"
     else
-      run ln -sf "$f" "$dest/$fname"
-      log "✓  $name/$fname (linked)"
+      run ln -sf "$f" "$target"
+      log "✓  $name/$relative (linked)"
     fi
-  done
+  done < <(find "$src" -type f -print0)
 }
 
 install_zed_skill() {

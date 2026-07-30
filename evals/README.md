@@ -24,6 +24,9 @@ that make an LLM artifact actually fire and actually help:
   commands that take `$ARGUMENTS` declare an `argument-hint`; commands that inject shell
   with `` !`…` `` declare `allowed-tools`.
 - **Structure** — every system prompt has the headed sections a model can follow.
+- **Behavior contracts** — high-risk skills, commands, and scripts must contain specific
+  safety/review invariants and exclude known-dangerous patterns. These deterministic cases
+  cover workflows that the LLM judge does not execute in CI.
 
 This is deterministic, needs no API key, and runs on every push — so the toolkit can't
 regress into vague descriptions or over-privileged agents without CI catching it.
@@ -59,6 +62,12 @@ Append one JSON object per line to `cases.jsonl`:
 
 Write criteria the way the `threat-modeling`/`code-review-rubric` skills advise rubrics —
 specific and independently checkable ("flags the SQL injection", not "is a good review").
+
+For a deterministic contract:
+
+```json
+{"id": "safe-command", "type": "contract", "target": "command:stack", "must_include": ["explicit approval"], "must_not_include": ["git push --force origin"]}
+```
 
 ## Why this matters
 

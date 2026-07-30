@@ -31,6 +31,18 @@ For large, ambiguous, multi-step work.
 - `iterate-to-done`
 - `/solve-loop`
 
+### Stacked Delivery
+
+For large features that should be reviewed as dependent, incremental changes.
+
+- `stacked-changes`
+- `/stack`
+- `/stack-review`
+- `pull-request-authoring`
+- `git-workflow`
+- `/pr`
+- `/review`
+
 ### Production Hardening
 
 For risk reduction before shipping.
@@ -84,6 +96,21 @@ For user-facing product work.
 4. `/changelog` — summarize user-facing changes.
 5. `/review` and `/security-scan` — final release gate.
 6. Tag or publish only after the checks pass.
+
+### Ship a Stacked Feature
+
+1. `/orchestrate <goal>` — plan tasks and decide whether the review graph should be a
+   stack.
+2. `/stack init` — choose GitHub native, vanilla, Graphite, Aviator, Sapling, or classic
+   ghstack and define the ultimate base.
+3. Add bottom-up branches where every layer is independently understandable and testable.
+4. `/stack check` then `/stack submit` — validate local ancestry and inspect the
+   provider-native submission plan before changing GitHub.
+5. `/stack-review` — review each layer against its immediate parent, bottom-up.
+6. Address feedback on the owning layer, restack descendants, and verify post-command
+   remote state.
+7. `/stack land` — respect protection and queue policy; land atomically with native GitHub
+   stacks or parent-first with the selected provider.
 
 ### Harden a Production App
 

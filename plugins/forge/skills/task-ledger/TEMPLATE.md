@@ -11,6 +11,7 @@ status: ready            # backlog | ready | in-progress | review | done | block
 agent: frontend-specialist
 model: sonnet            # haiku | sonnet | opus | fable
 depends_on: [0006]       # ids that must be done first ([] if none)
+change: null             # optional stack branch/change id; not dependency state
 ---
 
 ## Goal

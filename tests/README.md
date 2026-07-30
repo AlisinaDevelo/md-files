@@ -1,8 +1,8 @@
 # Tests
 
-Behavioral tests for the Forge safety hooks. They invoke each hook script as a real
-subprocess, feed it a Claude Code hook payload on stdin, and assert on the exit code —
-the same contract Claude Code uses (exit `2` blocks a tool call, `0` allows it).
+Behavioral tests for Forge's safety hooks and deterministic stack engine. Hook tests invoke
+each script as a real Claude Code subprocess; stack tests create real temporary Git
+repositories and verify manifests, ancestry, plans, adapters, and CLI exit behavior.
 
 ```bash
 just test          # or:
@@ -21,6 +21,10 @@ pytest tests/ -v
   payload extraction, non-write tools ignored, fail-open on garbage.
 - **`format-file.sh` / `notify.sh`** — must always exit `0` (best-effort, non-blocking),
   including when the file path is missing.
+- **`forge-stack.py`** — accepts valid ordered stacks; rejects unknown parents, duplicates,
+  self-parenting, missing/diverged branches, and empty ranges; verifies provider-native and
+  vanilla plans remain plan-only and use force-with-lease; renders stack navigation; and
+  exercises init/add/status/check as real CLI subprocesses.
 
 The two guard hooks are safety-critical, so the suite emphasizes both **true positives**
 (catching the dangerous thing) and **true negatives** (not crying wolf) — a guard that

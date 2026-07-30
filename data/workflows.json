@@ -12,6 +12,11 @@
       "steps": ["/orchestrate", "/tasks list", "/solve-loop", "/changelog", "/review", "/security-scan", "tag or publish"]
     },
     {
+      "id": "stacked-feature",
+      "name": "Ship a Stacked Feature",
+      "steps": ["/stack init", "add independent layers", "/stack check", "/stack submit", "/stack-review", "restack after feedback", "/stack land"]
+    },
+    {
       "id": "production-hardening",
       "name": "Harden a Production App",
       "steps": ["threat-modeling", "/security-scan", "dependency-auditor", "/optimize", "observability", "sre"]

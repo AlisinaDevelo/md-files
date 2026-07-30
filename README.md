@@ -10,10 +10,10 @@ maximize the efficacy of LLMs in software engineering.**
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-d97757.svg)](https://docs.claude.com/en/docs/claude-code)
 [![Agents](https://img.shields.io/badge/agents-20-8b5cf6.svg)](plugins/forge/agents/)
-[![Skills](https://img.shields.io/badge/skills-22-06b6d4.svg)](plugins/forge/skills/)
-[![Commands](https://img.shields.io/badge/commands-18-22c55e.svg)](plugins/forge/commands/)
-[![Hook tests](https://img.shields.io/badge/hook%20tests-54%20passing-success.svg)](tests/)
-[![Prompt evals](https://img.shields.io/badge/prompt%20evals-265%20checks-success.svg)](evals/)
+[![Skills](https://img.shields.io/badge/skills-23-06b6d4.svg)](plugins/forge/skills/)
+[![Commands](https://img.shields.io/badge/commands-20-22c55e.svg)](plugins/forge/commands/)
+[![Tests](https://img.shields.io/badge/tests-74%20passing-success.svg)](tests/)
+[![Prompt evals](https://img.shields.io/badge/prompt%20evals-304%20checks-success.svg)](evals/)
 
 </div>
 
@@ -55,20 +55,23 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   reviewer, a debugger that finds root causes, an auditor that traces taint to sinks.
 - **Orchestration for big work.** Plan at Opus/Fable, decompose into a task ledger, route
   implementation to Sonnet, fan out mechanical work to Haiku, and iterate to verified done.
+- **Stacked delivery, now native.** Design and verify dependent PRs with a portable stack
+  manifest, default to GitHub's first-party `gh stack`, or adapt the same safety protocol
+  to vanilla GitHub, Graphite, Aviator, Sapling, and classic ghstack.
 - **Discoverability without bloat.** `/forge`, [CATALOG.md](CATALOG.md), bundles, and
   workflows route work to the smallest useful capability instead of dumping every skill
   into context.
-- **Methodology on tap.** Twenty-two skills inject battle-tested practices — TDD,
+- **Methodology on tap.** Twenty-three skills inject battle-tested practices — TDD,
   root-cause debugging, threat modeling, safe migrations, orchestration, catalogs, task
   ledgers, and solve loops — exactly when the situation calls for them.
-- **One-keystroke workflows.** Eighteen slash commands wrap the everyday loop: forge,
-  review, test, debug, plan, commit, PR, orchestrate, tasks, solve-loop.
+- **One-keystroke workflows.** Twenty slash commands wrap the everyday loop: forge,
+  review, test, debug, plan, commit, PR, orchestrate, tasks, solve-loop, stack, stack-review.
 - **Safety by default.** Lifecycle hooks block catastrophic commands and secret leaks,
   auto-format edits, inject repo context at session start, and notify you on completion —
   deterministically, without relying on the model to remember.
-- **Proven, not asserted.** A real eval harness scores every prompt (265 static checks +
-  an opt-in LLM-judge behavioral eval) and a 54-test suite covers the safety hooks. Run
-  them yourself — `just check`. This is the [evidence layer](evals/), not a README claim.
+- **Proven, not asserted.** A real eval harness scores prompts and high-risk behavior
+  contracts (304 deterministic checks + an opt-in LLM judge); 74 tests cover safety hooks
+  and the stack engine. Run them yourself — `just check`.
 - **Auditable & self-validating.** Read every prompt and script. CI validates structure,
   runs the tests, and scores the evals on every push.
 
@@ -165,6 +168,7 @@ files loaded only when needed.
 | [`orchestration`](plugins/forge/skills/orchestration/) | Multi-model planning, delegation, integration, and verification |
 | [`task-ledger`](plugins/forge/skills/task-ledger/) | Jira/GitHub-issue-like local tasks with status, deps, agent, and model |
 | [`iterate-to-done`](plugins/forge/skills/iterate-to-done/) | Solve-loop discipline for draining a ledger until done or blocked |
+| [`stacked-changes`](plugins/forge/skills/stacked-changes/) | GitHub-native and vendor-neutral stacked PR design, review, restack, recovery, and landing |
 
 ### Commands
 
@@ -190,6 +194,8 @@ User-triggered prompt templates with argument and shell injection.
 | `/orchestrate` | Plan a big goal, create a task ledger, route work by agent/model, and drive it to done |
 | `/tasks` | Create, list, update, or GitHub-sync the task ledger |
 | `/solve-loop` | Drain ready ledger tasks with verify-before-done discipline |
+| `/stack` | Plan, inspect, submit, restack, repair, or land dependent pull requests |
+| `/stack-review` | Review every stack layer bottom-up against its immediate parent |
 
 ### Hooks
 
@@ -222,10 +228,10 @@ Deterministic guardrails the harness runs on lifecycle events — no model memor
 
 ### Evidence — evals & tests
 
-- [`evals/`](evals/) — the proof the prompts work: 265 static prompt-quality checks (free,
-  in CI) plus an opt-in LLM-judge behavioral eval that scores agents against real tasks.
-- [`tests/`](tests/) — a 54-test pytest suite covering the safety hooks (blocks the
-  dangerous, allows the safe, fails open on garbage). `just check` runs it all.
+- [`evals/`](evals/) — 304 deterministic prompt-quality and behavior-contract checks (free,
+  in CI) plus an opt-in LLM-judge eval that scores agents against real tasks.
+- [`tests/`](tests/) — 74 pytest cases covering safety hooks and the stack engine's
+  manifests, ancestry, plans, adapters, and CLI. `just check` runs it all.
 
 ## How the pieces fit
 
@@ -235,6 +241,10 @@ flowchart LR
   ledger --> route["route by agent + model\nOpus/Fable · Sonnet · Haiku"]
   route --> loop["solve loop\n/solve-loop"]
   loop --> done["verified done"]
+  ledger --> topology{"one PR or stack?"}
+  topology --> stack["stack graph\n/stack"]
+  stack --> stackreview["incremental review\n/stack-review"]
+  stackreview --> done
 
   plan["plan\narchitect / /plan"] --> impl[implement]
   impl --> review["review\ncode-reviewer / /review"]
@@ -264,8 +274,8 @@ plugins/forge/         the Forge plugin
   .claude-plugin/        plugin manifest
   .codex-plugin/         Codex plugin manifest
   agents/                20 specialist subagents
-  skills/                22 progressive-disclosure skills
-  commands/              18 slash commands
+  skills/                23 progressive-disclosure skills
+  commands/              20 slash commands
   hooks/                 5 lifecycle hooks (session-context, guard, secrets, format, notify)
   output-styles/         selectable system-prompt modes
 instructions/          CLAUDE.md templates, principles, language guides
@@ -273,7 +283,7 @@ mcp/                   example MCP server configs
 statusline/            status line script
 settings/              example settings.json
 evals/                 prompt eval harness + cases (evidence)
-tests/                 runnable hook tests
+tests/                 runnable hook and stack-engine tests
 docs/                  getting started, usage, architecture, rationale, CI
 scripts/               validate.sh, install.sh
 .github/               CI, issue/PR templates, CODEOWNERS, dependabot
@@ -286,6 +296,8 @@ scripts/               validate.sh, install.sh
 - [Bundles & workflows](docs/bundles-and-workflows.md) — focused capability sets and ordered playbooks
 - [Quality bar](docs/quality-bar.md) — validation and safety standards for Forge components
 - [Competitive audit](docs/competitive-audit.md) — what Forge borrows from larger skill libraries
+- [Stacked changes](docs/stacked-changes.md) — GitHub-native stacks, provider adapters,
+  safety model, review flow, CI, and recovery
 - [Architecture](docs/architecture.md) — how the repo is organized and why
 - [Design rationale](docs/design-rationale.md) — the decisions and trade-offs behind Forge
 - [CI & headless usage](docs/ci-and-headless.md) — run Forge in pipelines and automated review

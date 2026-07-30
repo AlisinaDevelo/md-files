@@ -23,7 +23,7 @@ def git(*args: str) -> str:
             ["git", *args], capture_output=True, text=True, timeout=5, check=False
         )
         return out.stdout.strip() if out.returncode == 0 else ""
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         return ""
 
 
@@ -31,7 +31,7 @@ def main() -> int:
     # Consume stdin payload (unused, but drain it so the pipe closes cleanly).
     try:
         sys.stdin.read()
-    except Exception:
+    except OSError:
         pass
 
     if git("rev-parse", "--is-inside-work-tree") != "true":

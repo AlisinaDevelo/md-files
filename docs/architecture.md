@@ -15,6 +15,7 @@ md-files/                       # the marketplace repository
 │       │   └── plugin.json     # plugin manifest (metadata; components auto-discovered)
 │       ├── agents/             # subagent definitions (one .md per agent)
 │       ├── skills/             # skills (one dir per skill, with SKILL.md + refs)
+│       │   └── stacked-changes/# portable manifest + deterministic stack engine
 │       ├── commands/           # slash commands (one .md per command)
 │       └── hooks/
 │           ├── hooks.json      # hook registrations (events → matchers → scripts)
@@ -73,6 +74,7 @@ flowchart TD
   hooks --> cc
   styles --> cc
   evidence["evals/ + tests/"] -. validates .-> plugin
+  stack["stack engine\nmanifest · inspect · plans"] --> skills
 ```
 
 ### A hook intercepting a tool call

@@ -8,13 +8,14 @@ Draft a pull request description for the current branch.
 
 Use any text the user typed after the command as a base branch name or additional context for the PR.
 
-Start by running:
+Resolve the base from an explicit argument, the current branch's parent in
+`.forge/stack.json`, the branch's `gh-merge-base`, or the repository default. Then run:
 
 - `git branch --show-current` to get the current branch
-- `git log --oneline @{u}.. 2>/dev/null || git log --oneline -15` to see commits on this branch
-- `git diff --stat HEAD` to see the diff summary
+- `git log --oneline <base>..HEAD` to see commits in this PR
+- `git diff --stat <base>...HEAD` to see all committed changes in this PR
 
-If the user specified a base branch, use it for the log comparison.
+For a stacked PR, use its immediate parent as the base and include stack navigation.
 
 Produce a description with these sections:
 

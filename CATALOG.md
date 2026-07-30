@@ -8,9 +8,9 @@ Generated from the Forge plugin source. Do not hand-edit component rows; run
 | Kind | Count |
 |------|------:|
 | agents | 20 |
-| skills | 22 |
-| commands | 18 |
-| total | 60 |
+| skills | 23 |
+| commands | 20 |
+| total | 63 |
 
 ## Components
 
@@ -54,6 +54,7 @@ Generated from the Forge plugin source. Do not hand-edit component rows; run
 | `refactoring-catalog` | skill | safe | - | [plugins/forge/skills/refactoring-catalog/SKILL.md](plugins/forge/skills/refactoring-catalog/SKILL.md) | Use when improving the structure of existing code without changing behavior — identifying code smells and applying the right named refactoring safely. Covers the discipline of behavior-preserving change; see CATALOG.md for the smell→fix reference. |
 | `root-cause-debugging` | skill | safe | - | [plugins/forge/skills/root-cause-debugging/SKILL.md](plugins/forge/skills/root-cause-debugging/SKILL.md) | Use when diagnosing a bug, failing test, crash, or wrong output. A disciplined, hypothesis-driven method for finding the true root cause from evidence instead of guessing or masking symptoms. Use before writing any fix. |
 | `safe-database-migrations` | skill | safe | - | [plugins/forge/skills/safe-database-migrations/SKILL.md](plugins/forge/skills/safe-database-migrations/SKILL.md) | Use when writing or reviewing a database schema migration, especially on a live system. Covers the expand/contract pattern for zero-downtime changes, avoiding long locks, safe backfills, and always having a rollback path. |
+| `stacked-changes` | skill | safe | - | [plugins/forge/skills/stacked-changes/SKILL.md](plugins/forge/skills/stacked-changes/SKILL.md) | Use when a feature is too large for one reviewable pull request; when creating, restacking, reviewing, repairing, or landing dependent GitHub pull requests; or when choosing between vanilla git/gh, Graphite, and Sapling for a stacked-change workflow. |
 | `task-ledger` | skill | safe | - | [plugins/forge/skills/task-ledger/SKILL.md](plugins/forge/skills/task-ledger/SKILL.md) | Use when turning a plan into trackable tasks and working them to done — a lightweight issue tracker for an orchestrated run. Covers the task format (acceptance criteria, status, dependencies, assigned agent + model) and three backends: local markdown files (default), GitHub issues via gh, or Jira/Linear via MCP. See TEMPLATE.md for the issue format. |
 | `technical-writing` | skill | safe | - | [plugins/forge/skills/technical-writing/SKILL.md](plugins/forge/skills/technical-writing/SKILL.md) | Use when writing developer-facing documentation — READMEs, API references, architecture docs, ADRs, runbooks, and docstrings. Covers structure by document type, writing for the reader's task, and keeping docs accurate against the code. |
 | `test-driven-development` | skill | safe | - | [plugins/forge/skills/test-driven-development/SKILL.md](plugins/forge/skills/test-driven-development/SKILL.md) | Use when implementing a feature or fixing a bug test-first: write a failing test, make it pass with the minimum code, then refactor. Covers the red-green-refactor loop, what is worth testing, and the common pitfalls that make TDD backfire. |
@@ -67,12 +68,14 @@ Generated from the Forge plugin source. Do not hand-edit component rows; run
 | `/optimize` | command | safe | sonnet | [plugins/forge/commands/optimize.md](plugins/forge/commands/optimize.md) | Diagnose and fix a performance problem, measuring before and after |
 | `/orchestrate` | command | critical | opus | [plugins/forge/commands/orchestrate.md](plugins/forge/commands/orchestrate.md) | Plan a big goal at a high tier, decompose into a task ledger, and solve it by delegating each task to the right specialist and model |
 | `/plan` | command | safe | opus | [plugins/forge/commands/plan.md](plugins/forge/commands/plan.md) | Produce a step-by-step implementation plan before writing code |
-| `/pr` | command | critical | sonnet | [plugins/forge/commands/pr.md](plugins/forge/commands/pr.md) | Draft a pull request description from the branch's commits and diff |
+| `/pr` | command | critical | sonnet | [plugins/forge/commands/pr.md](plugins/forge/commands/pr.md) | Draft a pull request description from the branch's commits and incremental diff |
 | `/refactor` | command | critical | sonnet | [plugins/forge/commands/refactor.md](plugins/forge/commands/refactor.md) | Refactor code to improve structure while preserving behavior exactly |
 | `/review` | command | security-sensitive | sonnet | [plugins/forge/commands/review.md](plugins/forge/commands/review.md) | Review the current diff for correctness, security, and maintainability |
 | `/scaffold` | command | critical | sonnet | [plugins/forge/commands/scaffold.md](plugins/forge/commands/scaffold.md) | Scaffold a new module/component matching the repo's existing conventions |
 | `/security-scan` | command | security-sensitive | sonnet | [plugins/forge/commands/security-scan.md](plugins/forge/commands/security-scan.md) | Defensive security review of the current diff or a target path |
 | `/solve-loop` | command | critical | opus | [plugins/forge/commands/solve-loop.md](plugins/forge/commands/solve-loop.md) | Drain the current task ledger by repeatedly dispatching ready tasks, verifying results, and updating task status |
+| `/stack-review` | command | critical | opus | [plugins/forge/commands/stack-review.md](plugins/forge/commands/stack-review.md) | Review a stacked pull request series bottom-up against each immediate parent |
+| `/stack` | command | critical | opus | [plugins/forge/commands/stack.md](plugins/forge/commands/stack.md) | Plan, inspect, submit, restack, repair, or land a stack of dependent pull requests |
 | `/tasks` | command | critical | sonnet | [plugins/forge/commands/tasks.md](plugins/forge/commands/tasks.md) | Create, list, or update the task ledger (local files, or GitHub issues via gh) |
 | `/test` | command | safe | sonnet | [plugins/forge/commands/test.md](plugins/forge/commands/test.md) | Write or extend tests for the given code, matching the repo's harness |
 | `/tidy` | command | critical | sonnet | [plugins/forge/commands/tidy.md](plugins/forge/commands/tidy.md) | Clean up the current diff — remove cruft and simplify, without changing behavior |

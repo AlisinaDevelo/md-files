@@ -17,13 +17,17 @@ keep history readable and keep you out of the irreversible corners.
   branches drift and conflict.
 - Rebase your *own* unpushed branch onto the updated base to keep a linear history before
   opening a PR: `git fetch && git rebase origin/main`.
+- For an explicitly owned stacked-PR branch, rebasing after publication can be part of the
+  documented workflow. Fetch first, save recovery refs, inspect active review, restack
+  descendants bottom-up, and push only with `--force-with-lease`. Use the
+  `stacked-changes` skill for the full protocol.
 
 ## Rebase vs. merge — the one rule that matters
 
-- **Rebase to clean up history that only you have.** Never rebase commits you've already
-  pushed and others may have based work on — it rewrites hashes and forces everyone else
-  to recover. "Don't rebase shared/public branches" is the rule; private branch cleanup
-  is fine.
+- **Rebase private history or explicitly owned stack branches.** Never rewrite a branch
+  others may have based work on unless that repository's stack workflow establishes
+  ownership and recovery. A pushed stack is not automatically shared, but ownership must
+  be known and `--force-with-lease` is mandatory.
 - **Merge to integrate shared branches.** A merge commit is honest about when integration
   happened and is safe for history others already have.
 
@@ -64,5 +68,6 @@ Automate it with `git bisect run <test-command>` when the test is scriptable.
 ## Don't
 
 Force-push to `main`/`master`/`shared` branches. Rewrite pushed history others build on.
-`git reset --hard` with uncommitted changes you care about. `git clean -fd` without
-checking what it'll delete first (`git clean -nd` previews).
+Bypass a rejected `--force-with-lease` with `--force`. `git reset --hard` with uncommitted
+changes you care about. `git clean -fd` without checking what it'll delete first
+(`git clean -nd` previews).

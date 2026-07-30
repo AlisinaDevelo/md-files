@@ -138,11 +138,52 @@ def check_commands(r: Report) -> None:
             r.check("allowed-tools" in fm, f"{name}: declares allowed-tools for its bash injection")
 
 
+def contract_target(target: str) -> Path:
+    kind, _, name = target.partition(":")
+    if kind == "skill":
+        return SKILLS / name / "SKILL.md"
+    if kind == "command":
+        return COMMANDS / f"{name}.md"
+    if kind == "agent":
+        return AGENTS / f"{name}.md"
+    if kind == "file":
+        return REPO / name
+    raise ValueError(f"unknown contract target kind: {kind}")
+
+
+def check_contracts(r: Report) -> None:
+    """Deterministic behavior contracts for high-risk prompts and scripts."""
+    print("\nBehavior contracts")
+    cases_file = REPO / "evals" / "cases.jsonl"
+    cases = [json.loads(line) for line in cases_file.read_text().splitlines() if line.strip()]
+    for case in cases:
+        if case.get("type") != "contract":
+            continue
+        case_id = case["id"]
+        path = contract_target(case["target"])
+        r.check(path.is_file(), f"{case_id}: target exists")
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        lowered = text.lower()
+        for required in case.get("must_include", []):
+            r.check(
+                required.lower() in lowered,
+                f"{case_id}: includes {required!r}",
+            )
+        for forbidden in case.get("must_not_include", []):
+            r.check(
+                forbidden.lower() not in lowered,
+                f"{case_id}: excludes {forbidden!r}",
+            )
+
+
 def run_static() -> int:
     r = Report()
     check_agents(r)
     check_skills(r)
     check_commands(r)
+    check_contracts(r)
     total = r.passed + r.failed + r.warned
     print(f"\nStatic eval: {r.passed}/{total} passed, {r.warned} warnings, {r.failed} failures")
     if r.failed:

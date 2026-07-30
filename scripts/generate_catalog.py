@@ -74,15 +74,13 @@ def component_rows() -> list[dict[str, str]]:
     return rows
 
 
-def write_catalog(rows: list[dict[str, str]]) -> None:
-    data_dir = REPO / "data"
-    data_dir.mkdir(exist_ok=True)
+def render_catalog(rows: list[dict[str, str]]) -> tuple[str, str]:
     payload = {
         "version": 1,
         "total": len(rows),
         "components": rows,
     }
-    (data_dir / "catalog.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    json_text = json.dumps(payload, indent=2) + "\n"
 
     counts: dict[str, int] = {}
     for row in rows:
@@ -118,7 +116,7 @@ def write_catalog(rows: list[dict[str, str]]) -> None:
             f"[{row['path']}]({row['path']}) | {desc} |"
         )
     lines.append("")
-    (REPO / "CATALOG.md").write_text("\n".join(lines), encoding="utf-8")
+    return "\n".join(lines), json_text
 
 
 def main() -> int:
@@ -126,23 +124,29 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="fail if generated files are stale")
     args = parser.parse_args()
 
-    before = {}
-    for rel in ("CATALOG.md", "data/catalog.json"):
-        path = REPO / rel
-        before[rel] = path.read_text(encoding="utf-8") if path.exists() else None
-
     rows = component_rows()
-    write_catalog(rows)
+    catalog_text, json_text = render_catalog(rows)
+    rendered = {
+        "CATALOG.md": catalog_text,
+        "data/catalog.json": json_text,
+    }
 
     if args.check:
-        stale = []
-        for rel, old in before.items():
-            new = (REPO / rel).read_text(encoding="utf-8")
-            if old != new:
-                stale.append(rel)
+        stale = [
+            rel
+            for rel, expected in rendered.items()
+            if not (REPO / rel).is_file()
+            or (REPO / rel).read_text(encoding="utf-8") != expected
+        ]
         if stale:
             print("Catalog files were stale: " + ", ".join(stale), file=sys.stderr)
             return 1
+        print(f"Catalog is current for {len(rows)} Forge components.")
+        return 0
+
+    (REPO / "data").mkdir(exist_ok=True)
+    for rel, content in rendered.items():
+        (REPO / rel).write_text(content, encoding="utf-8")
     print(f"Generated catalog for {len(rows)} Forge components.")
     return 0
 

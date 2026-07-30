@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "total": 60,
+  "total": 63,
   "components": [
     {
       "id": "accessibility-auditor",
@@ -307,6 +307,14 @@
       "risk": "safe"
     },
     {
+      "id": "stacked-changes",
+      "kind": "skill",
+      "path": "plugins/forge/skills/stacked-changes/SKILL.md",
+      "description": "Use when a feature is too large for one reviewable pull request; when creating, restacking, reviewing, repairing, or landing dependent GitHub pull requests; or when choosing between vanilla git/gh, Graphite, and Sapling for a stacked-change workflow.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
       "id": "task-ledger",
       "kind": "skill",
       "path": "plugins/forge/skills/task-ledger/SKILL.md",
@@ -414,7 +422,7 @@
       "id": "pr",
       "kind": "command",
       "path": "plugins/forge/commands/pr.md",
-      "description": "Draft a pull request description from the branch's commits and diff",
+      "description": "Draft a pull request description from the branch's commits and incremental diff",
       "model": "sonnet",
       "risk": "critical"
     },
@@ -455,6 +463,22 @@
       "kind": "command",
       "path": "plugins/forge/commands/solve-loop.md",
       "description": "Drain the current task ledger by repeatedly dispatching ready tasks, verifying results, and updating task status",
+      "model": "opus",
+      "risk": "critical"
+    },
+    {
+      "id": "stack-review",
+      "kind": "command",
+      "path": "plugins/forge/commands/stack-review.md",
+      "description": "Review a stacked pull request series bottom-up against each immediate parent",
+      "model": "opus",
+      "risk": "critical"
+    },
+    {
+      "id": "stack",
+      "kind": "command",
+      "path": "plugins/forge/commands/stack.md",
+      "description": "Plan, inspect, submit, restack, repair, or land a stack of dependent pull requests",
       "model": "opus",
       "risk": "critical"
     },

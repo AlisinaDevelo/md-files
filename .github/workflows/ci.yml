@@ -3,6 +3,8 @@ name: CI
 on:
   push:
   pull_request:
+  merge_group:
+    types: [checks_requested]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -73,12 +75,12 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.x"
-      - name: Compile hook + eval scripts
-        run: python -m py_compile plugins/forge/hooks/scripts/*.py evals/run.py tests/test_hooks.py
+      - name: Compile hook, skill, eval, and test scripts
+        run: python -m py_compile plugins/forge/hooks/scripts/*.py plugins/forge/skills/*/scripts/*.py evals/run.py tests/*.py
       - name: Lint with ruff
         uses: astral-sh/ruff-action@v3
         with:
-          args: check plugins/forge/hooks/scripts evals tests
+          args: check plugins/forge/hooks/scripts plugins/forge/skills/stacked-changes/scripts scripts/generate_catalog.py evals tests
 
   plugin-manifest:
     name: Plugin manifest
@@ -88,7 +90,9 @@ jobs:
       - name: Validate plugin + marketplace JSON
         run: |
           jq empty plugins/forge/.claude-plugin/plugin.json && echo "plugin.json OK"
+          jq empty plugins/forge/.codex-plugin/plugin.json && echo "Codex plugin.json OK"
           jq empty .claude-plugin/marketplace.json && echo "marketplace.json OK"
+          jq empty .agents/plugins/marketplace.json && echo "Codex marketplace.json OK"
           jq -e '.name' plugins/forge/.claude-plugin/plugin.json > /dev/null \
             && echo "plugin.json has required name field"
           jq -e '.name and .owner and .plugins' .claude-plugin/marketplace.json > /dev/null \

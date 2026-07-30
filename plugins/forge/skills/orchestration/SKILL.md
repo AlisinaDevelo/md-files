@@ -31,18 +31,21 @@ it to Opus or Fable for hard planning), then delegate outward.
 2. **Decompose into a task ledger.** Break the goal into concrete, independently-verifiable
    tasks with explicit acceptance criteria and dependencies. Use the `task-ledger` skill for
    the format (local issue files, or `gh`/MCP-backed issues).
-3. **Route each task to a tier + specialist.** Assign per the `MODEL-ROUTING.md` policy:
+3. **Choose the review topology.** If the implementation is too large for one reviewable
+   PR and has a clean dependency order, design a stacked change with the `stacked-changes`
+   skill. Keep task dependencies in the ledger and branch ancestry in `.forge/stack.json`.
+4. **Route each task to a tier + specialist.** Assign per the `MODEL-ROUTING.md` policy:
    architecture/gnarly debugging → Opus/Fable; implementation, tests, docs → Sonnet;
    mechanical/parallel-cheap (renames, boilerplate, wide search) → Haiku. Match the task to
    the specialist agent (`test-engineer`, `refactoring-specialist`, `security-auditor`, …).
-4. **Dispatch — parallel where independent.** Spawn each ready task as a subagent with an
+5. **Dispatch — parallel where independent.** Spawn each ready task as a subagent with an
    explicit `model` override and a self-contained brief (see below). Independent tasks go in
    one turn so they run concurrently; dependent tasks wait for their blocker.
-5. **Integrate and verify against acceptance criteria.** A subagent's summary is its
+6. **Integrate and verify against acceptance criteria.** A subagent's summary is its
    *intent*, not proof — confirm each result against the actual diff/tests/output before
    marking the task done. Keep the pieces coherent (consistent conventions, interfaces line
    up).
-6. **Iterate to done.** Update the ledger, pick the next ready tasks, repeat until the
+7. **Iterate to done.** Update the ledger, pick the next ready tasks, repeat until the
    ledger is empty or genuinely blocked. See the `iterate-to-done` skill for the loop and
    stop conditions.
 

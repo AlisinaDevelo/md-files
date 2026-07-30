@@ -78,6 +78,28 @@ them, verifies real evidence against acceptance criteria, and updates status unt
 ledger is done or genuinely blocked. The ledger is the source of truth; a specialist
 summary is never enough to mark a task done.
 
+## Shipping as a stack
+
+When one orchestrated goal has several dependent but independently reviewable changes,
+keep the task ledger and review stack side by side:
+
+```mermaid
+flowchart LR
+  plan["/orchestrate"] --> ledger[".forge/tasks"]
+  plan --> graph[".forge/stack.json"]
+  ledger --> layers["implement verified layers"]
+  graph --> layers
+  layers --> inspect["/stack check"]
+  inspect --> submit["/stack submit"]
+  submit --> review["/stack-review"]
+  review --> land["/stack land"]
+```
+
+Use GitHub's first-party `gh stack` when available. Forge's stack engine remains the
+portable inspector and plan generator across GitHub native, vanilla, Graphite, Aviator,
+Sapling, and classic ghstack. Mutation is explicit; review always compares a layer to its
+immediate parent; post-command verification checks remote heads, PR bases, position, and CI.
+
 ## Always-on guardrails
 
 The hooks run automatically in the background:

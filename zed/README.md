@@ -8,9 +8,9 @@ the host agent actually supports.
 
 | Component | Count | Zed mechanism |
 |---|---|---|
-| Methodology skills | 22 | `~/.agents/skills/<name>/` |
+| Methodology skills | 23 | `~/.agents/skills/<name>/` |
 | Specialist agent skills | 20 | `~/.agents/skills/forge-<name>/` |
-| Slash command skills | 18 | `~/.agents/skills/forge-cmd-<name>/` with `disable-model-invocation: true` |
+| Slash command skills | 20 | `~/.agents/skills/forge-cmd-<name>/` with `disable-model-invocation: true` |
 | Agent profiles | 2 | `~/.config/zed/settings.json` → `agent.profiles` |
 | Global instructions | 1 | `~/.config/zed/AGENTS.md` |
 
@@ -31,7 +31,7 @@ Forge skills load automatically when the situation matches their description. Yo
 
 ### Slash commands
 
-Type `/forge-cmd-` in the agent panel to see all 18 commands. Examples:
+Type `/forge-cmd-` in the agent panel to see all 20 commands. Examples:
 
 - `/forge-cmd-forge` — choose the right Forge route
 - `/forge-cmd-review` — review the current diff
@@ -41,6 +41,8 @@ Type `/forge-cmd-` in the agent panel to see all 18 commands. Examples:
 - `/forge-cmd-orchestrate ship this feature` — plan, ledger, route, and solve
 - `/forge-cmd-tasks list` — inspect or update the task ledger
 - `/forge-cmd-solve-loop` — drain ready tasks until done or blocked
+- `/forge-cmd-stack` — inspect, submit, restack, repair, or land a PR stack
+- `/forge-cmd-stack-review` — review every layer against its immediate parent
 
 ### Profiles
 
@@ -65,10 +67,10 @@ Hook scripts are still available at `../plugins/forge/hooks/scripts/` for use as
 zed/
 ├── README.md               this file
 ├── install.sh              idempotent install script
-├── skills/                 all 52 SKILL.md files (symlink targets)
-│   ├── methodology/        22 methodology skills
+├── skills/                 63 installed skill surfaces
+│   ├── methodology/        23 methodology skills plus nested refs/scripts
 │   ├── agents/             20 specialist agent skills
-│   └── commands/           18 slash command skills
+│   └── commands/           20 slash command skills
 ├── settings/
 │   └── profiles.json       the two Forge profiles to merge into settings.json
 └── AGENTS.md               global instructions for ~/.config/zed/AGENTS.md

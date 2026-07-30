@@ -103,6 +103,8 @@ automatically when the situation matches, or you can request them by name:
 - `/forge-cmd-orchestrate` — plan, ledger, route, and drive a big goal to done
 - `/forge-cmd-tasks` — create, list, update, or GitHub-sync the task ledger
 - `/forge-cmd-solve-loop` — drain ready ledger tasks until done or blocked
+- `/forge-cmd-stack` — inspect, submit, restack, repair, or land a PR stack
+- `/forge-cmd-stack-review` — review each layer against its immediate parent
 
 **Methodology skills (automatically triggered):**
 
@@ -112,7 +114,7 @@ automatically when the situation matches, or you can request them by name:
   `performance-profiling`, `observability`, `technical-writing`,
   `git-workflow`, `error-handling`, `feature-flags`, `caching-strategies`,
   `concurrency-and-parallelism`, `prompt-engineering`, `forge-catalog`,
-  `orchestration`, `task-ledger`, `iterate-to-done`
+  `orchestration`, `task-ledger`, `iterate-to-done`, `stacked-changes`
 
 ---
 

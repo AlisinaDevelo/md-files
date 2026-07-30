@@ -44,7 +44,7 @@ COMPILED = [(re.compile(p), why) for p, why in RULES]
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
-    except Exception:
+    except (json.JSONDecodeError, OSError, TypeError):
         return 0  # fail open: never block on a malformed payload
 
     if payload.get("tool_name") != "Bash":

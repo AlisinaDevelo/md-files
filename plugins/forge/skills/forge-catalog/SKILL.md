@@ -24,6 +24,8 @@ capability for the user's goal, then hand off to that capability with a clear re
   `safe-database-migrations`, `threat-modeling`, etc.).
 - **Release/documentation workflow:** use `/changelog`, `/pr`, `/commit`, `/docs`, or the
   `technical-writing` / `pull-request-authoring` skills.
+- **Large reviewable change:** use `stacked-changes`, `/stack`, and `/stack-review` when
+  dependent slices should be reviewed and landed separately.
 - **Unclear request:** ask one short clarifying question only if the route changes the work.
 
 ## Bundle Shortcuts

@@ -51,7 +51,7 @@ def extract_text(payload: dict) -> str:
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
-    except Exception:
+    except (json.JSONDecodeError, OSError, TypeError):
         return 0
 
     text = extract_text(payload)

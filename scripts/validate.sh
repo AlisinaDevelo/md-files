@@ -85,6 +85,19 @@ while IFS= read -r -d '' s; do
   fi
 done < <(find "$PLUGIN/hooks/scripts" -type f -print0)
 
+# --- Skill scripts are executable + Python scripts compile ---
+printf '\nSkill scripts\n'
+while IFS= read -r -d '' s; do
+  if [[ -x "$s" ]]; then ok "$s (executable)"; else err "$s — not executable"; fi
+  if [[ "$s" == *.py ]]; then
+    if python3 -m py_compile "$s" 2>/dev/null; then
+      ok "$s (compiles)"
+    else
+      err "$s — syntax error"
+    fi
+  fi
+done < <(find "$PLUGIN/skills" -path "*/scripts/*" -type f -print0)
+
 # --- Marketplace source paths resolve to real plugin dirs ---
 printf '\nMarketplace sources\n'
 while IFS= read -r src; do
@@ -101,6 +114,41 @@ for p in m.get("plugins", []):
     s = p.get("source")
     print(s if isinstance(s, str) else "")
 ')
+
+# --- Claude/Codex/marketplace versions stay in lockstep ---
+printf '\nManifest version parity\n'
+if versions="$(python3 -c '
+import json
+paths = [
+    "plugins/forge/.claude-plugin/plugin.json",
+    "plugins/forge/.codex-plugin/plugin.json",
+    ".claude-plugin/marketplace.json",
+]
+claude = json.load(open(paths[0]))["version"]
+codex = json.load(open(paths[1]))["version"]
+market = json.load(open(paths[2]))
+versions = [claude, codex, market["metadata"]["version"], market["plugins"][0]["version"]]
+if len(set(versions)) != 1:
+    raise SystemExit("version mismatch: " + ", ".join(versions))
+print(claude)
+')"; then
+  ok "all manifests report $versions"
+else
+  err "Claude, Codex, and marketplace manifest versions differ"
+fi
+
+# --- Codex marketplace source resolves ---
+printf '\nCodex marketplace source\n'
+codex_source="$(python3 -c '
+import json
+p = json.load(open(".agents/plugins/marketplace.json"))["plugins"][0]["source"]
+print(p["path"])
+')"
+if [ -d "$codex_source" ] && [ -f "$codex_source/.codex-plugin/plugin.json" ]; then
+  ok "$codex_source (Codex plugin manifest present)"
+else
+  err "Codex marketplace source '$codex_source' has no plugin.json"
+fi
 
 # --- Generated catalog is up to date ---
 printf '\nGenerated catalog\n'

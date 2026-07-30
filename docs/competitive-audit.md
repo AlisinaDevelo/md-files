@@ -36,10 +36,31 @@ discipline.
 - **Security humility.** Defensive security skills must keep authorization and approval
   boundaries explicit.
 
+## July 2026 Update: Stacked Delivery
+
+The competitive target is no longer only skill catalogs. GitHub's first-party Stacked PRs,
+Graphite, Aviator, Sapling, and classic ghstack now expose different source-control and
+merge semantics.
+
+Forge 3.0 responds at the layer an agent toolkit can credibly own:
+
+- provider detection and one explicit mutation authority per stack
+- portable `.forge/stack.json` ancestry beside, not inside, the task ledger
+- GitHub native as the default, with vanilla, Graphite, Aviator, Sapling, and ghstack
+  adapters
+- plan-first operations with no hidden rebases, force pushes, PR edits, or merges
+- bottom-up incremental review plus post-command verification
+- recovery playbooks for conflicts, rejected leases, partial submission, and partial push
+- deterministic stack-engine tests and behavior contracts for the prompts
+
+This does not make Forge a replacement for Graphite's hosted review UI or Aviator's merge
+queue. It makes Forge a stronger cross-provider conductor: it knows which engine is in
+charge, applies a consistent safety policy, and verifies the real state afterward.
+
 ## Next Moves
 
-1. Add `scripts/generate_catalog.py --check` to CI.
-2. Add eval cases for `/forge`, `/orchestrate`, `/tasks`, and `/solve-loop`.
-3. Add a real GitHub issue sync backend for `.forge/tasks`.
-4. Add focused plugin bundles if Codex/Claude marketplace UX benefits from smaller packs.
-5. Build a hosted docs/catalog page only after the generated local catalog is stable.
+1. Add a real, idempotent GitHub issue sync backend for `.forge/tasks`.
+2. Import native GitHub Stack API state into `.forge/stack.json` without making two sources
+   of truth.
+3. Add focused plugin bundles if Codex/Claude marketplace UX benefits from smaller packs.
+4. Build a hosted docs/catalog page only after the generated local catalog is stable.

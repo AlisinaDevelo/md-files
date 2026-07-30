@@ -78,6 +78,26 @@ Keep CI permissions tight regardless: an allowlist of the read-only and test com
 job actually needs, and no broad write/network access. The hooks are a safety net, not a
 substitute for least-privilege.
 
+## Stacks and merge queues
+
+GitHub-native stacks expose `github.event.pull_request.stack`, including the ultimate
+base, stack position, and size. Use it to keep per-layer checks fast and reserve full
+integration checks for the top layer where appropriate.
+
+Required GitHub Actions checks for Merge Queue must listen to `merge_group` as well as
+`pull_request`:
+
+```yaml
+on:
+  pull_request:
+  merge_group:
+    types: [checks_requested]
+```
+
+In a headless stack workflow, verify remote heads, PR bases, native stack positions, and
+CI after every submit, sync, push, or merge. A successful process exit is not sufficient
+evidence that a multi-branch remote transition completed exactly as intended.
+
 ## Reproducibility
 
 Pin the model (`--model claude-sonnet-4-6` or similar) and the plugin version so a review
