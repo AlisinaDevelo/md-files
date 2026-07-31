@@ -6,6 +6,23 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [3.0.1] — 2026-07-31
+
+### Added
+
+- **Security and support policy** — documented private vulnerability reporting, support
+  channels, and the boundaries around host permissions and credential management.
+- **Host validation** — CI now validates every Agent Skill directory and both Claude and
+  Codex marketplace surfaces.
+- **OpenSSF Scorecard evidence** — protected CI produces SARIF security results for the
+  repository.
+
+### Changed
+
+- **Workflow trust boundary** — GitHub Actions use reviewed immutable commit SHAs,
+  least-privilege default permissions, and explicit elevated permissions only for
+  Scorecard publication.
+
 ## [3.0.0] — 2026-07-31
 
 ### Added
@@ -198,7 +215,8 @@ plugin under `plugins/forge/`.
 - **Docs** — getting started, usage patterns, architecture, design rationale, and CI &
   headless usage guides.
 
-[Unreleased]: https://github.com/AlisinaDevelo/md-files/compare/v3.0.0...HEAD
+[Unreleased]: https://github.com/AlisinaDevelo/md-files/compare/v3.0.1...HEAD
+[3.0.1]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.0.1
 [3.0.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.0.0
 [2.1.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v2.1.0
 [2.0.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v2.0.0
