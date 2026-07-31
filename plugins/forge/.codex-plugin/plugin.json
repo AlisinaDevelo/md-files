@@ -1,6 +1,6 @@
 {
   "name": "forge",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "A Codex engineering toolkit with orchestration, task ledgers, solve loops, catalogs, and GitHub-native stacked delivery.",
   "author": {
     "name": "Alisina Karimi",

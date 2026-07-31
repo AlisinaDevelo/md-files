@@ -6,6 +6,9 @@ on:
   merge_group:
     types: [checks_requested]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -15,8 +18,8 @@ jobs:
     name: Validate toolkit structure
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.x"
       - name: Validate frontmatter, JSON, and hook scripts
@@ -26,8 +29,8 @@ jobs:
     name: Markdown lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: DavidAnson/markdownlint-cli2-action@v23
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: DavidAnson/markdownlint-cli2-action@29e1992fd532969762382607bd9acb1a05aa4dc8 # v24
         with:
           globs: "**/*.md"
           config: .markdownlint.yaml
@@ -36,8 +39,8 @@ jobs:
     name: ShellCheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: ludeeus/action-shellcheck@master
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: ludeeus/action-shellcheck@00b27aa7cb85167568cb48a3838b75f4265f2bca # master
         with:
           scandir: .
           format: gcc
@@ -47,8 +50,8 @@ jobs:
     name: Hook tests (pytest)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.x"
       - name: Install pytest
@@ -60,8 +63,8 @@ jobs:
     name: Prompt-quality evals (static)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.x"
       - name: Run static prompt-quality eval
@@ -71,14 +74,14 @@ jobs:
     name: Hook scripts (ruff + compile)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.x"
       - name: Compile hook, skill, eval, and test scripts
         run: python -m py_compile plugins/forge/hooks/scripts/*.py plugins/forge/skills/*/scripts/*.py evals/run.py tests/*.py
       - name: Lint with ruff
-        uses: astral-sh/ruff-action@v3
+        uses: astral-sh/ruff-action@146cd51f235777a9bc491eead18e0d5a4b05406a # v3
         with:
           args: check plugins/forge/hooks/scripts plugins/forge/skills/stacked-changes/scripts scripts/generate_catalog.py evals tests
 
@@ -86,7 +89,7 @@ jobs:
     name: Plugin manifest
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Validate plugin + marketplace JSON
         run: |
           jq empty plugins/forge/.claude-plugin/plugin.json && echo "plugin.json OK"
@@ -97,3 +100,54 @@ jobs:
             && echo "plugin.json has required name field"
           jq -e '.name and .owner and .plugins' .claude-plugin/marketplace.json > /dev/null \
             && echo "marketplace.json has required fields"
+
+  host-validation:
+    name: Host and Agent Skills validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24
+      - name: Validate Agent Skills format
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' skill; do
+            npx --yes skills-ref@0.1.5 validate "$skill"
+          done < <(find plugins/forge/skills -mindepth 1 -maxdepth 1 -type d -print0 | sort -z)
+      - name: Install host CLIs
+        run: npm install --global @anthropic-ai/claude-code@2.1.181 @openai/codex@0.146.0
+      - name: Validate Claude plugin strictly
+        run: claude plugin validate --strict plugins/forge
+      - name: Smoke-test Codex marketplace resolution
+        env:
+          CODEX_MARKETPLACE_SOURCE: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          codex plugin marketplace add "$CODEX_MARKETPLACE_SOURCE" --json
+          codex plugin list --available --json \
+            | jq -e 'any((.installed // [])[]?; .name == "forge") or any((.available // [])[]?; .name == "forge")'
+
+  scorecard:
+    name: OpenSSF Scorecard
+    permissions:
+      contents: read
+      id-token: write
+      security-events: write
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Run Scorecard analysis
+        uses: ossf/scorecard-action@ff5dd8929f96a8a4dc67d13f32b8c75057829621 # v2.4.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+      - name: Upload Scorecard results
+        uses: github/codeql-action/upload-sarif@0fa1882f994fbd81a47ab0804f93354f5ea40147 # v3.28.17
+        with:
+          sarif_file: results.sarif

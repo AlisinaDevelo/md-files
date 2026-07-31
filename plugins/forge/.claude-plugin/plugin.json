@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "forge",
   "displayName": "Forge",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "An enterprise-grade Claude Code toolkit: specialists, orchestration, task ledgers, solve loops, GitHub-native stacked delivery, commands, and safety hooks.",
   "author": {
     "name": "Alisina Karimi",
