@@ -118,3 +118,5 @@ See [stacked-changes.md](stacked-changes.md) for the current GitHub-native stack
 provider comparison, safety model, and CI guidance.
 See [../plugins/forge/skills/doctor/SKILL.md](../plugins/forge/skills/doctor/SKILL.md) for
 diagnostic statuses, offline behavior, JSON output, and read-only boundaries.
+See [receipts.md](receipts.md) for the local evidence contract, privacy boundary, and
+optional OTLP export.

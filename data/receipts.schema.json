@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/releases/download/v3.0.1/receipts.schema.json",
+  "title": "Forge Receipt Event",
+  "description": "Append-only, privacy-safe Forge run receipt event.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "event_type",
+    "run_id",
+    "sequence",
+    "occurred_at",
+    "idempotency_key",
+    "attributes"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "event_id": {"type": "string", "minLength": 1},
+    "event_type": {
+      "enum": [
+        "run.started",
+        "run.finished",
+        "task.started",
+        "task.finished",
+        "agent.started",
+        "agent.finished",
+        "model.called",
+        "tool.called",
+        "approval.requested",
+        "approval.granted",
+        "approval.denied",
+        "artifact.recorded",
+        "outcome.recorded"
+      ]
+    },
+    "run_id": {"type": "string", "minLength": 1},
+    "task_id": {"type": "string", "minLength": 1},
+    "agent_id": {"type": "string", "minLength": 1},
+    "sequence": {"type": "integer", "minimum": 1},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "idempotency_key": {"type": "string", "minLength": 1},
+    "definition_version": {"type": "string", "minLength": 1},
+    "policy_revision": {"type": "string", "minLength": 1},
+    "model_route": {"type": "object"},
+    "trace": {
+      "type": "object",
+      "properties": {
+        "trace_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+        "span_id": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
+        "parent_span_id": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
+        "trace_flags": {"type": "string", "pattern": "^[0-9a-f]{2}$"},
+        "correlation_id": {"type": "string"},
+        "causation_id": {"type": "string"}
+      },
+      "additionalProperties": false
+    },
+    "attributes": {"type": "object"}
+  }
+}

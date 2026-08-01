@@ -56,3 +56,10 @@ rate against the error budget.
 For each critical path: emit a metric (rate/error/duration), a span if it crosses a
 service boundary, and structured logs at the decision points and failures. Make the
 failure path as observable as the success path — that's the part you'll need most.
+
+## Forge receipts
+
+For orchestration evidence, use the bundled `scripts/forge-receipts.py` store rather than
+free-form logs. It writes append-only, schema-versioned JSONL with monotonic sequences,
+idempotency keys, causation, W3C trace context, and privacy-safe attributes. Read the
+[receipt guide](../../../docs/receipts.md) before enabling OTLP export.
