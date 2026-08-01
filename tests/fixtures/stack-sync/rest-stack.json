@@ -1,0 +1,11 @@
+{
+  "id": 42,
+  "number": 7,
+  "node_id": "S_kwDO42",
+  "base": {"ref": "main", "sha": "base-sha"},
+  "open": true,
+  "pull_requests": [
+    {"number": 101, "state": "open", "draft": false, "merged_at": null, "head": {"ref": "feature/auth", "sha": "sha-auth"}},
+    {"number": 102, "state": "open", "draft": true, "merged_at": null, "head": {"ref": "feature/api", "sha": "sha-api"}}
+  ]
+}

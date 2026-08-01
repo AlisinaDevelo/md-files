@@ -1,0 +1,9 @@
+{
+  "action": "stacked",
+  "pull_request": {
+    "number": 102,
+    "head": {"ref": "feature/api", "sha": "sha-api"},
+    "base": {"ref": "feature/auth", "sha": "sha-auth"},
+    "stack": {"id": 42, "number": 7, "size": 3, "position": 2, "base": {"ref": "main", "sha": "base-sha"}}
+  }
+}
