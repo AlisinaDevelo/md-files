@@ -6,7 +6,6 @@ from __future__ import annotations
 import runpy
 from pathlib import Path
 
-
 TARGET = Path(__file__).resolve().parents[1] / "plugins/forge/skills/task-ledger/scripts/forge-tasks.py"
 
 

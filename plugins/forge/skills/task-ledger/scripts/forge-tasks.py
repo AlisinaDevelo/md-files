@@ -15,7 +15,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-
 MARKER_RE = re.compile(r"<!-- forge-task:v1 id=(\S+?)(?: sync=([0-9a-f]{64}))? -->")
 STATUS_RE = re.compile(r"^Status:\s*`?([A-Za-z-]+)`?\s*$", re.MULTILINE | re.IGNORECASE)
 ASSIGNED_RE = re.compile(r"^Assigned:\s*([^@\n]+?)(?:\s*@\s*(\S+))?\s*$", re.MULTILINE)
