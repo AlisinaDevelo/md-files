@@ -11,6 +11,8 @@ All notable changes to this project are documented here. The format is based on
 - **Forge Doctor** — a read-only, schema-versioned preflight for host tools, manifest and
   catalog drift, worktree and stack state, GitHub branch policy, rulesets, signed commits,
   and Merge Queue coverage. Human and JSON output support online and offline operation.
+- **Run receipts** — append-only, privacy-safe JSONL events with idempotency, causality,
+  truncated-record recovery, a versioned schema, and an optional OTLP/HTTP JSON adapter.
 
 ## [3.0.1] — 2026-07-31
 

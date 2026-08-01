@@ -1,0 +1,2 @@
+{"attributes":{"task_id":"task-1"},"event_id":"event-1","event_type":"run.started","idempotency_key":"idem-1","occurred_at":"2026-08-01T00:00:00.000Z","run_id":"run-1","schema_version":1,"sequence":1,"trace":{"correlation_id":"run-1"}}
+{"attributes":{"status":"ok"},"event_id":"event-2","event_type":"outcome.recorded","idempotency_key":"idem-2","occurred_at":"2026-08-01T00:00:01.000Z","run_id":"run-1","schema_version":1,"sequence":2,"trace":{"causation_id":"event-1","correlation_id":"run-1"}}
