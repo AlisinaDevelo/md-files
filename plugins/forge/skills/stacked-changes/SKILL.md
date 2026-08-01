@@ -51,6 +51,13 @@ python3 scripts/forge-stack.py plan submit
 land` print provider-native commands but never run them. Read [REFERENCE.md](REFERENCE.md)
 for the schema, adapters, GitHub settings, and recovery playbooks.
 
+For repositories with GitHub native Stacked PRs enabled, use the companion
+`scripts/forge-stack-sync.py` adapter to inspect or import remote state and to plan/apply
+native create, append, relink, and unstack operations. It keeps remote identifiers and SHA
+snapshots in the manifest, treats GitHub as an explicit mutation boundary, and falls back to
+the provider engine when the private-preview API returns 404. See
+[GitHub Native Stacks](../../../../docs/github-native-stacks.md).
+
 ## Author loop
 
 1. Design the stack bottom-up and write one-sentence intent plus acceptance criteria for

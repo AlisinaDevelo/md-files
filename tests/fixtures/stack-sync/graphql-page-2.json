@@ -1,0 +1,20 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "stack": {
+          "id": "S_kwDO42",
+          "number": 7,
+          "size": 3,
+          "baseRefName": "main",
+          "entries": {
+            "nodes": [
+              {"position": 3, "pullRequest": {"number": 103, "state": "OPEN", "isDraft": false, "mergedAt": null, "headRefName": "feature/ui", "headRefOid": "sha-ui", "baseRefName": "feature/api", "baseRefOid": "sha-api"}}
+            ],
+            "pageInfo": {"hasNextPage": false, "endCursor": "cursor-2"}
+          }
+        }
+      }
+    }
+  }
+}

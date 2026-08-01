@@ -7,7 +7,9 @@ model: opus
 
 Manage the current stacked-change workflow: $ARGUMENTS
 
-Use the `stacked-changes` skill and its bundled `scripts/forge-stack.py` engine. Keep
+Use the `stacked-changes` skill and its bundled `scripts/forge-stack.py` engine. For a
+repository with native GitHub Stacked PRs enabled, use the companion
+`scripts/forge-stack-sync.py` adapter for remote inspect/import/reconcile. Keep
 `.forge/stack.json` as branch/PR ancestry state and `.forge/tasks/` as delivery-task state.
 Prefer GitHub's first-party `gh stack` provider when it is installed and enabled for the
 repository; otherwise use the manifest's explicit provider.
@@ -26,6 +28,9 @@ repository; otherwise use the manifest's explicit provider.
   With native GitHub stacks use `gh stack merge`, not ordinary `gh pr merge`.
 - For `repair`, identify the first divergence across local ancestry, remote refs, PR bases,
   or CI. Preserve work and provide a reversible recovery sequence.
+- For `sync`, inspect with `forge-stack-sync.py` first; import is read-only unless `--write`,
+  and native mutations require local authority plus `--yes`. Stop on SHA drift or a native
+  preview fallback.
 
 Never use `--force`, rewrite trunk/shared branches, bypass a rejected lease, or claim a
 stack is healthy without checking each incremental diff and post-command remote state.

@@ -16,6 +16,9 @@ All notable changes to this project are documented here. The format is based on
 - **GitHub task-ledger sync** — an explicit local/GitHub authority backend with stable task
   markers, conflict stops, native sub-issues and blocked-by dependencies, bounded
   pagination, resumable mutations, deletion/rename safeguards, and receipt-backed evidence.
+- **GitHub native stack reconciliation** — inspect/import support for REST and cursor-paginated
+  GraphQL stack state, deterministic manifest snapshots, divergence classification, SHA-guarded
+  create/append/relink/unstack plans, retry recovery, and private-preview fallback.
 
 ## [3.0.1] — 2026-07-31
 

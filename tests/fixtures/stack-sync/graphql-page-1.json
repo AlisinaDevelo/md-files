@@ -1,0 +1,21 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "stack": {
+          "id": "S_kwDO42",
+          "number": 7,
+          "size": 3,
+          "baseRefName": "main",
+          "entries": {
+            "nodes": [
+              {"position": 1, "pullRequest": {"number": 101, "state": "OPEN", "isDraft": false, "mergedAt": null, "headRefName": "feature/auth", "headRefOid": "sha-auth", "baseRefName": "main", "baseRefOid": "base-sha"}},
+              {"position": 2, "pullRequest": {"number": 102, "state": "OPEN", "isDraft": true, "mergedAt": null, "headRefName": "feature/api", "headRefOid": "sha-api", "baseRefName": "feature/auth", "baseRefOid": "sha-auth"}}
+            ],
+            "pageInfo": {"hasNextPage": true, "endCursor": "cursor-1"}
+          }
+        }
+      }
+    }
+  }
+}

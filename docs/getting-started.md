@@ -116,6 +116,8 @@ See [bundles-and-workflows.md](bundles-and-workflows.md) and [CATALOG.md](../CAT
 when choosing a focused Forge route.
 See [stacked-changes.md](stacked-changes.md) for the current GitHub-native stack workflow,
 provider comparison, safety model, and CI guidance.
+See [github-native-stacks.md](github-native-stacks.md) for native stack inspect, import,
+SHA-guarded reconciliation, and private-preview fallback behavior.
 See [../plugins/forge/skills/doctor/SKILL.md](../plugins/forge/skills/doctor/SKILL.md) for
 diagnostic statuses, offline behavior, JSON output, and read-only boundaries.
 See [receipts.md](receipts.md) for the local evidence contract, privacy boundary, and

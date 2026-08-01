@@ -12,7 +12,7 @@ maximize the efficacy of LLMs in software engineering.**
 [![Agents](https://img.shields.io/badge/agents-20-8b5cf6.svg)](plugins/forge/agents/)
 [![Skills](https://img.shields.io/badge/skills-23-06b6d4.svg)](plugins/forge/skills/)
 [![Commands](https://img.shields.io/badge/commands-20-22c55e.svg)](plugins/forge/commands/)
-[![Tests](https://img.shields.io/badge/tests-74%20passing-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-118%20passing-success.svg)](tests/)
 [![Prompt evals](https://img.shields.io/badge/prompt%20evals-304%20checks-success.svg)](evals/)
 
 </div>
@@ -70,8 +70,8 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   auto-format edits, inject repo context at session start, and notify you on completion —
   deterministically, without relying on the model to remember.
 - **Proven, not asserted.** A real eval harness scores prompts and high-risk behavior
-  contracts (304 deterministic checks + an opt-in LLM judge); 74 tests cover safety hooks
-  and the stack engine. Run them yourself — `just check`.
+  contracts (307 deterministic checks + an opt-in LLM judge); 118 tests cover safety hooks,
+  task sync, receipts, doctor, and stack engines. Run them yourself — `just check`.
 - **Auditable & self-validating.** Read every prompt and script. CI validates structure,
   runs the tests, and scores the evals on every push. GitHub-backed task ledgers add stable
   issue identity, native task graphs, conflict stops, and resumable evidence.
@@ -169,7 +169,7 @@ files loaded only when needed.
 | [`orchestration`](plugins/forge/skills/orchestration/) | Multi-model planning, delegation, integration, and verification |
 | [`task-ledger`](plugins/forge/skills/task-ledger/) | Jira/GitHub-issue-like local tasks with status, deps, agent, and model |
 | [`iterate-to-done`](plugins/forge/skills/iterate-to-done/) | Solve-loop discipline for draining a ledger until done or blocked |
-| [`stacked-changes`](plugins/forge/skills/stacked-changes/) | GitHub-native and vendor-neutral stacked PR design, review, restack, recovery, and landing |
+| [`stacked-changes`](plugins/forge/skills/stacked-changes/) | GitHub-native and vendor-neutral stacked PR design, review, native reconciliation, restack, recovery, and landing |
 | [`doctor`](plugins/forge/skills/doctor/) | Read-only host, capability, repository-policy, and merge-readiness diagnostics |
 
 ### Commands
@@ -196,7 +196,7 @@ User-triggered prompt templates with argument and shell injection.
 | `/orchestrate` | Plan a big goal, create a task ledger, route work by agent/model, and drive it to done |
 | `/tasks` | Create, list, update, or GitHub-sync the task ledger |
 | `/solve-loop` | Drain ready ledger tasks with verify-before-done discipline |
-| `/stack` | Plan, inspect, submit, restack, repair, or land dependent pull requests |
+| `/stack` | Plan, inspect, submit, reconcile, restack, repair, or land dependent pull requests |
 | `/stack-review` | Review every stack layer bottom-up against its immediate parent |
 | `/doctor` | Run the read-only Forge capability and merge-readiness preflight |
 
@@ -286,7 +286,7 @@ mcp/                   example MCP server configs
 statusline/            status line script
 settings/              example settings.json
 evals/                 prompt eval harness + cases (evidence)
-tests/                 runnable hook and stack-engine tests
+tests/                 runnable hook, task-ledger, receipt, doctor, and stack-engine tests
 docs/                  getting started, usage, architecture, rationale, CI
 scripts/               validate.sh, install.sh
 .github/               CI, issue/PR templates, CODEOWNERS, dependabot
@@ -301,6 +301,8 @@ scripts/               validate.sh, install.sh
 - [Competitive audit](docs/competitive-audit.md) — what Forge borrows from larger skill libraries
 - [Stacked changes](docs/stacked-changes.md) — GitHub-native stacks, provider adapters,
   safety model, review flow, CI, and recovery
+- [GitHub native stacks](docs/github-native-stacks.md) — remote inspect/import, SHA-guarded
+  reconciliation, divergence classes, mutation authority, and preview fallback
 - [Architecture](docs/architecture.md) — how the repo is organized and why
 - [Design rationale](docs/design-rationale.md) — the decisions and trade-offs behind Forge
 - [CI & headless usage](docs/ci-and-headless.md) — run Forge in pipelines and automated review
