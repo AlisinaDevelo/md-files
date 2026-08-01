@@ -120,3 +120,5 @@ See [../plugins/forge/skills/doctor/SKILL.md](../plugins/forge/skills/doctor/SKI
 diagnostic statuses, offline behavior, JSON output, and read-only boundaries.
 See [receipts.md](receipts.md) for the local evidence contract, privacy boundary, and
 optional OTLP export.
+See [github-task-ledger.md](github-task-ledger.md) for idempotent GitHub Issues sync,
+native task relationships, conflict handling, and recovery.

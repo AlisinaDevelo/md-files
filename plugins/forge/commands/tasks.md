@@ -20,9 +20,11 @@ Action: $ARGUMENTS
 - **done `<id>`** — only after its acceptance criteria is actually verified; set status
   `done`, note the evidence, and update the board.
 - **block `<id>` `<reason>`** — set status `blocked` with the reason.
-- **sync-gh** — mirror the ledger to GitHub issues with `gh issue create`/`gh issue list`
-  (title → issue title, goal + acceptance criteria → body, status → labels). Keep one backend
-  as the source of truth; don't split state.
+- **sync-gh** — use the bundled backend at `python3 scripts/forge-tasks.py`: run `plan`
+  before `apply --yes`, inspect structured conflicts, and use native sub-issue and
+  blocked-by relationships. Use `--authority github import --write` only when GitHub is
+  the chosen source of truth. See `docs/github-task-ledger.md` for recovery and disconnect
+  behavior.
 
 Keep the ledger honest — reflect the real state of the work, and never commit secrets or
 findings into task files.

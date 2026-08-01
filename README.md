@@ -73,7 +73,8 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   contracts (304 deterministic checks + an opt-in LLM judge); 74 tests cover safety hooks
   and the stack engine. Run them yourself — `just check`.
 - **Auditable & self-validating.** Read every prompt and script. CI validates structure,
-  runs the tests, and scores the evals on every push.
+  runs the tests, and scores the evals on every push. GitHub-backed task ledgers add stable
+  issue identity, native task graphs, conflict stops, and resumable evidence.
 
 ## Install
 
