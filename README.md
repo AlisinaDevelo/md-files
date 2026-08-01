@@ -169,6 +169,7 @@ files loaded only when needed.
 | [`task-ledger`](plugins/forge/skills/task-ledger/) | Jira/GitHub-issue-like local tasks with status, deps, agent, and model |
 | [`iterate-to-done`](plugins/forge/skills/iterate-to-done/) | Solve-loop discipline for draining a ledger until done or blocked |
 | [`stacked-changes`](plugins/forge/skills/stacked-changes/) | GitHub-native and vendor-neutral stacked PR design, review, restack, recovery, and landing |
+| [`doctor`](plugins/forge/skills/doctor/) | Read-only host, capability, repository-policy, and merge-readiness diagnostics |
 
 ### Commands
 
@@ -196,6 +197,7 @@ User-triggered prompt templates with argument and shell injection.
 | `/solve-loop` | Drain ready ledger tasks with verify-before-done discipline |
 | `/stack` | Plan, inspect, submit, restack, repair, or land dependent pull requests |
 | `/stack-review` | Review every stack layer bottom-up against its immediate parent |
+| `/doctor` | Run the read-only Forge capability and merge-readiness preflight |
 
 ### Hooks
 

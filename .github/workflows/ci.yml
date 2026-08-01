@@ -79,11 +79,11 @@ jobs:
         with:
           python-version: "3.x"
       - name: Compile hook, skill, eval, and test scripts
-        run: python -m py_compile plugins/forge/hooks/scripts/*.py plugins/forge/skills/*/scripts/*.py evals/run.py tests/*.py
+        run: python -m py_compile plugins/forge/hooks/scripts/*.py plugins/forge/skills/*/scripts/*.py scripts/*.py evals/run.py tests/*.py
       - name: Lint with ruff
         uses: astral-sh/ruff-action@146cd51f235777a9bc491eead18e0d5a4b05406a # v3
         with:
-          args: check plugins/forge/hooks/scripts plugins/forge/skills/stacked-changes/scripts scripts/generate_catalog.py evals tests
+          args: check plugins/forge/hooks/scripts plugins/forge/skills/stacked-changes/scripts plugins/forge/skills/doctor/scripts scripts/generate_catalog.py scripts/forge-doctor.py evals tests
 
   plugin-manifest:
     name: Plugin manifest
