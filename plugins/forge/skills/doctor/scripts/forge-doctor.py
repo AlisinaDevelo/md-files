@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-
 SCHEMA_VERSION = 1
 STATUSES = ("pass", "warn", "fail", "unknown")
 PLUGIN = Path("plugins/forge")
