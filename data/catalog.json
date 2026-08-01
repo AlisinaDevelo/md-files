@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "total": 63,
+  "total": 65,
   "components": [
     {
       "id": "accessibility-auditor",
@@ -203,6 +203,14 @@
       "risk": "safe"
     },
     {
+      "id": "doctor",
+      "kind": "skill",
+      "path": "plugins/forge/skills/doctor/SKILL.md",
+      "description": "Use before orchestration, stack delivery, or a release when the host and repository need a read-only capability and merge-readiness preflight. Run the Forge Doctor CLI, interpret pass/warn/fail/unknown evidence, and never mutate policy or install tools.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
       "id": "error-handling",
       "kind": "skill",
       "path": "plugins/forge/skills/error-handling/SKILL.md",
@@ -377,6 +385,14 @@
       "description": "Write or update documentation grounded in the actual code",
       "model": "sonnet",
       "risk": "safe"
+    },
+    {
+      "id": "doctor",
+      "kind": "command",
+      "path": "plugins/forge/commands/doctor.md",
+      "description": "Run the read-only Forge capability and merge-readiness preflight",
+      "model": "",
+      "risk": "none"
     },
     {
       "id": "explain",

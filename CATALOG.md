@@ -8,9 +8,9 @@ Generated from the Forge plugin source. Do not hand-edit component rows; run
 | Kind | Count |
 |------|------:|
 | agents | 20 |
-| skills | 23 |
-| commands | 20 |
-| total | 63 |
+| skills | 24 |
+| commands | 21 |
+| total | 65 |
 
 ## Components
 
@@ -41,6 +41,7 @@ Generated from the Forge plugin source. Do not hand-edit component rows; run
 | `code-review-rubric` | skill | security-sensitive | - | [plugins/forge/skills/code-review-rubric/SKILL.md](plugins/forge/skills/code-review-rubric/SKILL.md) | Use when reviewing code or a pull request to apply a consistent quality bar. Provides a severity-ranked rubric covering correctness, security, tests, readability, and maintainability, plus how to write feedback that gets fixed. See CHECKLIST.md for the full pre-merge checklist. |
 | `concurrency-and-parallelism` | skill | safe | - | [plugins/forge/skills/concurrency-and-parallelism/SKILL.md](plugins/forge/skills/concurrency-and-parallelism/SKILL.md) | Use when writing or reviewing concurrent code — threads, async/await, shared state, locks, and parallel work — or diagnosing a race condition, deadlock, or heisenbug that only appears under load. Covers the patterns that make concurrency correct and the traps that make it intermittently wrong. |
 | `conventional-commits` | skill | safe | - | [plugins/forge/skills/conventional-commits/SKILL.md](plugins/forge/skills/conventional-commits/SKILL.md) | Use when writing git commit messages and structuring commits. Covers the Conventional Commits format, choosing the right type/scope, breaking-change notation, and how to split work into small, atomic, reviewable commits. |
+| `doctor` | skill | safe | - | [plugins/forge/skills/doctor/SKILL.md](plugins/forge/skills/doctor/SKILL.md) | Use before orchestration, stack delivery, or a release when the host and repository need a read-only capability and merge-readiness preflight. Run the Forge Doctor CLI, interpret pass/warn/fail/unknown evidence, and never mutate policy or install tools. |
 | `error-handling` | skill | safe | - | [plugins/forge/skills/error-handling/SKILL.md](plugins/forge/skills/error-handling/SKILL.md) | Use when designing how code handles failure — where to catch, what to propagate, fail-fast vs recover, retries and idempotency, and error types. Covers building robust failure paths without swallowing bugs or over-engineering for impossible cases. |
 | `feature-flags` | skill | safe | - | [plugins/forge/skills/feature-flags/SKILL.md](plugins/forge/skills/feature-flags/SKILL.md) | Use when adding, rolling out, or cleaning up feature flags — gating a change, doing a progressive/canary release, building a kill switch, or removing a stale flag. Covers flag types, safe rollout, and the discipline that keeps flags from becoming permanent tech debt. |
 | `forge-catalog` | skill | safe | - | [plugins/forge/skills/forge-catalog/SKILL.md](plugins/forge/skills/forge-catalog/SKILL.md) | Use when choosing which Forge agent, skill, command, bundle, or workflow should handle a request; when comparing Forge capabilities; when building a focused install surface; or when a user asks "what should I use?" before starting work. Routes to the smallest useful Forge capability instead of loading everything. |
@@ -63,6 +64,7 @@ Generated from the Forge plugin source. Do not hand-edit component rows; run
 | `/commit` | command | critical | sonnet | [plugins/forge/commands/commit.md](plugins/forge/commands/commit.md) | Create a well-formed Conventional Commit for the staged changes |
 | `/debug` | command | safe | sonnet | [plugins/forge/commands/debug.md](plugins/forge/commands/debug.md) | Diagnose a bug or failing test and find the root cause before fixing |
 | `/docs` | command | safe | sonnet | [plugins/forge/commands/docs.md](plugins/forge/commands/docs.md) | Write or update documentation grounded in the actual code |
+| `/doctor` | command | none | - | [plugins/forge/commands/doctor.md](plugins/forge/commands/doctor.md) | Run the read-only Forge capability and merge-readiness preflight |
 | `/explain` | command | safe | sonnet | [plugins/forge/commands/explain.md](plugins/forge/commands/explain.md) | Explain how a file, function, or system works — clearly and accurately |
 | `/forge` | command | safe | sonnet | [plugins/forge/commands/forge.md](plugins/forge/commands/forge.md) | Choose the right Forge agent, skill, command, bundle, or workflow for a goal |
 | `/optimize` | command | safe | sonnet | [plugins/forge/commands/optimize.md](plugins/forge/commands/optimize.md) | Diagnose and fix a performance problem, measuring before and after |

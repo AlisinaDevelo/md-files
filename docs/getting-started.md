@@ -69,6 +69,9 @@ commands, or instruction snippets you want into your own `~/.claude/` or project
 - Run `/stack status` in a large feature — Forge chooses GitHub native or another explicit
   provider, checks every parent edge, and plans reviewable dependent PRs without mutating
   Git or GitHub by default.
+- Run `/doctor` before orchestration or delivery — it reports host tools, manifest and
+  catalog drift, worktree state, stack validity, GitHub branch policy, rulesets, signed
+  commits, and Merge Queue coverage without changing anything.
 - Make an edit that includes a fake AWS key — watch the secret-scanner hook block it.
 - Ask Claude to "debug" a failing test — the root-cause method kicks in.
 
@@ -113,3 +116,5 @@ See [bundles-and-workflows.md](bundles-and-workflows.md) and [CATALOG.md](../CAT
 when choosing a focused Forge route.
 See [stacked-changes.md](stacked-changes.md) for the current GitHub-native stack workflow,
 provider comparison, safety model, and CI guidance.
+See [../plugins/forge/skills/doctor/SKILL.md](../plugins/forge/skills/doctor/SKILL.md) for
+diagnostic statuses, offline behavior, JSON output, and read-only boundaries.
