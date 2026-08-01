@@ -32,15 +32,23 @@ acceptance criteria is *verified*, not just attempted.
 - **Local markdown (default, zero-dep):** one file per task under `.forge/tasks/`, committed
   with the code. Works in any repo, offline, reviewable in a PR, no auth. This is the default
   and what `/tasks` writes.
-- **GitHub issues (via `gh`):** when the team lives in GitHub, mirror tasks to real issues —
-  `gh issue create`, `gh issue list`, `gh issue close`. The ledger and the issues stay in
-  sync; the acceptance criteria goes in the issue body.
+- **GitHub issues (via `gh`):** when the team lives in GitHub, use the bundled idempotent
+  backend at `scripts/forge-tasks.py` to plan, apply, import, and inspect managed Issues.
+  It uses a hidden stable task marker, sync baselines, native sub-issues, native blocked-by
+  dependencies, resumable state, conflict stops, and privacy-safe receipts. See
+  [GitHub Task Ledger](../../../../docs/github-task-ledger.md) for authority selection and
+  recovery.
 - **Jira / Linear (via MCP):** if a Jira or Linear MCP server is connected, create and
   transition tickets through it. Forge doesn't bundle those integrations (they need
   credentials and an MCP server) — it targets whatever issue MCP you've connected. See
   `mcp/` for how to wire one.
 
 Keep one backend as the source of truth per project; don't split state across two.
+
+For GitHub sync, always run `plan` first and inspect the JSON before `apply --yes`. A
+`conflict` operation is a stop condition, not a suggestion to overwrite either side. The
+backend does not require GitHub Projects and does not silently flatten the task graph into
+labels.
 
 ## Working the ledger
 

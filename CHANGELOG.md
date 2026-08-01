@@ -13,6 +13,9 @@ All notable changes to this project are documented here. The format is based on
   and Merge Queue coverage. Human and JSON output support online and offline operation.
 - **Run receipts** — append-only, privacy-safe JSONL events with idempotency, causality,
   truncated-record recovery, a versioned schema, and an optional OTLP/HTTP JSON adapter.
+- **GitHub task-ledger sync** — an explicit local/GitHub authority backend with stable task
+  markers, conflict stops, native sub-issues and blocked-by dependencies, bounded
+  pagination, resumable mutations, deletion/rename safeguards, and receipt-backed evidence.
 
 ## [3.0.1] — 2026-07-31
 
