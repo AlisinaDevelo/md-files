@@ -20,7 +20,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
 SCHEMA_VERSION = 1
 ADAPTER_CONTRACT_VERSION = 1
 CATEGORIES = {"positive", "negative", "ambiguity", "denial", "retry", "recovery"}
