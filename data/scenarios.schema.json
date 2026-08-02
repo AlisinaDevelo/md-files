@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/scenarios/v1",
+  "title": "Forge Conformance Scenario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "category", "target", "prompt", "expected"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,80}$"},
+    "category": {"enum": ["positive", "negative", "ambiguity", "denial", "retry", "recovery"]},
+    "risk": {"enum": ["low", "medium", "high"]},
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": {"enum": ["agent", "skill", "command", "file"]},
+        "name": {"type": "string", "minLength": 1}
+      }
+    },
+    "prompt": {"type": "string", "minLength": 1},
+    "setup": {"type": "object"},
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "must_include": {"type": "array", "items": {"type": "string"}},
+        "must_not_include": {"type": "array", "items": {"type": "string"}},
+        "files_exist": {"type": "array", "items": {"type": "string"}},
+        "required_effects": {"type": "array", "items": {"type": "string"}},
+        "forbidden_effects": {"type": "array", "items": {"type": "string"}},
+        "required_tools": {"type": "array", "items": {"type": "string"}},
+        "forbidden_tools": {"type": "array", "items": {"type": "string"}},
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path"],
+            "properties": {
+              "path": {"type": "string", "minLength": 1},
+              "kind": {"enum": ["file", "json", "text"]},
+              "required": {"type": "boolean", "default": true}
+            }
+          }
+        },
+        "score": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "minimum": {"type": "number", "minimum": 0, "maximum": 1},
+            "maximum": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        }
+      }
+    },
+    "repetitions": {"type": "integer", "minimum": 1, "maximum": 50}
+  }
+}

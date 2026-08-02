@@ -19,6 +19,9 @@ All notable changes to this project are documented here. The format is based on
 - **GitHub native stack reconciliation** — inspect/import support for REST and cursor-paginated
   GraphQL stack state, deterministic manifest snapshots, divergence classification, SHA-guarded
   create/append/relink/unstack plans, retry recovery, and private-preview fallback.
+- **Cross-host conformance scenarios** — versioned JSONL fixtures, deterministic reference and
+  Agent Skills adapters, explicit Claude/Codex live contracts, tool/artifact/score enforcement,
+  receipt-linked results, confidence intervals, flaky-run gates, and CI evidence artifacts.
 
 ## [3.0.1] — 2026-07-31
 
