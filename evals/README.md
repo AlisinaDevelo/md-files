@@ -31,7 +31,22 @@ that make an LLM artifact actually fire and actually help:
 This is deterministic, needs no API key, and runs on every push — so the toolkit can't
 regress into vague descriptions or over-privileged agents without CI catching it.
 
-## 2. Behavioral eval — LLM judge (the gold standard)
+## 2. Cross-host conformance scenarios
+
+The executable scenario runner checks behavior contracts across the reference filesystem
+adapter, the Agent Skills format, and explicit Claude/Codex live adapters:
+
+```bash
+python3 evals/run_scenarios.py --adapter all --no-receipts
+```
+
+Fixtures cover positive, negative, ambiguity, denial, retry, and recovery cases. High-risk
+fixtures assert approval boundaries and forbidden bypasses. Deterministic CI has no model
+credential; live runs require an explicit host runner, `--live`, a positive budget, and report
+usage, cost, variance, confidence intervals, and flaky outcomes. See
+[cross-host conformance](../docs/conformance.md) for the adapter contract and result schema.
+
+## 3. Behavioral eval — LLM judge (the gold standard)
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...

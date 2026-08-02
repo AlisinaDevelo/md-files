@@ -31,7 +31,7 @@ lint-py:
     ruff check plugins/forge/hooks/scripts plugins/forge/skills/*/scripts scripts/generate_catalog.py tests evals
 
 # Run every check that CI runs
-check: validate test lint-md
+check: validate test lint-md conformance
     @echo "✅ all local checks passed"
 
 # Score the prompt evals (deterministic structural checks; no API key needed)
@@ -41,6 +41,10 @@ eval:
 # Score the prompt evals with an LLM judge (requires ANTHROPIC_API_KEY)
 eval-llm:
     python3 evals/run.py --judge
+
+# Run shared cross-host scenarios; live host runners are opt-in.
+conformance:
+    python3 evals/run_scenarios.py --adapter all --no-receipts
 
 # Symlink agents/skills/commands into ~/.claude (dry run)
 install-dry:

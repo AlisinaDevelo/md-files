@@ -545,6 +545,7 @@ def apply_one(client: GitHubStackClient, operation: Operation) -> dict[str, Any]
         response = client.create_stack(payload["pull_requests"])
         return {"stack_number": response.get("number"), "created": True}
     if operation.action == "append_stack":
+        # Re-fetch remote state before each mutation so a stale plan cannot overwrite drift.
         current = client.get_stack(int(payload["stack_number"]))
         current_numbers = [int(item["number"]) for item in current.get("pull_requests", [])]
         additions = [int(item) for item in payload["pull_requests"]]

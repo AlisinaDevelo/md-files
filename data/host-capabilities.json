@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/host-capabilities/v1",
+  "title": "Forge Conformance Host Capability Matrix",
+  "schema_version": 1,
+  "adapter_contract_version": 1,
+  "hosts": {
+    "reference": {
+      "adapter": "reference",
+      "host": "Forge reference filesystem runner",
+      "mode": "deterministic",
+      "credentials_required": false,
+      "shared_fixtures": true
+    },
+    "claude": {
+      "adapter": "claude",
+      "host": "Claude Code",
+      "binary": "claude",
+      "mode": "live",
+      "credentials_required": true,
+      "runner_env": "FORGE_CLAUDE_SCENARIO_RUNNER",
+      "explicit_flags": ["--live", "--budget-usd"],
+      "shared_fixtures": true
+    },
+    "codex": {
+      "adapter": "codex",
+      "host": "OpenAI Codex",
+      "binary": "codex",
+      "mode": "live",
+      "credentials_required": true,
+      "runner_env": "FORGE_CODEX_SCENARIO_RUNNER",
+      "explicit_flags": ["--live", "--budget-usd"],
+      "shared_fixtures": true
+    },
+    "agentskills": {
+      "adapter": "agentskills",
+      "host": "Agent Skills reference format",
+      "mode": "deterministic",
+      "credentials_required": false,
+      "validator": "skills-ref@0.1.5",
+      "shared_fixtures": true
+    }
+  }
+}

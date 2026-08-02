@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/scenario-results/v1",
+  "title": "Forge Conformance Scenario Results",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "adapter_contract_version",
+    "run_id",
+    "started_at",
+    "finished_at",
+    "mode",
+    "scenario_file",
+    "host_matrix",
+    "adapters",
+    "summary",
+    "artifact"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "adapter_contract_version": {"const": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "started_at": {"type": "string", "format": "date-time"},
+    "finished_at": {"type": "string", "format": "date-time"},
+    "mode": {"enum": ["deterministic", "live"]},
+    "scenario_file": {"type": "string", "minLength": 1},
+    "host_matrix": {"type": "object"},
+    "adapters": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["capabilities", "scenarios"],
+        "properties": {
+          "capabilities": {"type": "object"},
+          "scenarios": {"type": "array"}
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["passed", "failed", "flaky", "skipped"],
+      "properties": {
+        "passed": {"type": "integer", "minimum": 0},
+        "failed": {"type": "integer", "minimum": 0},
+        "flaky": {"type": "integer", "minimum": 0},
+        "skipped": {"type": "integer", "minimum": 0}
+      }
+    },
+    "artifact": {"type": "string", "minLength": 1}
+  }
+}

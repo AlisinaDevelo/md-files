@@ -12,8 +12,8 @@ maximize the efficacy of LLMs in software engineering.**
 [![Agents](https://img.shields.io/badge/agents-20-8b5cf6.svg)](plugins/forge/agents/)
 [![Skills](https://img.shields.io/badge/skills-23-06b6d4.svg)](plugins/forge/skills/)
 [![Commands](https://img.shields.io/badge/commands-20-22c55e.svg)](plugins/forge/commands/)
-[![Tests](https://img.shields.io/badge/tests-118%20passing-success.svg)](tests/)
-[![Prompt evals](https://img.shields.io/badge/prompt%20evals-304%20checks-success.svg)](evals/)
+[![Tests](https://img.shields.io/badge/tests-127%20passing-success.svg)](tests/)
+[![Prompt evals](https://img.shields.io/badge/prompt%20evals-307%20checks-success.svg)](evals/)
 
 </div>
 
@@ -70,8 +70,9 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   auto-format edits, inject repo context at session start, and notify you on completion —
   deterministically, without relying on the model to remember.
 - **Proven, not asserted.** A real eval harness scores prompts and high-risk behavior
-  contracts (307 deterministic checks + an opt-in LLM judge); 118 tests cover safety hooks,
-  task sync, receipts, doctor, and stack engines. Run them yourself — `just check`.
+  contracts (307 deterministic checks plus cross-host scenarios and an opt-in LLM judge);
+  126 tests cover safety hooks, task sync, receipts, doctor, stacks, and conformance. Run
+  them yourself — `just check`.
 - **Auditable & self-validating.** Read every prompt and script. CI validates structure,
   runs the tests, and scores the evals on every push. GitHub-backed task ledgers add stable
   issue identity, native task graphs, conflict stops, and resumable evidence.
@@ -231,10 +232,10 @@ Deterministic guardrails the harness runs on lifecycle events — no model memor
 
 ### Evidence — evals & tests
 
-- [`evals/`](evals/) — 304 deterministic prompt-quality and behavior-contract checks (free,
-  in CI) plus an opt-in LLM-judge eval that scores agents against real tasks.
-- [`tests/`](tests/) — 74 pytest cases covering safety hooks and the stack engine's
-  manifests, ancestry, plans, adapters, and CLI. `just check` runs it all.
+- [`evals/`](evals/) — deterministic prompt-quality and behavior-contract checks, shared
+  cross-host scenarios, and an opt-in LLM-judge eval that scores agents against real tasks.
+- [`tests/`](tests/) — pytest cases covering safety hooks, task sync, receipts, doctor,
+  stacks, and conformance. `just check` runs it all.
 
 ## How the pieces fit
 
@@ -285,8 +286,8 @@ instructions/          CLAUDE.md templates, principles, language guides
 mcp/                   example MCP server configs
 statusline/            status line script
 settings/              example settings.json
-evals/                 prompt eval harness + cases (evidence)
-tests/                 runnable hook, task-ledger, receipt, doctor, and stack-engine tests
+evals/                 prompt eval harness, shared scenarios, and result evidence
+tests/                 runnable hook, task-ledger, receipt, doctor, stack, and conformance tests
 docs/                  getting started, usage, architecture, rationale, CI
 scripts/               validate.sh, install.sh
 .github/               CI, issue/PR templates, CODEOWNERS, dependabot
@@ -303,6 +304,8 @@ scripts/               validate.sh, install.sh
   safety model, review flow, CI, and recovery
 - [GitHub native stacks](docs/github-native-stacks.md) — remote inspect/import, SHA-guarded
   reconciliation, divergence classes, mutation authority, and preview fallback
+- [Cross-host conformance](docs/conformance.md) — shared scenarios, host adapters, live
+  evidence, result schemas, and release gates
 - [Architecture](docs/architecture.md) — how the repo is organized and why
 - [Design rationale](docs/design-rationale.md) — the decisions and trade-offs behind Forge
 - [CI & headless usage](docs/ci-and-headless.md) — run Forge in pipelines and automated review
