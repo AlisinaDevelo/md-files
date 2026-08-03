@@ -1,0 +1,7 @@
+{
+  "status": "merged",
+  "details": {
+    "message": "Pull request was merged.",
+    "sha": "merge-commit-sha"
+  }
+}

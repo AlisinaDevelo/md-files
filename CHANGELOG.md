@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- **Native GitHub Stack Merge** — exact-range previews, expected-head protection, scoped
+  policy approval, durable async request UUIDs, timeout-safe resume, Merge Queue observation,
+  `merge_group` correlation, provider-native fallback, and indeterminate partial-landing
+  detection.
+
 ## [3.1.0] — 2026-08-03
 
 ### Added

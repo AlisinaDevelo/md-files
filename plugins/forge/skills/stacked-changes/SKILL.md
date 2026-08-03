@@ -58,6 +58,28 @@ snapshots in the manifest, treats GitHub as an explicit mutation boundary, and f
 the provider engine when the private-preview API returns 404. See
 [GitHub Native Stacks](../../../../docs/github-native-stacks.md).
 
+For an approved native landing, use `scripts/forge-stack-merge.py`. It previews the exact
+contiguous range, expected head SHAs, merge method, queue mode, readiness gates, and policy
+effect before submitting `PUT .../merge-async`. It persists the returned request UUID in
+`.forge/stack-merge.json`, resumes polling after a timeout without a duplicate submit, and
+records `pending`, `enqueued`, `merged`, `failed`, or `indeterminate` outcomes. An
+`indeterminate` result is a stop signal: inspect remote state before doing anything else.
+
+```bash
+python3 scripts/forge-stack-merge.py --repo OWNER/REPO plan --pr 42 --merge-action default
+python3 scripts/forge-stack-merge.py --repo OWNER/REPO submit --pr 42 --yes
+python3 scripts/forge-stack-merge.py --repo OWNER/REPO poll --operation-id OPERATION_ID
+python3 scripts/forge-stack-merge.py --repo OWNER/REPO queue-event --event merge-group.json --operation-id OPERATION_ID
+```
+
+Use `--policy-profile policies/github-mutation.json` for the scoped approval boundary and
+`--policy-staged` to preview without a submit. The adapter fails closed when required
+checks, reviews, unresolved threads, ruleset evidence, or queue policy are unavailable;
+`--allow-unknown-readiness` is an explicit degraded-mode escape hatch for installations
+whose preview API cannot expose those fields. Native Stack Merge 404s produce a documented
+provider-native bottom-up fallback plan instead of pretending an ordinary PR merge is
+atomic.
+
 ## Author loop
 
 1. Design the stack bottom-up and write one-sentence intent plus acceptance criteria for
