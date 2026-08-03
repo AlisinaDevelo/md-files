@@ -28,7 +28,15 @@ lint-sh:
 
 # Lint python hook scripts (requires ruff)
 lint-py:
-    ruff check plugins/forge/hooks/scripts plugins/forge/skills/*/scripts scripts/compile_capabilities.py scripts/render_capabilities.py scripts/generate_catalog.py tests evals
+    ruff check plugins/forge/hooks/scripts plugins/forge/skills/*/scripts scripts/compile_capabilities.py scripts/render_capabilities.py scripts/diff_capabilities.py scripts/migrate_capabilities.py scripts/generate_catalog.py tests evals
+
+# Compare two capability graph revisions without exposing instruction bodies
+diff-capabilities before after:
+    python3 scripts/diff_capabilities.py --before {{before}} --after {{after}} --format markdown
+
+# Migrate a reviewed v1 graph against the current source tree
+migrate-capabilities input output:
+    python3 scripts/migrate_capabilities.py --input {{input}} --output {{output}}
 
 # Run every check that CI runs
 check: validate test lint-md conformance

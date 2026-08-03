@@ -45,6 +45,12 @@ python3 scripts/render_capabilities.py --check
 
 # Inspect a rendered projection without modifying the repository.
 python3 scripts/render_capabilities.py --host agentskills --output /tmp/forge-projection
+
+# Produce prompt-safe semantic evidence between graph revisions.
+python3 scripts/diff_capabilities.py --before /tmp/capabilities-v1.json --format markdown
+
+# Migrate a reviewed v1 graph only when source parity is proven.
+python3 scripts/migrate_capabilities.py --input /tmp/capabilities-v1.json --output /tmp/capabilities-v2.json
 ```
 
 `./scripts/validate.sh` runs both graph and renderer checks, and release packaging refuses
@@ -80,6 +86,12 @@ render_adapter(repo, graph, output, adapter_contract)
 Adapters declare which component kinds are native or shims, their output roots, naming
 prefixes, and extension inventory. Unsafe paths, overlapping native/shim kinds, and
 unsupported component kinds fail closed.
+
+Semantic diffs report component additions, removals, renames, metadata, permission,
+resource, eval, and host-projection changes. Instruction changes are represented by
+SHA-256 digests only; raw instruction bodies are never included in evidence output.
+Migration accepts a v1 graph only when every component, source path, digest, resource
+inventory, risk label, and host projection still matches the current reviewed source.
 
 ## Migration workflow
 

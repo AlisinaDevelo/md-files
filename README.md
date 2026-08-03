@@ -80,7 +80,7 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   deterministically, without relying on the model to remember.
 - **Proven, not asserted.** A real eval harness scores prompts and high-risk behavior
   contracts (312 deterministic checks plus cross-host scenarios and an opt-in LLM judge);
-  175 tests cover safety hooks, task sync, receipts, doctor, policy, stacks, marketplace readiness, capability graph, rendering, and conformance. Run
+  179 tests cover safety hooks, task sync, receipts, doctor, policy, stacks, marketplace readiness, capability graph, rendering, semantic evidence, and conformance. Run
   them yourself — `just check`.
 - **Auditable & self-validating.** Read every prompt and script. CI validates structure,
   runs the tests, and scores the evals on every push. GitHub-backed task ledgers add stable
