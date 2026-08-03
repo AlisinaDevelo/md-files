@@ -183,6 +183,59 @@ def test_apply_requires_local_authority_and_confirmation(tmp_path):
         module.apply_operations(Client(), "owner/repo", [operation], tmp_path / "state", tmp_path / "receipts", yes=True, authority="github")
 
 
+def test_policy_staged_apply_never_calls_stack_client_or_writes_state(tmp_path):
+    module = load_module()
+
+    class Client:
+        def __getattr__(self, name):
+            raise AssertionError(f"client mutation should not run: {name}")
+
+    operation = module.Operation("create_stack", "test", {"pull_requests": [101, 102]})
+    results = module.apply_operations(
+        Client(),
+        "owner/repo",
+        [operation],
+        tmp_path / "state",
+        tmp_path / "receipts",
+        yes=False,
+        authority="local",
+        policy_profile=REPO / "policies/github-mutation.json",
+        policy_staged=True,
+        policy_approvals_path=tmp_path / "approvals.jsonl",
+        workspace=tmp_path,
+    )
+
+    assert results[0]["status"] == "staged"
+    assert results[0]["policy"]["decision"]["rule_id"] == "github-stack-mutation"
+    assert not (tmp_path / "state").exists()
+
+
+def test_policy_apply_requires_approval_before_stack_effect(tmp_path):
+    module = load_module()
+
+    class Client:
+        def create_stack(self, pull_requests):
+            raise AssertionError("stack mutation should not run without approval")
+
+        def stack_for_pull_request(self, number):
+            raise AssertionError("stack lookup should not run without approval")
+
+    operation = module.Operation("create_stack", "test", {"pull_requests": [101, 102]})
+    with pytest.raises(module.StackSyncError, match="approval"):
+        module.apply_operations(
+            Client(),
+            "owner/repo",
+            [operation],
+            tmp_path / "state",
+            tmp_path / "receipts",
+            yes=True,
+            authority="local",
+            policy_profile=REPO / "policies/github-mutation.json",
+            policy_approvals_path=tmp_path / "approvals.jsonl",
+            workspace=tmp_path,
+        )
+
+
 def test_404_stack_api_is_a_feature_fallback(monkeypatch):
     module = load_module()
     client = module.GitHubStackClient("owner/repo")

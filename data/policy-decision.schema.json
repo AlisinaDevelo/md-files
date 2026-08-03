@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://forge.local/schemas/policy-decision.schema.json",
+  "title": "Forge Policy Decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "decision", "profile", "policy_revision", "action_digest", "rule_id", "reason", "principal", "workspace", "tool", "resource", "intent", "constraints", "approval_required"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "decision": {"enum": ["allow", "deny", "require_approval", "constrain", "transform"]},
+    "profile": {"type": "string", "minLength": 1},
+    "policy_revision": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "action_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "transformed_action_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "rule_id": {"type": "string", "minLength": 1},
+    "reason": {"type": "string", "minLength": 1},
+    "principal": {"type": "string", "minLength": 1},
+    "workspace": {"type": "string", "minLength": 1},
+    "tool": {"type": "string", "minLength": 1},
+    "resource": {"type": "object"},
+    "intent": {"type": "object"},
+    "constraints": {"type": "object"},
+    "approval_required": {"type": "boolean"}
+  }
+}

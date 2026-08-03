@@ -10,10 +10,10 @@ maximize the efficacy of LLMs in software engineering.**
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-d97757.svg)](https://docs.claude.com/en/docs/claude-code)
 [![Agents](https://img.shields.io/badge/agents-20-8b5cf6.svg)](plugins/forge/agents/)
-[![Skills](https://img.shields.io/badge/skills-23-06b6d4.svg)](plugins/forge/skills/)
-[![Commands](https://img.shields.io/badge/commands-20-22c55e.svg)](plugins/forge/commands/)
-[![Tests](https://img.shields.io/badge/tests-127%20passing-success.svg)](tests/)
-[![Prompt evals](https://img.shields.io/badge/prompt%20evals-307%20checks-success.svg)](evals/)
+[![Skills](https://img.shields.io/badge/skills-25-06b6d4.svg)](plugins/forge/skills/)
+[![Commands](https://img.shields.io/badge/commands-22-22c55e.svg)](plugins/forge/commands/)
+[![Tests](https://img.shields.io/badge/tests-143%20passing-success.svg)](tests/)
+[![Prompt evals](https://img.shields.io/badge/prompt%20evals-312%20checks-success.svg)](evals/)
 
 </div>
 
@@ -58,20 +58,23 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
 - **Stacked delivery, now native.** Design and verify dependent PRs with a portable stack
   manifest, default to GitHub's first-party `gh stack`, or adapt the same safety protocol
   to vanilla GitHub, Graphite, Aviator, Sapling, and classic ghstack.
+- **Authorization before effects.** Declarative policy profiles bind exact actions to
+  principals, resources, revisions, and one-use approvals, with staged previews and
+  committed-effect receipts for GitHub mutations, releases, and production workflows.
 - **Discoverability without bloat.** `/forge`, [CATALOG.md](CATALOG.md), bundles, and
   workflows route work to the smallest useful capability instead of dumping every skill
   into context.
-- **Methodology on tap.** Twenty-three skills inject battle-tested practices — TDD,
+- **Methodology on tap.** Twenty-five skills inject battle-tested practices — TDD,
   root-cause debugging, threat modeling, safe migrations, orchestration, catalogs, task
   ledgers, and solve loops — exactly when the situation calls for them.
-- **One-keystroke workflows.** Twenty slash commands wrap the everyday loop: forge,
+- **One-keystroke workflows.** Twenty-two slash commands wrap the everyday loop: forge,
   review, test, debug, plan, commit, PR, orchestrate, tasks, solve-loop, stack, stack-review.
 - **Safety by default.** Lifecycle hooks block catastrophic commands and secret leaks,
   auto-format edits, inject repo context at session start, and notify you on completion —
   deterministically, without relying on the model to remember.
 - **Proven, not asserted.** A real eval harness scores prompts and high-risk behavior
-  contracts (307 deterministic checks plus cross-host scenarios and an opt-in LLM judge);
-  126 tests cover safety hooks, task sync, receipts, doctor, stacks, and conformance. Run
+  contracts (312 deterministic checks plus cross-host scenarios and an opt-in LLM judge);
+  143 tests cover safety hooks, task sync, receipts, doctor, policy, stacks, and conformance. Run
   them yourself — `just check`.
 - **Auditable & self-validating.** Read every prompt and script. CI validates structure,
   runs the tests, and scores the evals on every push. GitHub-backed task ledgers add stable
@@ -172,6 +175,7 @@ files loaded only when needed.
 | [`iterate-to-done`](plugins/forge/skills/iterate-to-done/) | Solve-loop discipline for draining a ledger until done or blocked |
 | [`stacked-changes`](plugins/forge/skills/stacked-changes/) | GitHub-native and vendor-neutral stacked PR design, review, native reconciliation, restack, recovery, and landing |
 | [`doctor`](plugins/forge/skills/doctor/) | Read-only host, capability, repository-policy, and merge-readiness diagnostics |
+| [`policy`](plugins/forge/skills/policy/) | Declarative authorization, staged previews, scoped approvals, and decision receipts |
 
 ### Commands
 
@@ -200,6 +204,7 @@ User-triggered prompt templates with argument and shell injection.
 | `/stack` | Plan, inspect, submit, reconcile, restack, repair, or land dependent pull requests |
 | `/stack-review` | Review every stack layer bottom-up against its immediate parent |
 | `/doctor` | Run the read-only Forge capability and merge-readiness preflight |
+| `/policy` | Evaluate policy, stage effects, issue approvals, authorize, and record outcomes |
 
 ### Hooks
 
@@ -278,8 +283,8 @@ plugins/forge/         the Forge plugin
   .claude-plugin/        plugin manifest
   .codex-plugin/         Codex plugin manifest
   agents/                20 specialist subagents
-  skills/                23 progressive-disclosure skills
-  commands/              20 slash commands
+  skills/                25 progressive-disclosure skills
+  commands/              22 slash commands
   hooks/                 5 lifecycle hooks (session-context, guard, secrets, format, notify)
   output-styles/         selectable system-prompt modes
 instructions/          CLAUDE.md templates, principles, language guides
@@ -304,6 +309,8 @@ scripts/               validate.sh, install.sh
   safety model, review flow, CI, and recovery
 - [GitHub native stacks](docs/github-native-stacks.md) — remote inspect/import, SHA-guarded
   reconciliation, divergence classes, mutation authority, and preview fallback
+- [Policy plane](docs/policy-plane.md) — action envelopes, profiles, approvals, staged
+  previews, adapter integration, and privacy-safe decision evidence
 - [Cross-host conformance](docs/conformance.md) — shared scenarios, host adapters, live
   evidence, result schemas, and release gates
 - [Architecture](docs/architecture.md) — how the repo is organized and why

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://forge.local/schemas/policy.schema.json",
+  "title": "Forge Policy Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "profile", "description", "default_decision", "protected_paths", "constraints", "rules"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "profile": {"type": "string", "minLength": 1},
+    "description": {"type": "string", "minLength": 1},
+    "default_decision": {"enum": ["allow", "deny", "require_approval", "constrain", "transform"]},
+    "protected_paths": {"type": "array", "items": {"type": "string"}},
+    "constraints": {"type": "object"},
+    "rules": {"type": "array", "items": {"type": "object"}}
+  }
+}

@@ -202,6 +202,53 @@ def test_apply_is_resumable_and_requires_confirmation(tmp_path):
     assert receipts["idempotency_key"].startswith("forge-tasks:")
 
 
+def test_policy_staged_apply_never_calls_github_or_writes_sync_state(tmp_path):
+    module = load_module()
+    value = task(module)
+    client = FakeGitHub(module)
+    instance = module.SyncEngine(
+        [value],
+        client,
+        tmp_path / "github-sync.json",
+        "owner/repo",
+        tmp_path / "receipts.jsonl",
+        policy_profile=REPO / "policies/github-mutation.json",
+        policy_staged=True,
+        policy_approvals_path=tmp_path / "approvals.jsonl",
+        workspace=tmp_path,
+    )
+    instance.discover()
+
+    results = instance.apply(instance.plan())
+
+    assert results[0]["status"] == "staged"
+    assert results[0]["policy"]["status"] == "staged"
+    assert client.created == []
+    assert not (tmp_path / "github-sync.json").exists()
+    assert not (tmp_path / "approvals.jsonl").exists()
+
+
+def test_policy_apply_requires_approval_before_github_effect(tmp_path):
+    module = load_module()
+    value = task(module)
+    client = FakeGitHub(module)
+    instance = module.SyncEngine(
+        [value],
+        client,
+        tmp_path / "github-sync.json",
+        "owner/repo",
+        tmp_path / "receipts.jsonl",
+        policy_profile=REPO / "policies/github-mutation.json",
+        policy_approvals_path=tmp_path / "approvals.jsonl",
+        workspace=tmp_path,
+    )
+    instance.discover()
+
+    with pytest.raises(module.SyncError, match="approval"):
+        instance.apply(instance.plan(), confirm=True)
+    assert client.created == []
+
+
 def test_import_is_byte_stable_for_same_task(tmp_path):
     module = load_module()
     value = task(module, sync_hash=None)

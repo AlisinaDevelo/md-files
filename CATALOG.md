@@ -8,9 +8,9 @@ Generated from the Forge plugin source. Do not hand-edit component rows; run
 | Kind | Count |
 |------|------:|
 | agents | 20 |
-| skills | 24 |
-| commands | 21 |
-| total | 65 |
+| skills | 25 |
+| commands | 22 |
+| total | 67 |
 
 ## Components
 
@@ -50,6 +50,7 @@ Generated from the Forge plugin source. Do not hand-edit component rows; run
 | `observability` | skill | safe | - | [plugins/forge/skills/observability/SKILL.md](plugins/forge/skills/observability/SKILL.md) | Use when adding logging, metrics, or tracing to code, or designing how a service is monitored. Covers the three pillars, structured logging, what to measure (RED/ USE), useful alerts, and the SLO mindset — so failures are debuggable after the fact. |
 | `orchestration` | skill | safe | - | [plugins/forge/skills/orchestration/SKILL.md](plugins/forge/skills/orchestration/SKILL.md) | Use when driving a large, multi-part task end to end with multiple models — planning at a high tier, decomposing into a task ledger, and delegating each piece to the right specialist at the right model (plan with Opus/Fable, implement with Sonnet, mechanical work with Haiku). Covers the conductor loop and how to delegate. See MODEL-ROUTING.md for the tier policy. |
 | `performance-profiling` | skill | safe | - | [plugins/forge/skills/performance-profiling/SKILL.md](plugins/forge/skills/performance-profiling/SKILL.md) | Use when investigating a performance problem — slow endpoints, high latency, memory/CPU pressure, or N+1 queries. A measure-first method to find the real bottleneck and verify the gain, instead of guessing at optimizations. |
+| `policy` | skill | safe | - | [plugins/forge/skills/policy/SKILL.md](plugins/forge/skills/policy/SKILL.md) | Use when an orchestrated run may create an external effect or mutate a protected resource. Defines versioned action envelopes, declarative profiles, scoped one-use approvals, staged previews, pre-effect re-evaluation, and privacy-safe decision receipts for Forge mutation adapters. |
 | `prompt-engineering` | skill | safe | - | [plugins/forge/skills/prompt-engineering/SKILL.md](plugins/forge/skills/prompt-engineering/SKILL.md) | Use when authoring or improving Claude Code agents, skills, slash commands, or CLAUDE.md instructions. Covers how to write a triggering description, structure a system prompt, scope tools, and apply progressive disclosure so the model actually uses what you build. See PATTERNS.md for operating-discipline techniques distilled from production agent prompts. |
 | `pull-request-authoring` | skill | safe | - | [plugins/forge/skills/pull-request-authoring/SKILL.md](plugins/forge/skills/pull-request-authoring/SKILL.md) | Use when opening a pull request — writing the description, sizing the change, and making it easy and fast to review. Covers PR structure, what reviewers need, and how to keep PRs small enough to actually get good review. |
 | `refactoring-catalog` | skill | safe | - | [plugins/forge/skills/refactoring-catalog/SKILL.md](plugins/forge/skills/refactoring-catalog/SKILL.md) | Use when improving the structure of existing code without changing behavior — identifying code smells and applying the right named refactoring safely. Covers the discipline of behavior-preserving change; see CATALOG.md for the smell→fix reference. |
@@ -70,6 +71,7 @@ Generated from the Forge plugin source. Do not hand-edit component rows; run
 | `/optimize` | command | safe | sonnet | [plugins/forge/commands/optimize.md](plugins/forge/commands/optimize.md) | Diagnose and fix a performance problem, measuring before and after |
 | `/orchestrate` | command | critical | opus | [plugins/forge/commands/orchestrate.md](plugins/forge/commands/orchestrate.md) | Plan a big goal at a high tier, decompose into a task ledger, and solve it by delegating each task to the right specialist and model |
 | `/plan` | command | safe | opus | [plugins/forge/commands/plan.md](plugins/forge/commands/plan.md) | Produce a step-by-step implementation plan before writing code |
+| `/policy` | command | critical | opus | [plugins/forge/commands/policy.md](plugins/forge/commands/policy.md) | Evaluate Forge policy, stage an effect, issue a scoped approval, or record a committed outcome |
 | `/pr` | command | critical | sonnet | [plugins/forge/commands/pr.md](plugins/forge/commands/pr.md) | Draft a pull request description from the branch's commits and incremental diff |
 | `/refactor` | command | critical | sonnet | [plugins/forge/commands/refactor.md](plugins/forge/commands/refactor.md) | Refactor code to improve structure while preserving behavior exactly |
 | `/review` | command | security-sensitive | sonnet | [plugins/forge/commands/review.md](plugins/forge/commands/review.md) | Review the current diff for correctness, security, and maintainability |

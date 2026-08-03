@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://forge.local/schemas/action-envelope.schema.json",
+  "title": "Forge Action Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "action_id", "tool", "arguments", "resource", "principal", "workspace", "intent"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "action_id": {"type": "string", "minLength": 1},
+    "tool": {"type": "string", "minLength": 1},
+    "arguments": {"type": "object"},
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "branch", "paths", "domains"],
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "branch": {"type": ["string", "null"]},
+        "paths": {"type": "array", "items": {"type": "string"}},
+        "domains": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "principal": {"type": "string", "minLength": 1},
+    "workspace": {"type": "string", "minLength": 1},
+    "intent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["effect", "external", "risk", "cost_usd", "fan_out"],
+      "properties": {
+        "effect": {"type": "string", "minLength": 1},
+        "external": {"type": "boolean"},
+        "risk": {"type": "string", "minLength": 1},
+        "cost_usd": {"type": "number", "minimum": 0},
+        "fan_out": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

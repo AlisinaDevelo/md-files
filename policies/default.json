@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "profile": "default",
+  "description": "Conservative local policy: inspect freely and deny undeclared effects.",
+  "default_decision": "deny",
+  "protected_paths": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    "SECURITY.md",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "poetry.lock",
+    "Cargo.lock",
+    "**/AGENTS.md",
+    "**/CLAUDE.md",
+    "instructions/**",
+    ".github/workflows/**",
+    "**/package-lock.json",
+    "**/pnpm-lock.yaml",
+    "**/yarn.lock",
+    "**/poetry.lock",
+    "**/Cargo.lock",
+    ".forge/stack.json",
+    ".forge/github-sync.json",
+    "settings/**",
+    "plugins/**/.claude-plugin/**",
+    "plugins/**/.codex-plugin/**"
+  ],
+  "constraints": {},
+  "rules": [
+    {
+      "id": "safe-inspection",
+      "decision": "allow",
+      "match": {
+        "intent": {
+          "external": false,
+          "effect": ["inspect", "plan", "preview", "read"]
+        }
+      },
+      "reason": "Read-only inspection and planning do not create an external effect."
+    }
+  ]
+}
