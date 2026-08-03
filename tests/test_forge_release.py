@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+import tarfile
 from pathlib import Path
 
 import pytest
@@ -59,6 +60,22 @@ def test_manifest_contains_three_host_archives_and_runtime_dependencies(tmp_path
     assert manifest["tag"] == f"v{VERSION}"
     assert manifest["verification"]["manifest_file"] == f"forge-{VERSION}-manifest.json"
     assert all(any(item["path"].endswith("LICENSE") for item in artifact["contents"]) for artifact in manifest["artifacts"] if artifact["name"].endswith(".tar.gz"))
+
+
+def test_archives_consume_host_rendered_surfaces(tmp_path):
+    build = load(BUILD_SCRIPT, "forge_release_build_rendered_surfaces")
+    build.build_release(REPO, tmp_path, VERSION, source_epoch=1_754_000_000, enforce_clean=False)
+
+    with tarfile.open(tmp_path / f"forge-{VERSION}-codex.tar.gz", "r:gz") as archive:
+        codex_names = {member.name for member in archive.getmembers()}
+    with tarfile.open(tmp_path / f"forge-{VERSION}-agents.tar.gz", "r:gz") as archive:
+        agents_names = {member.name for member in archive.getmembers()}
+
+    assert "forge/skills/orchestration/SKILL.md" in codex_names
+    assert "forge/agents/architect.md" not in codex_names
+    assert "forge/data/projection-manifest.json" in codex_names
+    assert "forge-agents/zed/install.sh" in agents_names
+    assert "forge-agents/data/bundles.json" in agents_names
 
 
 def test_spdx_validation_rejects_missing_required_fields():

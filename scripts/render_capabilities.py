@@ -60,6 +60,7 @@ def _copy(source: Path, target: Path) -> None:
         raise RenderError(f"render source is missing: {source}")
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, target)
+    shutil.copymode(source, target)
 
 
 def _yaml_value(value: Any) -> str:
@@ -152,6 +153,158 @@ def _copy_extensions(repo: Path, root: Path, host: str, extensions: list[str]) -
                 _copy(path, destination / path.relative_to(source))
                 count += 1
     return count
+
+
+def _load_json(repo: Path, relative: str) -> dict[str, Any]:
+    path = repo / relative
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RenderError(f"cannot read {relative}: {exc}") from exc
+    if not isinstance(value, dict):
+        raise RenderError(f"{relative} must contain a JSON object")
+    return value
+
+
+def _reference_map(graph: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    references: dict[str, dict[str, Any]] = {}
+    for component in graph["components"]:
+        kind = component["kind"]
+        component_id = component["id"]
+        reference = f"/{component_id}" if kind == "command" else component_id
+        if reference in references:
+            raise RenderError(f"ambiguous capability reference: {reference}")
+        references[reference] = component
+    return references
+
+
+def _resolve_references(value: str, references: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    matches: list[dict[str, Any]] = []
+    slash_names = re.findall(r"/([a-z0-9][a-z0-9-]*)", value)
+    if slash_names:
+        for name in slash_names:
+            reference = f"/{name}"
+            if reference not in references:
+                raise RenderError(f"metadata references unknown capability: {reference}")
+            matches.append(references[reference])
+        return matches
+    if value in references:
+        return [references[value]]
+    return []
+
+
+def _resolved_metadata(graph: dict[str, Any], repo: Path) -> dict[str, dict[str, Any]]:
+    references = _reference_map(graph)
+    output: dict[str, dict[str, Any]] = {}
+    for filename, collection_key, reference_key in (
+        ("data/bundles.json", "bundles", "components"),
+        ("data/workflows.json", "workflows", "steps"),
+    ):
+        source = _load_json(repo, filename)
+        entries = source.get(collection_key)
+        if not isinstance(entries, list):
+            raise RenderError(f"{filename} {collection_key} must be an array")
+        seen: set[str] = set()
+        rendered: list[dict[str, Any]] = []
+        for entry in entries:
+            if not isinstance(entry, dict) or not isinstance(entry.get("id"), str):
+                raise RenderError(f"{filename} contains an invalid {collection_key[:-1]} entry")
+            if entry["id"] in seen:
+                raise RenderError(f"{filename} contains duplicate id {entry['id']}")
+            seen.add(entry["id"])
+            references_for_entry = entry.get(reference_key)
+            if not isinstance(references_for_entry, list) or not all(isinstance(item, str) for item in references_for_entry):
+                raise RenderError(f"{filename} {entry['id']} {reference_key} must be a string array")
+            resolved: list[dict[str, Any]] = []
+            for reference in references_for_entry:
+                for component in _resolve_references(reference, references):
+                    resolved.append(
+                        {
+                            "id": component["id"],
+                            "kind": component["kind"],
+                            "source": component["source"],
+                            "host_projections": component["host_projections"],
+                        }
+                    )
+            rendered.append({**entry, "resolved_components" if reference_key == "components" else "resolved_steps": resolved})
+        output[collection_key] = {
+            "schema_version": 2,
+            "source_version": source.get("version"),
+            "capability_graph": {"schema_version": graph["schema_version"], "version": graph["version"]},
+            collection_key: rendered,
+        }
+    return output
+
+
+def _catalog(repo: Path) -> tuple[str, str]:
+    path = repo / "scripts" / "generate_catalog.py"
+    spec = importlib.util.spec_from_file_location("forge_catalog_generator", path)
+    if spec is None or spec.loader is None:
+        raise RenderError(f"cannot load catalog generator: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    module.REPO = repo
+    module.PLUGIN = repo / "plugins" / "forge"
+    module.CAPABILITIES = repo / "data" / "capabilities.json"
+    return module.render_catalog(module.component_rows())
+
+
+def _copy_zed_surface(repo: Path, root: Path) -> int:
+    count = 0
+    for relative in ("zed/AGENTS.md", "zed/README.md", "zed/install.sh", "zed/settings/profiles.json"):
+        _copy(repo / relative, root / relative)
+        count += 1
+    return count
+
+
+def render_release_surface(repo: Path, graph: dict[str, Any], output: Path) -> dict[str, Any]:
+    """Render hosts plus release metadata and install inputs from one graph."""
+    _validate_graph(graph)
+    reports = render_all(repo, graph, output)
+    resolved_metadata = _resolved_metadata(graph, repo)
+    catalog_markdown, catalog_json = _catalog(repo)
+    graph_json = json.dumps(graph, indent=2, ensure_ascii=True) + "\n"
+    metadata_files = {
+        "CATALOG.md": catalog_markdown,
+        "data/catalog.json": catalog_json,
+        "data/bundles.json": json.dumps(resolved_metadata["bundles"], indent=2, ensure_ascii=True) + "\n",
+        "data/workflows.json": json.dumps(resolved_metadata["workflows"], indent=2, ensure_ascii=True) + "\n",
+        "data/capabilities.json": graph_json,
+    }
+    metadata_sources = (
+        "data/capabilities.schema.json",
+        "data/host-adapter.schema.json",
+    )
+    common_manifest = {
+        "schema_version": 1,
+        "project": "forge",
+        "graph": {"schema_version": graph["schema_version"], "version": graph["version"]},
+        "hosts": {
+            host: {
+                "components": reports[host]["components"],
+                "files": reports[host]["files"] + len(metadata_files) + len(metadata_sources) + 1 + (4 if host == "agentskills" else 0),
+            }
+            for host in HOST_NAMES
+        },
+        "metadata": {key: {"source_version": value["source_version"], "count": len(value[key])} for key, value in resolved_metadata.items()},
+    }
+    for host in HOST_NAMES:
+        root = output / host
+        for relative, content in metadata_files.items():
+            _write(root / relative, content)
+        for relative in metadata_sources:
+            _copy(repo / relative, root / relative)
+        _copy(repo / "LICENSE", root / "LICENSE")
+        if host == "agentskills":
+            _copy_zed_surface(repo, root)
+        _write(root / "data/projection-manifest.json", json.dumps(common_manifest, indent=2, ensure_ascii=True) + "\n")
+        reports[host]["files"] = common_manifest["hosts"][host]["files"] + 1
+    return {
+        "schema_version": 1,
+        "graph": {"schema_version": graph["schema_version"], "version": graph["version"]},
+        "hosts": reports,
+        "metadata": common_manifest["metadata"],
+    }
 
 
 def render_host(repo: Path, graph: dict[str, Any], output: Path, host: str) -> dict[str, Any]:
@@ -275,6 +428,7 @@ def main(argv: list[str] | None = None) -> int:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--check", action="store_true", help="verify all built-in projections are deterministic")
     mode.add_argument("--adapter", type=Path, help="render a JSON host adapter contract")
+    mode.add_argument("--release-surface", action="store_true", help="render hosts, metadata, and install inputs")
     parser.add_argument("--host", choices=("all", *HOST_NAMES), default="all")
     parser.add_argument("--output", type=Path, default=Path("build/capability-projections"))
     args = parser.parse_args(argv)
@@ -291,6 +445,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.adapter:
             adapter = json.loads(args.adapter.read_text(encoding="utf-8"))
             report = render_adapter(REPO, graph, args.output, adapter)
+        elif args.release_surface:
+            report = render_release_surface(REPO, graph, args.output)
         elif args.host == "all":
             report = render_all(REPO, graph, args.output)
         else:

@@ -14,6 +14,7 @@ import stat
 import subprocess
 import sys
 import tarfile
+import tempfile
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
@@ -22,15 +23,41 @@ VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 SCHEMA_VERSION = 1
 IGNORED_GENERATED = {"__pycache__", ".pytest_cache", ".ruff_cache"}
 BUNDLE_SPECS: dict[str, tuple[tuple[str, str], ...]] = {
-    "claude": (("plugins/forge", "forge"), ("LICENSE", "forge/LICENSE")),
-    "codex": (("plugins/forge", "forge"), ("LICENSE", "forge/LICENSE")),
+    "claude": (("plugins/forge", "forge"), ("LICENSE", "forge")),
+    "codex": (("plugins/forge", "forge"), ("LICENSE", "forge")),
     "agents": (
         ("plugins/forge/skills", "forge-agents/skills"),
         ("zed/skills", "forge-agents/zed/skills"),
-        ("zed/AGENTS.md", "forge-agents/zed/AGENTS.md"),
-        ("zed/install.sh", "forge-agents/zed/install.sh"),
-        (".agents/plugins/marketplace.json", "forge-agents/.agents/plugins/marketplace.json"),
-        ("LICENSE", "forge-agents/LICENSE"),
+        ("zed/AGENTS.md", "forge-agents/zed"),
+        ("zed/install.sh", "forge-agents/zed"),
+        (".agents/plugins/marketplace.json", "forge-agents/.agents/plugins"),
+        ("LICENSE", "forge-agents"),
+    ),
+}
+RENDERED_BUNDLE_SPECS: dict[str, tuple[tuple[str, str], ...]] = {
+    "claude": (
+        ("claude/plugins/forge", "forge"),
+        ("claude/CATALOG.md", "forge"),
+        ("claude/data", "forge/data"),
+        ("claude/LICENSE", "forge"),
+    ),
+    "codex": (
+        ("codex/plugins/forge", "forge"),
+        ("codex/CATALOG.md", "forge"),
+        ("codex/data", "forge/data"),
+        ("codex/LICENSE", "forge"),
+    ),
+    "agents": (
+        ("agentskills/plugins/forge/skills", "forge-agents/skills"),
+        ("agentskills/zed/skills", "forge-agents/zed/skills"),
+        ("agentskills/zed/AGENTS.md", "forge-agents/zed"),
+        ("agentskills/zed/README.md", "forge-agents/zed"),
+        ("agentskills/zed/install.sh", "forge-agents/zed"),
+        ("agentskills/zed/settings", "forge-agents/zed/settings"),
+        ("agentskills/.agents/plugins/marketplace.json", "forge-agents/.agents/plugins"),
+        ("agentskills/CATALOG.md", "forge-agents"),
+        ("agentskills/data", "forge-agents/data"),
+        ("agentskills/LICENSE", "forge-agents"),
     ),
 }
 RUNTIME_DEPENDENCIES = (
@@ -129,14 +156,39 @@ def _source_files(repo: Path, source: str, tracked: Mapping[str, str]) -> list[t
     return files
 
 
-def _bundle_files(repo: Path, bundle: str, tracked: Mapping[str, str]) -> list[tuple[str, Path, str]]:
+def _generated_files(root: Path) -> list[tuple[str, Path, str]]:
+    if not root.exists():
+        raise ReleaseBuildError(f"generated release source path is missing: {root}")
+    paths = [root] if root.is_file() else sorted(root.rglob("*"))
+    files: list[tuple[str, Path, str]] = []
+    for path in paths:
+        if path.is_dir():
+            continue
+        relative = path.name if root.is_file() else path.relative_to(root).as_posix()
+        if path.is_symlink():
+            raise ReleaseBuildError(f"symlinks are not allowed in generated bundles: {relative}")
+        file_stat = path.stat()
+        if not stat.S_ISREG(file_stat.st_mode):
+            raise ReleaseBuildError(f"generated release input is not a regular file: {relative}")
+        executable = bool(file_stat.st_mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH))
+        files.append((relative, path, "100755" if executable else "100644"))
+    return files
+
+
+def _bundle_files(
+    repo: Path,
+    bundle: str,
+    tracked: Mapping[str, str],
+    generated_root: Path | None = None,
+) -> list[tuple[str, Path, str]]:
     entries: list[tuple[str, Path, str]] = []
     seen: set[str] = set()
-    for source, prefix in BUNDLE_SPECS[bundle]:
-        source_files = _source_files(repo, source, tracked)
-        source_root = repo / source
+    specs = RENDERED_BUNDLE_SPECS[bundle] if generated_root else BUNDLE_SPECS[bundle]
+    for source, prefix in specs:
+        source_root = generated_root / source if generated_root else repo / source
+        source_files = _generated_files(source_root) if generated_root else _source_files(repo, source, tracked)
         for relative, path, mode in source_files:
-            suffix = Path(relative).relative_to(source_root.relative_to(repo)).as_posix() if source_root.is_dir() else Path(relative).name
+            suffix = relative if source_root.is_dir() else Path(relative).name
             archive_path = f"{prefix}/{suffix}"
             if archive_path in seen:
                 raise ReleaseBuildError(f"duplicate archive path in {bundle} bundle: {archive_path}")
@@ -333,12 +385,19 @@ def build_release(
     subprocess.run([sys.executable, str(repo / "scripts/compile_capabilities.py"), "--check"], cwd=repo, check=True)
     subprocess.run([sys.executable, str(repo / "scripts/render_capabilities.py"), "--check"], cwd=repo, check=True)
     bundles: list[dict[str, Any]] = []
-    for surface in ("claude", "codex", "agents"):
-        entries = _bundle_files(repo, surface, tracked)
-        data, contents = _archive(surface, entries, source_epoch)
-        name = f"forge-{version}-{surface}.tar.gz"
-        _write(output / name, data)
-        bundles.append({"surface": surface, "name": name, "size": len(data), "sha256": _sha256_bytes(data), "contents": contents})
+    with tempfile.TemporaryDirectory(prefix="forge-release-surface-") as rendered:
+        subprocess.run(
+            [sys.executable, str(repo / "scripts/render_capabilities.py"), "--release-surface", "--output", rendered],
+            cwd=repo,
+            check=True,
+        )
+        generated_root = Path(rendered)
+        for surface in ("claude", "codex", "agents"):
+            entries = _bundle_files(repo, surface, tracked, generated_root)
+            data, contents = _archive(surface, entries, source_epoch)
+            name = f"forge-{version}-{surface}.tar.gz"
+            _write(output / name, data)
+            bundles.append({"surface": surface, "name": name, "size": len(data), "sha256": _sha256_bytes(data), "contents": contents})
     sbom_name = f"forge-{version}-sbom.spdx.json"
     sbom = _spdx_document(repo, version, tag, commit, source_epoch, bundles)
     sbom_bytes = _canonical(sbom).encode("utf-8")
