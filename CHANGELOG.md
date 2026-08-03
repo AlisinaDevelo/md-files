@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [3.3.0] — 2026-08-03
+
 ### Added
 
 - **Release provenance** - deterministic Claude, Codex, and `.agents` bundles, SPDX 2.3
@@ -253,7 +255,8 @@ plugin under `plugins/forge/`.
 - **Docs** — getting started, usage patterns, architecture, design rationale, and CI &
   headless usage guides.
 
-[Unreleased]: https://github.com/AlisinaDevelo/md-files/compare/v3.2.0...HEAD
+[Unreleased]: https://github.com/AlisinaDevelo/md-files/compare/v3.3.0...HEAD
+[3.3.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.3.0
 [3.2.0]: https://github.com/AlisinaDevelo/md-files/compare/v3.1.0...v3.2.0
 [3.1.0]: https://github.com/AlisinaDevelo/md-files/compare/v3.0.1...v3.1.0
 [3.0.1]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.0.1
