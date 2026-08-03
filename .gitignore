@@ -15,6 +15,7 @@ Thumbs.db
 
 # Build / tooling output
 node_modules/
+dist/
 .cache/
 *.log
 .markdownlint-cache

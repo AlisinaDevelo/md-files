@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- **Release provenance** - deterministic Claude, Codex, and `.agents` bundles, SPDX 2.3
+  SBOMs, SHA-256 manifests, GitHub artifact attestations, reproducibility CI, and an
+  offline verifier with strict tracked-file and executable-mode checks.
+
 ## [3.2.0] — 2026-08-03
 
 ### Added

@@ -12,7 +12,7 @@ maximize the efficacy of LLMs in software engineering.**
 [![Agents](https://img.shields.io/badge/agents-20-8b5cf6.svg)](plugins/forge/agents/)
 [![Skills](https://img.shields.io/badge/skills-25-06b6d4.svg)](plugins/forge/skills/)
 [![Commands](https://img.shields.io/badge/commands-22-22c55e.svg)](plugins/forge/commands/)
-[![Tests](https://img.shields.io/badge/tests-143%20passing-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-162%20passing-success.svg)](tests/)
 [![Prompt evals](https://img.shields.io/badge/prompt%20evals-312%20checks-success.svg)](evals/)
 
 </div>
@@ -38,6 +38,7 @@ build step, no magic, nothing hidden from you.
   - [Output styles, status line & settings](#output-styles-status-line--settings)
   - [Instructions & MCP](#instructions--mcp)
   - [Evidence — evals & tests](#evidence--evals--tests)
+- [Release provenance](#release-provenance)
 - [How the pieces fit](#how-the-pieces-fit)
 - [Repository layout](#repository-layout)
 - [Documentation](#documentation)
@@ -242,6 +243,13 @@ Deterministic guardrails the harness runs on lifecycle events — no model memor
 - [`tests/`](tests/) — pytest cases covering safety hooks, task sync, receipts, doctor,
   stacks, and conformance. `just check` runs it all.
 
+## Release provenance
+
+Tagged releases publish deterministic Claude, Codex, and `.agents` bundles with SHA-256
+manifests, SPDX SBOMs, GitHub artifact attestations, and an offline verifier. See
+[release provenance](docs/release-provenance.md) for consumer verification and the
+threat model.
+
 ## How the pieces fit
 
 ```mermaid
@@ -313,6 +321,8 @@ scripts/               validate.sh, install.sh
   previews, adapter integration, and privacy-safe decision evidence
 - [Cross-host conformance](docs/conformance.md) — shared scenarios, host adapters, live
   evidence, result schemas, and release gates
+- [Release provenance](docs/release-provenance.md) — deterministic bundles, SBOMs,
+  attestations, offline verification, and threat model
 - [Architecture](docs/architecture.md) — how the repo is organized and why
 - [Design rationale](docs/design-rationale.md) — the decisions and trade-offs behind Forge
 - [CI & headless usage](docs/ci-and-headless.md) — run Forge in pipelines and automated review
