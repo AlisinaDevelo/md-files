@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [3.1.0] — 2026-08-03
+
 ### Added
 
 - **Forge Doctor** — a read-only, schema-versioned preflight for host tools, manifest and
@@ -236,7 +238,8 @@ plugin under `plugins/forge/`.
 - **Docs** — getting started, usage patterns, architecture, design rationale, and CI &
   headless usage guides.
 
-[Unreleased]: https://github.com/AlisinaDevelo/md-files/compare/v3.0.1...HEAD
+[Unreleased]: https://github.com/AlisinaDevelo/md-files/compare/v3.1.0...HEAD
+[3.1.0]: https://github.com/AlisinaDevelo/md-files/compare/v3.0.1...v3.1.0
 [3.0.1]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.0.1
 [3.0.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.0.0
 [2.1.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v2.1.0
