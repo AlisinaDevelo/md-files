@@ -11,6 +11,8 @@ All notable changes to this project are documented here. The format is based on
 - **Body-aware capability compiler** - upgraded the canonical graph to v2 with embedded
   instructions, semantic permissions, eval links, and deterministic Claude, Codex, Agent
   Skills, and third-party adapter projections.
+- **Semantic capability evidence** - added prompt-safe semantic diffs and fail-closed
+  v1-to-v2 migration checks with source-parity fixtures.
 
 ## [3.5.0] — 2026-08-03
 
