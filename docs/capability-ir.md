@@ -46,6 +46,9 @@ python3 scripts/render_capabilities.py --check
 # Inspect a rendered projection without modifying the repository.
 python3 scripts/render_capabilities.py --host agentskills --output /tmp/forge-projection
 
+# Build all host trees plus resolved catalogs, bundles, workflows, and install inputs.
+python3 scripts/render_capabilities.py --release-surface --output /tmp/forge-release-surface
+
 # Produce prompt-safe semantic evidence between graph revisions.
 python3 scripts/diff_capabilities.py --before /tmp/capabilities-v1.json --format markdown
 
@@ -123,8 +126,9 @@ Markdown as the reviewed authoring format.
 
 ## Current boundary
 
-The body-aware compiler and deterministic component renderer are now in place. The
-renderer generates component files, nested skill resources, built-in manifests, and
-host-specific shims. Release bundles, workflow metadata, and the repository's reviewed
-Zed shims remain explicit release artifacts for now; the next slice should derive those
-surfaces from rendered projections and add semantic-diff and schema-migration reports.
+The body-aware compiler, semantic evidence tools, and deterministic release-surface
+renderer are now in place. Release packaging renders host trees first, then archives the
+rendered Claude, Codex, and Agent Skills-compatible surfaces with resolved catalogs,
+bundles, workflows, manifests, schemas, and Zed install inputs. The remaining major
+follow-up is broader runtime consumption of this contract by the durable orchestration
+and GitHub Agentic Workflows backends.

@@ -13,6 +13,9 @@ All notable changes to this project are documented here. The format is based on
   Skills, and third-party adapter projections.
 - **Semantic capability evidence** - added prompt-safe semantic diffs and fail-closed
   v1-to-v2 migration checks with source-parity fixtures.
+- **Graph-derived release surfaces** - release packaging now renders host trees first and
+  archives resolved catalogs, bundles, workflows, manifests, schemas, and Zed install
+  inputs from the canonical graph.
 
 ## [3.5.0] — 2026-08-03
 

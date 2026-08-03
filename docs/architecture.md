@@ -49,8 +49,8 @@ degraded host trees.
 
 Markdown remains the reviewed authoring format, while the v2 graph is a body-aware
 intermediate representation. The renderer generates component files, manifests, nested
-skill resources, and explicit shims. Release bundles, workflow metadata, and reviewed Zed
-files remain separate release artifacts until their derivation is migrated in a follow-up.
+skill resources, explicit shims, resolved catalogs, bundles, workflows, and release
+install inputs. Release packaging consumes that generated surface before archiving it.
 
 ## The four component types
 

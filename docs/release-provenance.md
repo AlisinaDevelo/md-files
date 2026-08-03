@@ -95,9 +95,11 @@ tag.
 - **Mutable tags or release assets:** the manifest records both tag and commit. Protect
   release tags and review any asset replacement; re-run both attestation and offline
   checks after downloading.
-- **Unreviewed generated or executable content:** bundle inputs must be Git-tracked,
-  regular files with reviewed `100644` or `100755` modes. The builder fails on untracked
-  content, symlinks, mode drift, catalog drift, and version mismatch.
+- **Unreviewed generated or executable content:** source inputs must be Git-tracked, and
+  generated bundle files must be regular files with derived `100644` or `100755` modes.
+  The builder renders only from the reviewed capability graph, rejects symlinks and
+  unsupported filesystem entries, and fails on source drift, catalog drift, and version
+  mismatch.
 - **Keyless signing assumptions:** GitHub artifact attestations provide verifiable
   workflow and repository identity through OIDC-backed signing. They do not prove that
   the source was correct or vulnerability-free; consumers still need source review,

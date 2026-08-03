@@ -14,19 +14,18 @@ graph, including nested resources, manifests, and explicit degraded shims.
 
 ## Acceptance criteria
 
-- [ ] Built-in renderers cover native and omitted/shimmed component kinds.
-- [ ] Claude-only command substitutions are removed or adapted at the shim boundary.
-- [ ] Native skill resources and host manifests are copied deterministically.
-- [ ] Repeated renders compare byte-for-byte and are exercised by release gates.
+- [x] Built-in renderers cover native and omitted/shimmed component kinds.
+- [x] Claude-only command substitutions are removed or adapted at the shim boundary.
+- [x] Native skill resources and host manifests are copied deterministically.
+- [x] Repeated renders compare byte-for-byte and are exercised by release gates.
 
 ## Context
 
 The renderer is `scripts/render_capabilities.py`; output is an explicit caller-selected
-directory and never a tracked generated tree. Keep existing hand-authored Zed shims as
-reviewed release artifacts until the bundle migration slice lands.
+directory and never a tracked generated tree. Release packaging now consumes its generated
+surface, while hand-authored Zed files remain reviewed source inputs for install config.
 
 ## Notes
 
 Implemented on `feat/capability-renderer`; focused renderer tests, deterministic snapshots,
-and the release-packager dry run are green. Full bundle/workflow derivation remains a
-follow-up boundary documented in issue #42.
+and the release-packager dry run are green. Bundle/workflow derivation landed in task 0012.

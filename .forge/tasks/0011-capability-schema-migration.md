@@ -28,4 +28,5 @@ contract before returning v2.
 
 ## Notes
 
-Implemented on `feat/capability-diff-migrations`; full repository gates are pending.
+Implemented on `feat/capability-diff-migrations`; full repository gates passed and the
+change landed in PR #47.
