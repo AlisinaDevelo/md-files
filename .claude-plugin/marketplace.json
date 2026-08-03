@@ -7,14 +7,14 @@
   },
   "metadata": {
     "description": "Forge — enterprise-grade agents, orchestration, stacked delivery, catalogs, commands, and hooks for software engineering.",
-    "version": "3.2.0"
+    "version": "3.3.0"
   },
   "plugins": [
     {
       "name": "forge",
       "source": "./plugins/forge",
       "description": "Specialists, orchestration, task ledgers, solve loops, policy-gated effects, async GitHub Stack Merge, GitHub-native stacked delivery, catalogs, commands, and safety hooks.",
-      "version": "3.2.0",
+      "version": "3.3.0",
       "category": "developer-tooling",
       "keywords": ["agents", "skills", "orchestration", "task-ledger", "stacked-prs", "stack-merge", "merge-queue", "policy", "authorization", "github", "hooks", "code-review", "testing", "security"]
     }

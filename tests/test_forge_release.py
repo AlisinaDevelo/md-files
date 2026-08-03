@@ -12,6 +12,7 @@ import pytest
 REPO = Path(__file__).resolve().parents[1]
 BUILD_SCRIPT = REPO / "scripts/build_release.py"
 VERIFY_SCRIPT = REPO / "scripts/verify_release.py"
+VERSION = json.loads((REPO / "plugins/forge/.claude-plugin/plugin.json").read_text())["version"]
 
 
 def load(path: Path, name: str):
@@ -29,34 +30,34 @@ def test_same_source_epoch_produces_identical_archives_and_manifest(tmp_path):
     first = tmp_path / "first"
     second = tmp_path / "second"
 
-    first_result = build.build_release(REPO, first, "3.2.0", source_epoch=1_754_000_000, enforce_clean=False)
-    second_result = build.build_release(REPO, second, "3.2.0", source_epoch=1_754_000_000, enforce_clean=False)
+    first_result = build.build_release(REPO, first, VERSION, source_epoch=1_754_000_000, enforce_clean=False)
+    second_result = build.build_release(REPO, second, VERSION, source_epoch=1_754_000_000, enforce_clean=False)
 
     assert first_result["commit"] == second_result["commit"]
     for path in sorted(first.iterdir()):
         assert path.read_bytes() == (second / path.name).read_bytes(), path.name
-    verify.verify_release(first / "forge-3.2.0-manifest.json", first, expected_version="3.2.0")
+    verify.verify_release(first / f"forge-{VERSION}-manifest.json", first, expected_version=VERSION)
 
 
 def test_manifest_contains_three_host_archives_and_runtime_dependencies(tmp_path):
     build = load(BUILD_SCRIPT, "forge_release_build_manifest")
 
-    build.build_release(REPO, tmp_path, "3.2.0", source_epoch=1_754_000_000, enforce_clean=False)
-    manifest = json.loads((tmp_path / "forge-3.2.0-manifest.json").read_text())
+    build.build_release(REPO, tmp_path, VERSION, source_epoch=1_754_000_000, enforce_clean=False)
+    manifest = json.loads((tmp_path / f"forge-{VERSION}-manifest.json").read_text())
 
     assert {item["name"] for item in manifest["artifacts"]} >= {
-        "forge-3.2.0-claude.tar.gz",
-        "forge-3.2.0-codex.tar.gz",
-        "forge-3.2.0-agents.tar.gz",
-        "forge-3.2.0-sbom.spdx.json",
+        f"forge-{VERSION}-claude.tar.gz",
+        f"forge-{VERSION}-codex.tar.gz",
+        f"forge-{VERSION}-agents.tar.gz",
+        f"forge-{VERSION}-sbom.spdx.json",
     }
     assert {item["name"] for item in manifest["runtime_dependencies"]} == {"Python", "GitHub CLI"}
     assert all(item["sha256"] and item["size"] > 0 for item in manifest["artifacts"])
-    assert manifest["version_parity"]["claude_plugin"] == "3.2.0"
-    assert manifest["version_parity"]["codex_plugin"] == "3.2.0"
-    assert manifest["version_parity"]["marketplace_plugin"] == "3.2.0"
-    assert manifest["tag"] == "v3.2.0"
-    assert manifest["verification"]["manifest_file"] == "forge-3.2.0-manifest.json"
+    assert manifest["version_parity"]["claude_plugin"] == VERSION
+    assert manifest["version_parity"]["codex_plugin"] == VERSION
+    assert manifest["version_parity"]["marketplace_plugin"] == VERSION
+    assert manifest["tag"] == f"v{VERSION}"
+    assert manifest["verification"]["manifest_file"] == f"forge-{VERSION}-manifest.json"
     assert all(any(item["path"].endswith("LICENSE") for item in artifact["contents"]) for artifact in manifest["artifacts"] if artifact["name"].endswith(".tar.gz"))
 
 
@@ -70,9 +71,9 @@ def test_spdx_validation_rejects_missing_required_fields():
 def test_offline_verification_detects_archive_tampering(tmp_path):
     build = load(BUILD_SCRIPT, "forge_release_build_tamper")
     verify = load(VERIFY_SCRIPT, "forge_release_verify_tamper")
-    build.build_release(REPO, tmp_path, "3.2.0", source_epoch=1_754_000_000, enforce_clean=False)
-    archive = tmp_path / "forge-3.2.0-claude.tar.gz"
+    build.build_release(REPO, tmp_path, VERSION, source_epoch=1_754_000_000, enforce_clean=False)
+    archive = tmp_path / f"forge-{VERSION}-claude.tar.gz"
     archive.write_bytes(archive.read_bytes() + b"tampered")
 
     with pytest.raises(verify.ReleaseVerificationError, match="sha256"):
-        verify.verify_release(tmp_path / "forge-3.2.0-manifest.json", tmp_path, expected_version="3.2.0")
+        verify.verify_release(tmp_path / f"forge-{VERSION}-manifest.json", tmp_path, expected_version=VERSION)
