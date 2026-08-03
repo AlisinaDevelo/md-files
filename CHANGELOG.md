@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [3.6.0] — 2026-08-03
+
 ### Added
 
 - **Body-aware capability compiler** - upgraded the canonical graph to v2 with embedded
@@ -284,7 +286,8 @@ plugin under `plugins/forge/`.
 - **Docs** — getting started, usage patterns, architecture, design rationale, and CI &
   headless usage guides.
 
-[Unreleased]: https://github.com/AlisinaDevelo/md-files/compare/v3.5.0...HEAD
+[Unreleased]: https://github.com/AlisinaDevelo/md-files/compare/v3.6.0...HEAD
+[3.6.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.6.0
 [3.5.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.5.0
 [3.4.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.4.0
 [3.3.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.3.0

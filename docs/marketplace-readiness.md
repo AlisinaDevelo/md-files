@@ -8,7 +8,7 @@ accepted a public directory submission.
 
 | Surface | Current state | Evidence or next action |
 |---|---|---|
-| GitHub repository marketplace | Available | Install from `AlisinaDevelo/md-files`; tag `v3.5.0` is the verified release. |
+| GitHub repository marketplace | Available | Install from `AlisinaDevelo/md-files`; tag `v3.6.0` is the verified release. |
 | Claude Code repository marketplace | Available | `claude plugin marketplace add AlisinaDevelo/md-files` then `claude plugin install forge@forge`. |
 | Codex local/repository marketplace | Available | `codex plugin marketplace add AlisinaDevelo/md-files` then `codex plugin add forge@forge`. |
 | Claude public/curated directory | Not submitted | Do not claim listing or approval; submit only after the checklist below is reviewed. |
@@ -70,7 +70,7 @@ Before any external submission, record a dated result for each case in the issue
 | Near-miss request | Unrelated prompts do not invoke a Forge skill solely because they mention code. |
 | Permission boundary | Read-only work does not require mutation approval; GitHub/release effects remain policy-gated. |
 | Clean install | A fresh user can add the documented repository marketplace and install `forge@forge`. |
-| Upgrade | Version `3.5.0` replaces the prior cache entry without stale skill content. |
+| Upgrade | Version `3.6.0` replaces the prior cache entry without stale skill content. |
 | Uninstall | Removing Forge removes the host registration while leaving the user's repository untouched. |
 | Resource loading | Every declared skill, command, hook, asset, and referenced file loads from the cached plugin root. |
 
