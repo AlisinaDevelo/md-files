@@ -46,3 +46,20 @@ def test_resource_inventory_includes_nested_skill_files():
     assert "scripts/forge-stack.py" in component["resources"]
     assert "REFERENCE.md" in component["resources"]
     assert len(component["resources"]) >= 4
+
+
+def test_resource_inventory_excludes_python_runtime_caches(tmp_path):
+    module = load_module()
+    root = tmp_path / "skill"
+    root.mkdir()
+    source = root / "SKILL.md"
+    source.write_text("---\nname: fixture\ndescription: fixture\n---\n", encoding="utf-8")
+    references = root / "references"
+    references.mkdir()
+    (references / "REFERENCE.md").write_text("reference", encoding="utf-8")
+    cache = root / "__pycache__"
+    cache.mkdir()
+    (cache / "fixture.cpython-314.pyc").write_bytes(b"cache")
+    (root / "stale.pyc").write_bytes(b"cache")
+
+    assert module._resources("skill", source) == ["references/REFERENCE.md"]

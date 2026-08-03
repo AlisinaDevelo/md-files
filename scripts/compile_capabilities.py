@@ -106,7 +106,10 @@ def _resources(kind: str, source: Path) -> list[str]:
     return sorted(
         path.relative_to(root).as_posix()
         for path in root.rglob("*")
-        if path.is_file() and path.name != "SKILL.md"
+        if path.is_file()
+        and path.name != "SKILL.md"
+        and "__pycache__" not in path.parts
+        and path.suffix != ".pyc"
     )
 
 
