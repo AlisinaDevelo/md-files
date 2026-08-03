@@ -64,6 +64,27 @@ GitHub evaluates each layer against the stack's ultimate target, so trunk rules,
 and pull-request CI apply to mid-stack PRs. Webhooks expose stack id/number, size, position,
 and ultimate base; the `stacked` pull-request action fires after a PR joins the stack.
 
+### Native Stack Merge and Merge Queue
+
+The async landing adapter is `scripts/forge-stack-merge.py` (also available as
+`python3 scripts/forge-stack-merge.py`). Its state file is `.forge/stack-merge.json` and
+its receipt stream is `.forge/receipts.jsonl`.
+
+| Command | Effect |
+|---------|--------|
+| `plan --pr N` | Preview exact contiguous range, expected heads, readiness gates, policy effect, and expected result |
+| `submit --pr N --yes` | Re-check remote heads, consume optional scoped approval, submit once, and poll |
+| `poll --operation-id ID` | Resume a persisted pending or enqueued request without a new submit |
+| `queue-event --event FILE --operation-id ID` | Correlate a `merge_group` `checks_requested` delivery with the enqueued receipt |
+
+The adapter sends the selected target PR's expected head SHA to GitHub. It verifies every
+selected layer before submission and verifies every selected PR after a terminal result. A
+failed result with any remote merge evidence becomes `indeterminate` and requires manual
+reconciliation; it is never reported as a clean failure. `enqueued` is a handoff state, not
+completion: queue polling and correlated `merge_group` evidence remain part of the run.
+If Stack Merge is unsupported, the adapter returns a provider-native bottom-up plan and
+does not silently fall back to independent ordinary merges.
+
 ### Vanilla Git and GitHub CLI
 
 - PR `base` is the immediate parent branch; PR `head` is the current branch.

@@ -25,12 +25,16 @@ repository; otherwise use the manifest's explicit provider.
 - For `review`, compare each branch with its immediate parent and review bottom-up.
 - For `land`, verify approvals/checks and merge parent-first. Stop after each merge to
   restack/retarget and revalidate the next PR; respect the repository's merge queue.
-  With native GitHub stacks use `gh stack merge`, not ordinary `gh pr merge`.
+  With native GitHub stacks use `forge-stack-merge.py` for a previewed async Stack Merge,
+  or `gh stack merge` when the provider owns the landing. Never use ordinary `gh pr merge`
+  for a native stack.
 - For `repair`, identify the first divergence across local ancestry, remote refs, PR bases,
   or CI. Preserve work and provide a reversible recovery sequence.
 - For `sync`, inspect with `forge-stack-sync.py` first; import is read-only unless `--write`,
   and native mutations require local authority plus `--yes`. Stop on SHA drift or a native
   preview fallback.
+- For native landing, treat `.forge/stack-merge.json` as durable request state. Resume a
+  pending UUID or enqueued queue handoff; never submit again after a transport timeout.
 
 Never use `--force`, rewrite trunk/shared branches, bypass a rejected lease, or claim a
 stack is healthy without checking each incremental diff and post-command remote state.

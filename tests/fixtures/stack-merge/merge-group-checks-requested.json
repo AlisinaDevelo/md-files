@@ -1,0 +1,12 @@
+{
+  "action": "checks_requested",
+  "delivery_id": "f7d2b6e2-1b0a-4dc7-8a42-2a0b6a1c2e10",
+  "merge_group": {
+    "base_ref": "main",
+    "head_ref": "gh-readonly-queue/main/pr-102-7",
+    "head_sha": "queue-head-sha"
+  },
+  "repository": {
+    "full_name": "owner/repo"
+  }
+}

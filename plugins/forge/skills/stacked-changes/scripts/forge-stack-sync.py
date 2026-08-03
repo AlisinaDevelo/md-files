@@ -30,10 +30,11 @@ class FeatureUnavailable(StackSyncError):
 
 
 class ApiError(StackSyncError):
-    def __init__(self, status: int, message: str, path: str) -> None:
+    def __init__(self, status: int, message: str, path: str, data: Any = None) -> None:
         super().__init__(f"GitHub API {status} for {path}: {message}")
         self.status = status
         self.path = path
+        self.data = data
 
 
 class ConflictError(StackSyncError):
@@ -217,9 +218,20 @@ class GitHubStackClient:
         if result.returncode:
             status = _error_status(result.stderr)
             message = result.stderr.strip() or result.stdout.strip() or "request failed"
+            response_data = None
+            for candidate in (result.stdout.strip(), result.stderr.strip()):
+                if not candidate:
+                    continue
+                try:
+                    parsed = json.loads(candidate)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(parsed, (dict, list)):
+                    response_data = parsed
+                    break
             if status == 404 and "/stacks" in path:
                 raise FeatureUnavailable("GitHub native Stacked PRs are unavailable for this repository")
-            raise ApiError(status, message, path)
+            raise ApiError(status, message, path, response_data)
         if not result.stdout.strip():
             return None
         try:

@@ -56,8 +56,11 @@ privacy sanitizer as a second boundary.
 
 `PolicySession` is the adapter protocol. Optional enterprise policy providers can wrap
 the session at the adapter boundary without adding a dependency to Forge core. The
-bundled task-ledger and stacked-changes adapters opt in with `--policy-profile` and
-support `--policy-staged`, `--policy-approval`, and `--policy-approvals`.
+bundled task-ledger, stacked-changes, and native Stack Merge adapters opt in with
+`--policy-profile` and support `--policy-staged`, `--policy-approval`, and
+`--policy-approvals`. Native landing uses the `github_stack_merge` effect and binds the
+complete contiguous range, expected heads, queue mode, and readiness evidence to the
+approval.
 
 ## CLI examples
 

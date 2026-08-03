@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "profile": "github-mutation",
-  "description": "GitHub mutation profile for issue-ledger and native stacked-PR adapters.",
+  "description": "GitHub mutation profile for issue-ledger, native stacked-PR, and Stack Merge adapters.",
   "default_decision": "deny",
   "protected_paths": [
     "AGENTS.md",
@@ -75,6 +75,22 @@
         "max_fan_out": 10
       },
       "reason": "Native stacked-PR mutations require one scoped approval."
+    },
+    {
+      "id": "github-stack-merge",
+      "decision": "require_approval",
+      "match": {
+        "tool": "forge-stack-merge.submit",
+        "intent": {
+          "external": true,
+          "effect": "github_stack_merge"
+        }
+      },
+      "constraints": {
+        "allowed_domains": ["github.com"],
+        "max_fan_out": 10
+      },
+      "reason": "Native Stack Merge and Merge Queue handoff require one scoped approval."
     }
   ]
 }

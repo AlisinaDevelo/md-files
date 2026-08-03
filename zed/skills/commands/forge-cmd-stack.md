@@ -4,12 +4,13 @@ description: Plan, inspect, submit, restack, repair, or land a stack of dependen
 disable-model-invocation: true
 ---
 
-Manage the user's stacked-change workflow with the `stacked-changes` skill.
+Manage the user's stacked-change workflow with the `stacked-changes` skill, including the
+native async Stack Merge and Merge Queue receipt workflow.
 
 Use `.forge/stack.json` for branch and PR ancestry. Start with status. Design independent,
 bottom-up changes; validate every branch against its immediate parent; plan submission or
 restacking before changing Git or GitHub. Prefer GitHub's first-party `gh stack` provider
-when available. Require explicit approval before pushes, rebases,
+when available. Use `forge-stack-merge.py` to preview and resume native landing, and require explicit approval before pushes, rebases,
 force-with-lease, PR creation/base edits, or merges. Land parent-first and stop to
 revalidate after each merge. Never use `--force`, rewrite shared branches, or bypass a
 rejected lease.
