@@ -640,11 +640,10 @@ def _constraint_failure(constraints: Mapping[str, Any], action: ActionEnvelope) 
     for key, actual, predicate, label in checks:
         if key in constraints and not predicate(constraints[key]):
             return f"{label} is outside the declared {key} constraint"
-    if "allowed_paths" in constraints:
-        if any(
-            not any(_path_matches(path, pattern, action.workspace) for pattern in constraints["allowed_paths"])
-            for path in action.resource["paths"]
-        ):
+    if "allowed_paths" in constraints and any(
+        not any(_path_matches(path, pattern, action.workspace) for pattern in constraints["allowed_paths"])
+        for path in action.resource["paths"]
+    ):
             return "path is outside the declared allowed_paths constraint"
     if "max_cost_usd" in constraints and action.intent["cost_usd"] > constraints["max_cost_usd"]:
         return "intended cost exceeds max_cost_usd"
@@ -1003,7 +1002,7 @@ class PolicySession:
         domains: list[str],
         effect: str,
         risk: str,
-        cost_usd: int | float = 0,
+        cost_usd: float = 0,
         fan_out: int = 1,
     ) -> ActionEnvelope:
         return ActionEnvelope.from_mapping(

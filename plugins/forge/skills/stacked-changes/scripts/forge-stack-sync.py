@@ -585,11 +585,11 @@ def apply_operations(
             if authorization.effective_action != authorization.action:
                 raise StackSyncError("policy transform is not supported by the stacked-changes adapter")
 
-            def policy_guard() -> None:
+            def policy_guard(session=policy, authorized=authorization, error_type=policy_error_type) -> None:
                 try:
-                    policy.recheck(authorization)
+                    session.recheck(authorized)
                 except Exception as exc:
-                    if policy_error_type is not None and isinstance(exc, policy_error_type):
+                    if error_type is not None and isinstance(exc, error_type):
                         raise StackSyncError(str(exc)) from exc
                     raise
 
