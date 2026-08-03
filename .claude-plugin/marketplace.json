@@ -1,5 +1,6 @@
 {
   "name": "forge",
+  "description": "Forge engineering orchestration, policy, stacked delivery, and safety tooling for Claude Code and Codex.",
   "owner": {
     "name": "Alisina Karimi",
     "email": "alisinakarimi.2003@gmail.com",
@@ -15,6 +16,9 @@
       "source": "./plugins/forge",
       "description": "Specialists, orchestration, task ledgers, solve loops, policy-gated effects, async GitHub Stack Merge, GitHub-native stacked delivery, catalogs, commands, and safety hooks.",
       "version": "3.3.0",
+      "homepage": "https://github.com/AlisinaDevelo/md-files/blob/main/docs/getting-started.md",
+      "repository": "https://github.com/AlisinaDevelo/md-files",
+      "license": "MIT",
       "category": "developer-tooling",
       "keywords": ["agents", "skills", "orchestration", "task-ledger", "stacked-prs", "stack-merge", "merge-queue", "policy", "authorization", "github", "hooks", "code-review", "testing", "security"]
     }

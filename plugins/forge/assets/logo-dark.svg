@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="160" viewBox="0 0 512 160">
+  <rect width="512" height="160" rx="28" fill="#F5F7FB"/>
+  <rect x="28" y="28" width="104" height="104" rx="20" fill="#DCE6F2"/>
+  <path d="M48 46h64v15H65v12h39v15H65v24H48z" fill="#D18E16"/>
+  <path d="M48 46h17v66H48z" fill="#168A83"/>
+  <text x="162" y="101" fill="#101827" font-family="Arial, sans-serif" font-size="58" font-weight="700" letter-spacing="6">FORGE</text>
+</svg>
