@@ -1,0 +1,128 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Package, attest, and publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out the tagged commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.x"
+
+      - name: Validate tag and derive reproducibility inputs
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "source_epoch=$(git show -s --format=%ct "$GITHUB_SHA")" >> "$GITHUB_OUTPUT"
+
+      - name: Build deterministic release artifacts
+        env:
+          RELEASE_DIR: ${{ runner.temp }}/forge-dist
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          SOURCE_DATE_EPOCH: ${{ steps.release.outputs.source_epoch }}
+        run: |
+          set -euo pipefail
+          mkdir "$RELEASE_DIR"
+          python3 scripts/build_release.py \
+            --repo "$GITHUB_WORKSPACE" \
+            --output "$RELEASE_DIR" \
+            --version "$RELEASE_VERSION" \
+            --tag "$GITHUB_REF_NAME" \
+            --source-date-epoch "$SOURCE_DATE_EPOCH"
+          python3 scripts/verify_release.py \
+            --manifest "$RELEASE_DIR/forge-$RELEASE_VERSION-manifest.json" \
+            --root "$RELEASE_DIR" \
+            --version "$RELEASE_VERSION" \
+            --commit "$GITHUB_SHA"
+
+      - name: Attest archive build provenance
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4
+        with:
+          subject-path: ${{ runner.temp }}/forge-dist/forge-${{ steps.release.outputs.version }}-*.tar.gz
+
+      - name: Attest SPDX SBOM for release archives
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4
+        with:
+          subject-path: ${{ runner.temp }}/forge-dist/forge-${{ steps.release.outputs.version }}-*.tar.gz
+          sbom-path: ${{ runner.temp }}/forge-dist/forge-${{ steps.release.outputs.version }}-sbom.spdx.json
+
+      - name: Upload release evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: forge-${{ steps.release.outputs.version }}
+          path: ${{ runner.temp }}/forge-dist/*
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Forge $RELEASE_VERSION" \
+              --generate-notes
+          fi
+          gh release upload "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            "$RUNNER_TEMP/forge-dist"/* \
+            --clobber
+
+      - name: Verify published archive attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          signer="$GITHUB_REPOSITORY/.github/workflows/release.yml"
+          source_ref="refs/tags/$GITHUB_REF_NAME"
+          verify() {
+            local artifact="$1"
+            shift
+            for attempt in {1..12}; do
+              if gh attestation verify "$artifact" \
+                --repo "$GITHUB_REPOSITORY" \
+                --signer-workflow "$signer" \
+                --source-ref "$source_ref" \
+                "$@"; then
+                return 0
+              fi
+              sleep 10
+            done
+            return 1
+          }
+          for artifact in "$RUNNER_TEMP"/forge-dist/forge-"$RELEASE_VERSION"-*.tar.gz; do
+            verify "$artifact"
+            verify "$artifact" --predicate-type https://spdx.dev/Document/v2.3
+          done

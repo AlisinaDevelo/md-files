@@ -124,3 +124,5 @@ See [receipts.md](receipts.md) for the local evidence contract, privacy boundary
 optional OTLP export.
 See [github-task-ledger.md](github-task-ledger.md) for idempotent GitHub Issues sync,
 native task relationships, conflict handling, and recovery.
+See [release-provenance.md](release-provenance.md) for release asset verification,
+installed-file mapping, SBOMs, and artifact attestations.
