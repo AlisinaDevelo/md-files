@@ -2,7 +2,7 @@
   "$schema": "https://github.com/AlisinaDevelo/md-files/schema/capabilities/v1",
   "schema_version": 1,
   "project": "forge",
-  "version": "3.4.0",
+  "version": "3.5.0",
   "source_contract": {
     "root": "plugins/forge",
     "encoding": "utf-8",
