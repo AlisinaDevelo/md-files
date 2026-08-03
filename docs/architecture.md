@@ -44,12 +44,13 @@ room to add more plugins to the catalog later.
 the reviewed Markdown inventory, records source and body digests, inventories nested skill
 resources, and makes host degradation explicit. `scripts/compile_capabilities.py --check`
 is a deterministic drift gate; `scripts/generate_catalog.py` consumes the graph for the
-catalog projection.
+catalog projection; and `scripts/render_capabilities.py --check` verifies native and
+degraded host trees.
 
-Markdown remains the source of truth in this phase. The graph is an interoperability and
-review contract, not yet a body-level prompt generator. This boundary keeps the migration
-auditable while later compiler work adds generated manifests, bundles, workflows, and
-third-party host adapters.
+Markdown remains the reviewed authoring format, while the v2 graph is a body-aware
+intermediate representation. The renderer generates component files, manifests, nested
+skill resources, and explicit shims. Release bundles, workflow metadata, and reviewed Zed
+files remain separate release artifacts until their derivation is migrated in a follow-up.
 
 ## The four component types
 

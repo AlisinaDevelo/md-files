@@ -1,21 +1,22 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/AlisinaDevelo/md-files/schema/capabilities/v1",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/capabilities/v2",
   "title": "Forge Canonical Capability Graph",
   "type": "object",
   "required": ["$schema", "schema_version", "project", "version", "source_contract", "hosts", "components", "generated_projections"],
   "properties": {
-    "$schema": {"const": "https://github.com/AlisinaDevelo/md-files/schema/capabilities/v1"},
-    "schema_version": {"const": 1},
+    "$schema": {"const": "https://github.com/AlisinaDevelo/md-files/schema/capabilities/v2"},
+    "schema_version": {"const": 2},
     "project": {"const": "forge"},
     "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
     "source_contract": {
       "type": "object",
-      "required": ["root", "encoding", "frontmatter", "body_digest", "source_digest"],
+      "required": ["root", "encoding", "frontmatter", "body", "body_digest", "source_digest"],
       "properties": {
         "root": {"const": "plugins/forge"},
         "encoding": {"const": "utf-8"},
         "frontmatter": {"const": "simple-folded-yaml"},
+        "body": {"const": "embedded-markdown"},
         "body_digest": {"const": "sha256"},
         "source_digest": {"const": "sha256"}
       },
@@ -41,7 +42,11 @@
       "uniqueItems": true,
       "items": {
         "type": "object",
-        "required": ["id", "kind", "source", "frontmatter", "body_sha256", "source_sha256", "resources", "risk", "host_projections"],
+        "required": [
+          "id", "kind", "source", "frontmatter", "body_sha256", "source_sha256",
+          "resources", "risk", "host_projections", "identity", "triggers", "instructions",
+          "tools", "permissions", "inputs", "outputs", "scripts", "evals", "host_extensions"
+        ],
         "properties": {
           "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
           "kind": {"enum": ["agent", "skill", "command"]},
@@ -51,6 +56,64 @@
           "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
           "resources": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
           "risk": {"enum": ["none", "safe", "critical", "security-sensitive"]},
+          "identity": {
+            "type": "object",
+            "required": ["id", "kind", "name"],
+            "properties": {
+              "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+              "kind": {"enum": ["agent", "skill", "command"]},
+              "name": {"type": "string", "minLength": 1}
+            },
+            "additionalProperties": false
+          },
+          "triggers": {
+            "type": "object",
+            "required": ["kind", "description"],
+            "properties": {
+              "kind": {"enum": ["delegation", "progressive", "explicit"]},
+              "description": {"type": "string"}
+            },
+            "additionalProperties": false
+          },
+          "instructions": {
+            "type": "object",
+            "required": ["format", "body"],
+            "properties": {
+              "format": {"const": "markdown"},
+              "body": {"type": "string"}
+            },
+            "additionalProperties": false
+          },
+          "tools": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "permissions": {
+            "type": "object",
+            "required": ["approval", "effect"],
+            "properties": {
+              "approval": {"enum": ["none", "required"]},
+              "effect": {"enum": ["read-only", "mutating"]}
+            },
+            "additionalProperties": false
+          },
+          "inputs": {
+            "type": "object",
+            "required": ["argument_hint", "variables"],
+            "properties": {
+              "argument_hint": {"type": ["string", "null"]},
+              "variables": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+            },
+            "additionalProperties": false
+          },
+          "outputs": {
+            "type": "object",
+            "required": ["artifacts", "format"],
+            "properties": {
+              "artifacts": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+              "format": {"const": "markdown"}
+            },
+            "additionalProperties": false
+          },
+          "scripts": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "evals": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
           "host_projections": {
             "type": "object",
             "minProperties": 3,
@@ -61,6 +124,19 @@
                 "mode": {"enum": ["native", "shim", "omitted"]},
                 "kind": {"type": "string"},
                 "path": {"type": "string"}
+              },
+              "additionalProperties": false
+            }
+          },
+          "host_extensions": {
+            "type": "object",
+            "minProperties": 3,
+            "additionalProperties": {
+              "type": "object",
+              "required": ["mode", "extensions"],
+              "properties": {
+                "mode": {"enum": ["native", "shim", "omitted"]},
+                "extensions": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
               },
               "additionalProperties": false
             }

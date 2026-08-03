@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/host-adapter/v1",
+  "title": "Forge Host Adapter Contract",
+  "type": "object",
+  "required": ["contract_version", "id", "display_name", "native_kinds", "shim_kinds", "extensions", "projection"],
+  "properties": {
+    "contract_version": {"const": 1},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "display_name": {"type": "string", "minLength": 1},
+    "native_kinds": {
+      "type": "array",
+      "items": {"enum": ["agent", "skill", "command"]},
+      "uniqueItems": true
+    },
+    "shim_kinds": {
+      "type": "array",
+      "items": {"enum": ["agent", "skill", "command"]},
+      "uniqueItems": true
+    },
+    "extensions": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "projection": {
+      "type": "object",
+      "required": ["native_root", "shim_root", "agent_prefix", "command_prefix"],
+      "properties": {
+        "native_root": {"type": "string", "minLength": 1},
+        "shim_root": {"type": "string", "minLength": 1},
+        "agent_prefix": {"type": "string"},
+        "command_prefix": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

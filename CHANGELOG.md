@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- **Body-aware capability compiler** - upgraded the canonical graph to v2 with embedded
+  instructions, semantic permissions, eval links, and deterministic Claude, Codex, Agent
+  Skills, and third-party adapter projections.
+
 ## [3.5.0] — 2026-08-03
 
 ### Added

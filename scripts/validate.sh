@@ -158,6 +158,14 @@ else
   err "capability graph is stale — run python3 scripts/compile_capabilities.py --write"
 fi
 
+# --- Deterministic host projections are reproducible ---
+printf '\nCapability projections\n'
+if python3 scripts/render_capabilities.py --check >/dev/null 2>&1; then
+  ok "Claude, Codex, and Agent Skills projections are deterministic"
+else
+  err "capability projections are stale or non-deterministic"
+fi
+
 # --- Generated catalog is up to date ---
 printf '\nGenerated catalog\n'
 if python3 scripts/generate_catalog.py --check >/dev/null 2>&1; then

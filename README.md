@@ -65,9 +65,10 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
 - **Discoverability without bloat.** `/forge`, [CATALOG.md](CATALOG.md), bundles, and
   workflows route work to the smallest useful capability instead of dumping every skill
   into context.
-- **Canonical capability contract.** A versioned graph records component identity,
-  resources, digests, risk, and explicit Claude/Codex/Agent Skills projections so host
-  compatibility is reviewable and drift fails the gate. See
+- **Canonical capability contract.** A body-aware v2 graph records component identity,
+  instructions, tools, permissions, resources, eval links, and explicit Claude/Codex/
+  Agent Skills projections so host compatibility is reviewable and drift fails the gate.
+  See
   [Capability IR](docs/capability-ir.md).
 - **Methodology on tap.** Twenty-five skills inject battle-tested practices — TDD,
   root-cause debugging, threat modeling, safe migrations, orchestration, catalogs, task
@@ -79,7 +80,7 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   deterministically, without relying on the model to remember.
 - **Proven, not asserted.** A real eval harness scores prompts and high-risk behavior
   contracts (312 deterministic checks plus cross-host scenarios and an opt-in LLM judge);
-  170 tests cover safety hooks, task sync, receipts, doctor, policy, stacks, marketplace readiness, capability graph, and conformance. Run
+  175 tests cover safety hooks, task sync, receipts, doctor, policy, stacks, marketplace readiness, capability graph, rendering, and conformance. Run
   them yourself — `just check`.
 - **Auditable & self-validating.** Read every prompt and script. CI validates structure,
   runs the tests, and scores the evals on every push. GitHub-backed task ledgers add stable
@@ -333,8 +334,8 @@ scripts/               validation, installation, release, and marketplace checks
   attestations, offline verification, and threat model
 - [Marketplace readiness](docs/marketplace-readiness.md) — honest directory status,
   publisher surfaces, asset policy, and submission smoke-test matrix
-- [Capability IR](docs/capability-ir.md) — canonical capability graph, host projections,
-  migration workflow, and current compiler boundary
+- [Capability IR](docs/capability-ir.md) — body-aware graph, deterministic host renderer,
+  adapter contract, migration workflow, and current compiler boundary
 - [Architecture](docs/architecture.md) — how the repo is organized and why
 - [Design rationale](docs/design-rationale.md) — the decisions and trade-offs behind Forge
 - [CI & headless usage](docs/ci-and-headless.md) — run Forge in pipelines and automated review

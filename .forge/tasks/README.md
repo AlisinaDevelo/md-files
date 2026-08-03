@@ -1,4 +1,4 @@
-# Forge 3.0 Release Ledger
+# Forge Delivery Ledger
 
 | id | title | status | agent | model | depends_on |
 |----|-------|--------|-------|-------|------------|
@@ -7,3 +7,7 @@
 | 0003 | Add stack skills and commands | done | tech-lead | sonnet | 0001 |
 | 0004 | Integrate docs, catalog, and installers | done | docs-writer | sonnet | 0002, 0003 |
 | 0005 | Verify and release Forge 3.0 | done | test-engineer | opus | 0004 |
+| 0006 | Design and import body-aware capability IR v2 | done | architect | opus | - |
+| 0007 | Render deterministic native and degraded host surfaces | done | devops-engineer | sonnet | 0006 |
+| 0008 | Harden adapter contract and conformance tests | done | test-engineer | sonnet | 0007 |
+| 0009 | Integrate compiler gates and update capability docs | done | docs-writer | sonnet | 0007, 0008 |
