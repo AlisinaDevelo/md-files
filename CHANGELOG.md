@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- **Marketplace publication readiness** - purpose-built privacy, terms, support, and
+  publication-state documentation; Codex directory assets and strict archive validation;
+  isolated Claude/Codex install, upgrade, resource, and uninstall smoke tests; and CI
+  evidence that keeps external directory approval claims honest.
+
 ## [3.3.0] — 2026-08-03
 
 ### Added

@@ -7,7 +7,7 @@
     "email": "alisinakarimi.2003@gmail.com",
     "url": "https://github.com/AlisinaDevelo"
   },
-  "homepage": "https://github.com/AlisinaDevelo/md-files",
+  "homepage": "https://github.com/AlisinaDevelo/md-files/blob/main/docs/getting-started.md",
   "repository": "https://github.com/AlisinaDevelo/md-files",
   "license": "MIT",
   "keywords": [
@@ -38,14 +38,17 @@
       "Write"
     ],
     "websiteURL": "https://github.com/AlisinaDevelo/md-files",
-    "privacyPolicyURL": "https://github.com/AlisinaDevelo/md-files",
-    "termsOfServiceURL": "https://github.com/AlisinaDevelo/md-files",
+    "privacyPolicyURL": "https://github.com/AlisinaDevelo/md-files/blob/main/docs/privacy.md",
+    "termsOfServiceURL": "https://github.com/AlisinaDevelo/md-files/blob/main/docs/terms.md",
     "defaultPrompt": [
       "Use Forge orchestration to plan and execute this goal.",
       "Create a Forge task ledger for this feature.",
       "Design and verify a stacked PR workflow for this feature."
     ],
-    "brandColor": "#64748B",
+    "brandColor": "#F5B942",
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/logo.png",
+    "logoDark": "./assets/logo-dark.png",
     "screenshots": []
   }
 }

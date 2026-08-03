@@ -12,7 +12,7 @@ maximize the efficacy of LLMs in software engineering.**
 [![Agents](https://img.shields.io/badge/agents-20-8b5cf6.svg)](plugins/forge/agents/)
 [![Skills](https://img.shields.io/badge/skills-25-06b6d4.svg)](plugins/forge/skills/)
 [![Commands](https://img.shields.io/badge/commands-22-22c55e.svg)](plugins/forge/commands/)
-[![Tests](https://img.shields.io/badge/tests-162%20passing-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-166%20passing-success.svg)](tests/)
 [![Prompt evals](https://img.shields.io/badge/prompt%20evals-312%20checks-success.svg)](evals/)
 
 </div>
@@ -75,7 +75,7 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   deterministically, without relying on the model to remember.
 - **Proven, not asserted.** A real eval harness scores prompts and high-risk behavior
   contracts (312 deterministic checks plus cross-host scenarios and an opt-in LLM judge);
-  143 tests cover safety hooks, task sync, receipts, doctor, policy, stacks, and conformance. Run
+  166 tests cover safety hooks, task sync, receipts, doctor, policy, stacks, marketplace readiness, and conformance. Run
   them yourself — `just check`.
 - **Auditable & self-validating.** Read every prompt and script. CI validates structure,
   runs the tests, and scores the evals on every push. GitHub-backed task ledgers add stable
@@ -97,6 +97,10 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
 codex plugin marketplace add AlisinaDevelo/md-files
 codex plugin add forge@forge
 ```
+
+Repository marketplace installation is available for both hosts. Forge has not been
+submitted to the public Claude or Codex directories; see [Marketplace readiness](docs/marketplace-readiness.md)
+for the dated publication state, publisher surfaces, and submission evidence.
 
 **As user-level symlinks (Claude agents, skills, commands):**
 
@@ -302,7 +306,7 @@ settings/              example settings.json
 evals/                 prompt eval harness, shared scenarios, and result evidence
 tests/                 runnable hook, task-ledger, receipt, doctor, stack, and conformance tests
 docs/                  getting started, usage, architecture, rationale, CI
-scripts/               validate.sh, install.sh
+scripts/               validation, installation, release, and marketplace checks
 .github/               CI, issue/PR templates, CODEOWNERS, dependabot
 ```
 
@@ -323,6 +327,8 @@ scripts/               validate.sh, install.sh
   evidence, result schemas, and release gates
 - [Release provenance](docs/release-provenance.md) — deterministic bundles, SBOMs,
   attestations, offline verification, and threat model
+- [Marketplace readiness](docs/marketplace-readiness.md) — honest directory status,
+  publisher surfaces, asset policy, and submission smoke-test matrix
 - [Architecture](docs/architecture.md) — how the repo is organized and why
 - [Design rationale](docs/design-rationale.md) — the decisions and trade-offs behind Forge
 - [CI & headless usage](docs/ci-and-headless.md) — run Forge in pipelines and automated review

@@ -126,3 +126,5 @@ See [github-task-ledger.md](github-task-ledger.md) for idempotent GitHub Issues 
 native task relationships, conflict handling, and recovery.
 See [release-provenance.md](release-provenance.md) for release asset verification,
 installed-file mapping, SBOMs, and artifact attestations.
+See [marketplace-readiness.md](marketplace-readiness.md) for repository marketplace
+installation, directory status, publisher links, and host smoke tests.
