@@ -2,8 +2,9 @@
 """Import and validate Forge's canonical capability graph.
 
 The graph records the reviewed Markdown source for every agent, skill, and command,
-its semantic frontmatter, body/resource digests, and host projections. Markdown remains
-the instruction source; this file prevents host adapters from drifting away from it.
+its semantic frontmatter, canonical body, resources, eval links, and host projections.
+Markdown remains the reviewed source contract; this file turns it into a body-aware
+intermediate representation that deterministic host renderers can consume.
 """
 
 from __future__ import annotations
@@ -19,7 +20,10 @@ from typing import Any
 REPO = Path(__file__).resolve().parents[1]
 PLUGIN = REPO / "plugins" / "forge"
 IR_PATH = REPO / "data/capabilities.json"
+EVALS_PATH = REPO / "evals" / "scenarios.jsonl"
 VERSION_PATH = PLUGIN / ".claude-plugin/plugin.json"
+SCHEMA_URI = "https://github.com/AlisinaDevelo/md-files/schema/capabilities/v2"
+SCHEMA_VERSION = 2
 COMPONENT_SPECS = (
     ("agent", PLUGIN / "agents", "*.md"),
     ("skill", PLUGIN / "skills", "SKILL.md"),
@@ -53,6 +57,8 @@ SHIM_PATHS = {
 }
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
 def _sha256(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
@@ -143,12 +149,90 @@ def _risk(kind: str, frontmatter: dict[str, str]) -> str:
     return "none"
 
 
+def _tools(frontmatter: dict[str, str]) -> list[str]:
+    values: list[str] = []
+    for key in ("tools", "allowed-tools"):
+        values.extend(part.strip() for part in frontmatter.get(key, "").split(","))
+    return list(dict.fromkeys(value for value in values if value))
+
+
+def _effect(tools: list[str]) -> str:
+    mutating = {"Write", "Edit", "Bash"}
+    return "mutating" if any(tool in mutating or tool.startswith("Bash(") for tool in tools) else "read-only"
+
+
+def _trigger_kind(kind: str) -> str:
+    return {"agent": "delegation", "skill": "progressive", "command": "explicit"}[kind]
+
+
+def _variables(body: str) -> list[str]:
+    return sorted(set(re.findall(r"\$[A-Z][A-Z0-9_]*", body)))
+
+
+def _eval_ids(kind: str, component_id: str, source: str) -> list[str]:
+    if not EVALS_PATH.is_file():
+        return []
+    component_root = str(Path(source).parent)
+    matches: list[str] = []
+    for line in EVALS_PATH.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        scenario = json.loads(line)
+        target = scenario.get("target", {})
+        target_kind = target.get("kind")
+        target_name = target.get("name")
+        direct_match = target_kind == kind and target_name == component_id
+        file_match = target_kind == "file" and isinstance(target_name, str) and (
+            target_name == source or target_name.startswith(component_root + "/")
+        )
+        if (direct_match or file_match) and isinstance(scenario.get("id"), str):
+            matches.append(scenario["id"])
+    return sorted(set(matches))
+
+
+def _semantic_fields(kind: str, component_id: str, source: str, frontmatter: dict[str, str], body: str) -> dict[str, Any]:
+    tools = _tools(frontmatter)
+    effect = _effect(tools)
+    return {
+        "identity": {
+            "id": component_id,
+            "kind": kind,
+            "name": frontmatter.get("name", component_id),
+        },
+        "triggers": {
+            "kind": _trigger_kind(kind),
+            "description": frontmatter.get("description", ""),
+        },
+        "instructions": {"format": "markdown", "body": body},
+        "tools": tools,
+        "permissions": {"approval": "required" if effect == "mutating" else "none", "effect": effect},
+        "inputs": {
+            "argument_hint": frontmatter.get("argument-hint"),
+            "variables": _variables(body),
+        },
+        "outputs": {"artifacts": [], "format": "markdown"},
+        "scripts": [
+            resource
+            for resource in _resources(kind, Path(REPO / source))
+            if Path(resource).suffix in {".js", ".py", ".sh", ".ts"}
+        ],
+        "evals": _eval_ids(kind, component_id, source),
+        "host_extensions": {
+            host: {
+                "mode": projection["mode"],
+                "extensions": list(HOSTS[host]["extensions"]),
+            }
+            for host, projection in _projection(kind, component_id, source).items()
+        },
+    }
+
+
 def _component(kind: str, source: Path) -> dict[str, Any]:
     text = source.read_text(encoding="utf-8")
     frontmatter, body = _parse_frontmatter(text)
     component_id = source.parent.name if kind == "skill" else source.stem
     source_path = _relative(source)
-    return {
+    component = {
         "id": component_id,
         "kind": kind,
         "source": source_path,
@@ -159,20 +243,23 @@ def _component(kind: str, source: Path) -> dict[str, Any]:
         "risk": _risk(kind, frontmatter),
         "host_projections": _projection(kind, component_id, source_path),
     }
+    component.update(_semantic_fields(kind, component_id, source_path, frontmatter, body))
+    return component
 
 
 def import_graph() -> dict[str, Any]:
     components = [_component(kind, source) for kind, source in _component_files()]
     components.sort(key=lambda item: (COMPONENT_ORDER[item["kind"]], item["id"]))
     return {
-        "$schema": "https://github.com/AlisinaDevelo/md-files/schema/capabilities/v1",
-        "schema_version": 1,
+        "$schema": SCHEMA_URI,
+        "schema_version": SCHEMA_VERSION,
         "project": "forge",
         "version": _version(),
         "source_contract": {
             "root": "plugins/forge",
             "encoding": "utf-8",
             "frontmatter": "simple-folded-yaml",
+            "body": "embedded-markdown",
             "body_digest": "sha256",
             "source_digest": "sha256",
         },
@@ -209,6 +296,37 @@ def _validate_component(component: Any, errors: list[str], index: int) -> None:
         errors.append(f"{label}.resources must be a string array")
     if component.get("risk") not in {"none", "safe", "critical", "security-sensitive"}:
         errors.append(f"{label}.risk is unsupported")
+    identity = component.get("identity")
+    if not isinstance(identity, dict) or identity.get("id") != component_id or identity.get("kind") != kind or not isinstance(identity.get("name"), str):
+        errors.append(f"{label}.identity is invalid")
+    triggers = component.get("triggers")
+    if not isinstance(triggers, dict) or triggers.get("kind") not in {"delegation", "progressive", "explicit"} or not isinstance(triggers.get("description"), str):
+        errors.append(f"{label}.triggers is invalid")
+    instructions = component.get("instructions")
+    if not isinstance(instructions, dict) or instructions.get("format") != "markdown" or not isinstance(instructions.get("body"), str):
+        errors.append(f"{label}.instructions is invalid")
+    if not isinstance(component.get("tools"), list) or not all(isinstance(item, str) for item in component["tools"]):
+        errors.append(f"{label}.tools must be a string array")
+    permissions = component.get("permissions")
+    if not isinstance(permissions, dict) or permissions.get("effect") not in {"read-only", "mutating"} or permissions.get("approval") not in {"none", "required"}:
+        errors.append(f"{label}.permissions is invalid")
+    inputs = component.get("inputs")
+    if not isinstance(inputs, dict) or (inputs.get("argument_hint") is not None and not isinstance(inputs.get("argument_hint"), str)) or not isinstance(inputs.get("variables"), list) or not all(isinstance(item, str) for item in inputs["variables"]):
+        errors.append(f"{label}.inputs is invalid")
+    outputs = component.get("outputs")
+    if not isinstance(outputs, dict) or outputs.get("format") != "markdown" or not isinstance(outputs.get("artifacts"), list) or not all(isinstance(item, str) for item in outputs["artifacts"]):
+        errors.append(f"{label}.outputs is invalid")
+    if not isinstance(component.get("scripts"), list) or not all(isinstance(item, str) for item in component["scripts"]):
+        errors.append(f"{label}.scripts must be a string array")
+    if not isinstance(component.get("evals"), list) or not all(isinstance(item, str) for item in component["evals"]):
+        errors.append(f"{label}.evals must be a string array")
+    extensions = component.get("host_extensions")
+    if not isinstance(extensions, dict) or set(extensions) != set(HOSTS):
+        errors.append(f"{label}.host_extensions must cover {sorted(HOSTS)}")
+    elif all(isinstance(value, dict) for value in extensions.values()):
+        for host, value in extensions.items():
+            if value.get("mode") not in {"native", "shim", "omitted"} or value.get("extensions") != HOSTS[host]["extensions"]:
+                errors.append(f"{label}.host_extensions.{host} is invalid")
     projections = component.get("host_projections")
     if not isinstance(projections, dict) or set(projections) != set(HOSTS):
         errors.append(f"{label}.host_projections must cover {sorted(HOSTS)}")
@@ -222,7 +340,7 @@ def _validate_graph(graph: Any) -> list[str]:
     errors: list[str] = []
     if not isinstance(graph, dict):
         return ["capability graph must be a JSON object"]
-    if graph.get("schema_version") != 1 or graph.get("project") != "forge":
+    if graph.get("$schema") != SCHEMA_URI or graph.get("schema_version") != SCHEMA_VERSION or graph.get("project") != "forge":
         errors.append("capability graph schema_version/project is unsupported")
     if graph.get("version") != _version():
         errors.append(f"capability graph version is {graph.get('version')}, expected {_version()}")

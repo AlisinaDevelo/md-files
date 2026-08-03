@@ -331,6 +331,7 @@ def build_release(
         raise ReleaseBuildError("MIT LICENSE is required for the release SBOM")
     commit = _git(repo, "rev-parse", "HEAD")
     subprocess.run([sys.executable, str(repo / "scripts/compile_capabilities.py"), "--check"], cwd=repo, check=True)
+    subprocess.run([sys.executable, str(repo / "scripts/render_capabilities.py"), "--check"], cwd=repo, check=True)
     bundles: list[dict[str, Any]] = []
     for surface in ("claude", "codex", "agents"):
         entries = _bundle_files(repo, surface, tracked)

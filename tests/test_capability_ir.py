@@ -26,6 +26,7 @@ def test_canonical_graph_matches_all_sources():
     assert graph == module.import_graph()
     assert len(graph["components"]) == 67
     assert {component["kind"] for component in graph["components"]} == {"agent", "skill", "command"}
+    assert graph["schema_version"] == 2
 
 
 def test_host_projection_contract_preserves_degradation_paths():
@@ -40,12 +41,37 @@ def test_host_projection_contract_preserves_degradation_paths():
 
 
 def test_resource_inventory_includes_nested_skill_files():
+    module = load_module()
     graph = json.loads((REPO / "data/capabilities.json").read_text(encoding="utf-8"))
     component = next(item for item in graph["components"] if item["id"] == "stacked-changes")
 
     assert "scripts/forge-stack.py" in component["resources"]
     assert "REFERENCE.md" in component["resources"]
+    assert component["scripts"] == [
+        "scripts/forge-stack-merge.py",
+        "scripts/forge-stack-sync.py",
+        "scripts/forge-stack.py",
+    ]
     assert len(component["resources"]) >= 4
+    assert "skills-progressive-disclosure" in component["evals"]
+    assert module._validate_graph(graph) == []
+
+
+def test_body_aware_ir_models_triggers_permissions_inputs_outputs_and_extensions():
+    graph = json.loads((REPO / "data/capabilities.json").read_text(encoding="utf-8"))
+    component = next(item for item in graph["components"] if item["id"] == "orchestrate")
+
+    assert component["identity"] == {"id": "orchestrate", "kind": "command", "name": "orchestrate"}
+    assert component["triggers"]["kind"] == "explicit"
+    assert component["triggers"]["description"]
+    assert "Edit" in component["tools"]
+    assert component["permissions"] == {"approval": "required", "effect": "mutating"}
+    assert component["inputs"]["argument_hint"] == "<the goal to drive end to end>"
+    assert component["outputs"] == {"artifacts": [], "format": "markdown"}
+    assert component["instructions"]["format"] == "markdown"
+    assert "Orchestrate this goal end to end" in component["instructions"]["body"]
+    assert component["host_extensions"]["codex"]["mode"] == "omitted"
+    assert component["host_extensions"]["agentskills"]["mode"] == "shim"
 
 
 def test_resource_inventory_excludes_python_runtime_caches(tmp_path):
