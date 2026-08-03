@@ -28,7 +28,7 @@ lint-sh:
 
 # Lint python hook scripts (requires ruff)
 lint-py:
-    ruff check plugins/forge/hooks/scripts plugins/forge/skills/*/scripts scripts/generate_catalog.py tests evals
+    ruff check plugins/forge/hooks/scripts plugins/forge/skills/*/scripts scripts/compile_capabilities.py scripts/generate_catalog.py tests evals
 
 # Run every check that CI runs
 check: validate test lint-md conformance

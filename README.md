@@ -12,7 +12,7 @@ maximize the efficacy of LLMs in software engineering.**
 [![Agents](https://img.shields.io/badge/agents-20-8b5cf6.svg)](plugins/forge/agents/)
 [![Skills](https://img.shields.io/badge/skills-25-06b6d4.svg)](plugins/forge/skills/)
 [![Commands](https://img.shields.io/badge/commands-22-22c55e.svg)](plugins/forge/commands/)
-[![Tests](https://img.shields.io/badge/tests-166%20passing-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-170%20passing-success.svg)](tests/)
 [![Prompt evals](https://img.shields.io/badge/prompt%20evals-312%20checks-success.svg)](evals/)
 
 </div>
@@ -65,6 +65,10 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
 - **Discoverability without bloat.** `/forge`, [CATALOG.md](CATALOG.md), bundles, and
   workflows route work to the smallest useful capability instead of dumping every skill
   into context.
+- **Canonical capability contract.** A versioned graph records component identity,
+  resources, digests, risk, and explicit Claude/Codex/Agent Skills projections so host
+  compatibility is reviewable and drift fails the gate. See
+  [Capability IR](docs/capability-ir.md).
 - **Methodology on tap.** Twenty-five skills inject battle-tested practices — TDD,
   root-cause debugging, threat modeling, safe migrations, orchestration, catalogs, task
   ledgers, and solve loops — exactly when the situation calls for them.
@@ -75,7 +79,7 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   deterministically, without relying on the model to remember.
 - **Proven, not asserted.** A real eval harness scores prompts and high-risk behavior
   contracts (312 deterministic checks plus cross-host scenarios and an opt-in LLM judge);
-  166 tests cover safety hooks, task sync, receipts, doctor, policy, stacks, marketplace readiness, and conformance. Run
+  170 tests cover safety hooks, task sync, receipts, doctor, policy, stacks, marketplace readiness, capability graph, and conformance. Run
   them yourself — `just check`.
 - **Auditable & self-validating.** Read every prompt and script. CI validates structure,
   runs the tests, and scores the evals on every push. GitHub-backed task ledgers add stable
@@ -290,7 +294,7 @@ spawn specialists in parallel; the ledger keeps the run honest. See
 ```text
 .claude-plugin/        Claude Code marketplace manifest
 .agents/plugins/       Codex marketplace manifest
-data/                  generated catalog, bundles, and workflow metadata
+data/                  generated catalog, capability graph, bundles, and workflow metadata
 plugins/forge/         the Forge plugin
   .claude-plugin/        plugin manifest
   .codex-plugin/         Codex plugin manifest
@@ -329,6 +333,8 @@ scripts/               validation, installation, release, and marketplace checks
   attestations, offline verification, and threat model
 - [Marketplace readiness](docs/marketplace-readiness.md) — honest directory status,
   publisher surfaces, asset policy, and submission smoke-test matrix
+- [Capability IR](docs/capability-ir.md) — canonical capability graph, host projections,
+  migration workflow, and current compiler boundary
 - [Architecture](docs/architecture.md) — how the repo is organized and why
 - [Design rationale](docs/design-rationale.md) — the decisions and trade-offs behind Forge
 - [CI & headless usage](docs/ci-and-headless.md) — run Forge in pipelines and automated review

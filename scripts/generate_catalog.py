@@ -11,6 +11,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 PLUGIN = REPO / "plugins" / "forge"
+CAPABILITIES = REPO / "data" / "capabilities.json"
+COMPONENT_ORDER = {"agent": 0, "skill": 1, "command": 2}
 
 
 def split_frontmatter(text: str) -> tuple[dict[str, str], str]:
@@ -48,6 +50,20 @@ def risk_for(kind: str, frontmatter: dict[str, str]) -> str:
 
 
 def component_rows() -> list[dict[str, str]]:
+    if CAPABILITIES.is_file():
+        data = json.loads(CAPABILITIES.read_text(encoding="utf-8"))
+        rows = [
+            {
+                "id": component["id"],
+                "kind": component["kind"],
+                "path": component["source"],
+                "description": component["frontmatter"].get("description", "").strip(),
+                "model": component["frontmatter"].get("model", ""),
+                "risk": component["risk"],
+            }
+            for component in data["components"]
+        ]
+        return sorted(rows, key=lambda row: (COMPONENT_ORDER[row["kind"]], row["path"]))
     rows: list[dict[str, str]] = []
     specs = [
         ("agent", PLUGIN / "agents", "*.md"),

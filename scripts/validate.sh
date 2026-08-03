@@ -150,6 +150,14 @@ else
   err "Codex marketplace source '$codex_source' has no plugin.json"
 fi
 
+# --- Canonical capability graph is up to date ---
+printf '\nCanonical capability graph\n'
+if python3 scripts/compile_capabilities.py --check >/dev/null 2>&1; then
+  ok "data/capabilities.json matches Forge sources and host projections"
+else
+  err "capability graph is stale — run python3 scripts/compile_capabilities.py --write"
+fi
+
 # --- Generated catalog is up to date ---
 printf '\nGenerated catalog\n'
 if python3 scripts/generate_catalog.py --check >/dev/null 2>&1; then

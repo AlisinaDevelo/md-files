@@ -36,6 +36,7 @@ python3 evals/run.py
 python3 -m pytest tests/ -q
 npx --yes markdownlint-cli2 "**/*.md"
 shellcheck plugins/forge/hooks/scripts/*.sh scripts/*.sh zed/install.sh
+python3 scripts/compile_capabilities.py --check
 python3 scripts/generate_catalog.py --check
 ```
 

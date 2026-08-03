@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/capabilities/v1",
+  "title": "Forge Canonical Capability Graph",
+  "type": "object",
+  "required": ["$schema", "schema_version", "project", "version", "source_contract", "hosts", "components", "generated_projections"],
+  "properties": {
+    "$schema": {"const": "https://github.com/AlisinaDevelo/md-files/schema/capabilities/v1"},
+    "schema_version": {"const": 1},
+    "project": {"const": "forge"},
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "source_contract": {
+      "type": "object",
+      "required": ["root", "encoding", "frontmatter", "body_digest", "source_digest"],
+      "properties": {
+        "root": {"const": "plugins/forge"},
+        "encoding": {"const": "utf-8"},
+        "frontmatter": {"const": "simple-folded-yaml"},
+        "body_digest": {"const": "sha256"},
+        "source_digest": {"const": "sha256"}
+      },
+      "additionalProperties": false
+    },
+    "hosts": {
+      "type": "object",
+      "minProperties": 3,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["display_name", "manifest", "native_kinds", "extensions"],
+        "properties": {
+          "display_name": {"type": "string", "minLength": 1},
+          "manifest": {"type": "string", "minLength": 1},
+          "native_kinds": {"type": "array", "items": {"type": "string"}},
+          "extensions": {"type": "array", "items": {"type": "string"}}
+        },
+        "additionalProperties": false
+      }
+    },
+    "components": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "source", "frontmatter", "body_sha256", "source_sha256", "resources", "risk", "host_projections"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+          "kind": {"enum": ["agent", "skill", "command"]},
+          "source": {"type": "string", "pattern": "^plugins/forge/"},
+          "frontmatter": {"type": "object", "additionalProperties": {"type": "string"}},
+          "body_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "source_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "resources": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "risk": {"enum": ["none", "safe", "critical", "security-sensitive"]},
+          "host_projections": {
+            "type": "object",
+            "minProperties": 3,
+            "additionalProperties": {
+              "type": "object",
+              "required": ["mode", "kind", "path"],
+              "properties": {
+                "mode": {"enum": ["native", "shim", "omitted"]},
+                "kind": {"type": "string"},
+                "path": {"type": "string"}
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "generated_projections": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    }
+  },
+  "additionalProperties": false
+}
