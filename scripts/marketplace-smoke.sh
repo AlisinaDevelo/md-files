@@ -5,7 +5,7 @@ set -euo pipefail
 
 ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 VERSION="$(jq -r '.version' "$ROOT/plugins/forge/.claude-plugin/plugin.json")"
-TMP_ROOT="$(mktemp -d -t forge-marketplace-smoke)"
+TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/forge-marketplace-smoke.XXXXXX")"
 
 printf 'Running marketplace smoke for Forge %s from %s\n' "$VERSION" "$ROOT"
 
