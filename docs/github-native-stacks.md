@@ -31,12 +31,17 @@ same remote state is byte-stable.
 python3 scripts/forge-stack-sync.py --repo OWNER/REPO plan --pr 42 --json
 python3 scripts/forge-stack-sync.py --repo OWNER/REPO plan --pr 42 --unstack --json
 python3 scripts/forge-stack-sync.py --repo OWNER/REPO apply --pr 42 --yes
+python3 scripts/forge-stack-sync.py --repo OWNER/REPO --policy-profile policies/github-mutation.json apply --pr 42 --yes
+python3 scripts/forge-stack-sync.py --repo OWNER/REPO --policy-profile policies/github-mutation.json --policy-staged apply --pr 42
 ```
 
 `plan` never mutates GitHub. `apply` requires local authority and `--yes`; GitHub authority
 is import/status-only. Plans can create a stack, append top layers, relink a PR base, or
 explicitly unstack. Every mutation carries the expected current top/head SHA. Apply
-re-fetches remote state before writing and stops on drift rather than overwriting it.
+re-fetches remote state before writing and stops on drift rather than overwriting it. An
+optional `--policy-profile` adds declarative authorization, one-use approvals, protected
+resource checks, and final policy receipts. `--policy-staged` previews every operation
+without calling the stack client or consuming an approval. See [the policy-plane guide](policy-plane.md).
 
 Retries are safe: an already-created matching stack or already-appended top layers are
 recognized before another POST. Completed operation IDs persist in

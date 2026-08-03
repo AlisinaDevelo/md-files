@@ -10,7 +10,7 @@ import json
 import re
 import subprocess
 import sys
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -404,16 +404,93 @@ class SyncEngine:
         state_path: Path,
         repository: str,
         receipts_path: Path | None = None,
+        *,
+        policy_profile: Path | None = None,
+        policy_approval: str | None = None,
+        policy_staged: bool = False,
+        policy_approvals_path: Path | None = None,
+        policy_principal: str | None = None,
+        workspace: Path | None = None,
     ) -> None:
         self.tasks = tasks
         self.client = client
         self.state_path = state_path
         self.repository = repository
         self.receipts_path = receipts_path or state_path.with_name("receipts.jsonl")
+        self.policy_profile = policy_profile
+        self.policy_approval = policy_approval
+        self.policy_staged = policy_staged
+        self.policy_error_type: Any = None
+        self.policy = self._load_policy_session(
+            policy_profile,
+            policy_approvals_path=policy_approvals_path,
+            policy_principal=policy_principal,
+            workspace=workspace,
+        )
         self.state = load_state(state_path)
         self.remote: dict[str, RemoteTask] = {}
         self.remote_by_issue: dict[int, RemoteTask] = {}
         self.missing_saved_issues: dict[str, int] = {}
+
+    def _load_policy_session(
+        self,
+        profile_path: Path | None,
+        *,
+        policy_approvals_path: Path | None,
+        policy_principal: str | None,
+        workspace: Path | None,
+    ) -> Any:
+        if profile_path is None:
+            return None
+        module_path = Path(__file__).resolve().parents[2] / "policy" / "scripts" / "forge-policy.py"
+        spec = importlib.util.spec_from_file_location("forge_policy", module_path)
+        if spec is None or spec.loader is None:
+            raise SyncError("could not load Forge policy engine")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        self.policy_error_type = module.PolicyError
+        try:
+            return module.PolicySession(
+                profile_path,
+                approvals_path=policy_approvals_path or self.state_path.with_name("approvals.jsonl"),
+                receipts_path=self.receipts_path,
+                principal=policy_principal,
+                workspace=workspace or Path.cwd(),
+            )
+        except module.PolicyError as exc:
+            raise SyncError(str(exc)) from exc
+
+    def _authorize_policy(self, operation: Operation) -> Any:
+        if self.policy is None:
+            if self.policy_staged:
+                raise SyncError("--policy-staged requires --policy-profile")
+            return None
+        paths = operation.payload.get("paths", [])
+        if isinstance(paths, str):
+            paths = [paths]
+        if not isinstance(paths, list):
+            paths = []
+        branch = operation.payload.get("branch")
+        branch = branch if isinstance(branch, str) else "main"
+        action = self.policy.action(
+            action_id=f"forge-tasks:{operation.key()}",
+            tool="forge-tasks.apply",
+            arguments=operation.as_dict(),
+            repository=self.repository,
+            branch=branch,
+            paths=[str(path) for path in paths],
+            domains=["github.com"],
+            effect="github_issue_write",
+            risk="high",
+            fan_out=1,
+        )
+        try:
+            return self.policy.authorize(action, approval_id=self.policy_approval, staged=self.policy_staged)
+        except Exception as exc:
+            if self.policy_error_type is not None and isinstance(exc, self.policy_error_type):
+                raise SyncError(str(exc)) from exc
+            raise
 
     def discover(self) -> None:
         metadata = self.client.repository_metadata()
@@ -519,8 +596,10 @@ class SyncEngine:
         return operations
 
     def apply(self, operations: list[Operation], confirm: bool = False) -> list[dict[str, Any]]:
-        if not confirm:
+        if not confirm and not self.policy_staged:
             raise SyncError("apply requires explicit --yes")
+        if self.policy_staged and self.policy is None:
+            raise SyncError("--policy-staged requires --policy-profile")
         if any(operation.action == "conflict" for operation in operations):
             raise SyncError("conflicts must be resolved before apply")
         completed = set(self.state.get("completed_operations", []))
@@ -530,7 +609,20 @@ class SyncEngine:
             if operation.key() in completed:
                 results.append({"operation": operation.as_dict(), "status": "already-complete"})
                 continue
-            result = self.apply_one(operation, task_issues)
+            authorization = self._authorize_policy(operation)
+            if authorization is not None and authorization.status == "staged":
+                results.append({"operation": operation.as_dict(), "status": "staged", "policy": authorization.as_dict()})
+                continue
+            if authorization is not None and authorization.effective_action != authorization.action:
+                raise SyncError("policy transform is not supported by the task-ledger adapter")
+            result = self.apply_one(operation, task_issues, before_effect=self._policy_guard(authorization))
+            if authorization is not None:
+                try:
+                    self.policy.commit(authorization, result)
+                except Exception as exc:
+                    if self.policy_error_type is not None and isinstance(exc, self.policy_error_type):
+                        raise SyncError(str(exc)) from exc
+                    raise
             completed.add(operation.key())
             self.state.setdefault("completed_operations", []).append(operation.key())
             self.state.setdefault("tasks", {}).setdefault(operation.task_id or "", {})["issue"] = task_issues.get(operation.task_id or "")
@@ -566,7 +658,27 @@ class SyncEngine:
             )
         )
 
-    def apply_one(self, operation: Operation, task_issues: dict[str, int | None]) -> dict[str, Any]:
+    def _policy_guard(self, authorization: Any) -> Callable[[], None] | None:
+        if authorization is None:
+            return None
+
+        def guard() -> None:
+            try:
+                self.policy.recheck(authorization)
+            except Exception as exc:
+                if self.policy_error_type is not None and isinstance(exc, self.policy_error_type):
+                    raise SyncError(str(exc)) from exc
+                raise
+
+        return guard
+
+    def apply_one(
+        self,
+        operation: Operation,
+        task_issues: dict[str, int | None],
+        *,
+        before_effect: Callable[[], None] | None = None,
+    ) -> dict[str, Any]:
         if operation.action == "create_issue":
             marker = MARKER_RE.search(str(operation.payload.get("body", "")))
             if marker:
@@ -576,11 +688,15 @@ class SyncEngine:
                         task_issues[operation.task_id or ""] = issue.number
                         self.state.setdefault("tasks", {}).setdefault(operation.task_id or "", {})["issue"] = issue.number
                         return {"issue": issue.number, "recovered": True}
+            if before_effect:
+                before_effect()
             data = self.client.create_issue(operation.payload)
             task_issues[operation.task_id or ""] = int(data["number"])
             self.state.setdefault("tasks", {}).setdefault(operation.task_id or "", {})["issue"] = int(data["number"])
             return {"issue": int(data["number"])}
         if operation.action in {"update_issue", "update_state", "close_issue", "reopen_issue"}:
+            if before_effect:
+                before_effect()
             data = self.client.update_issue(operation.issue_number, operation.payload)
             return {"issue": int(data.get("number", operation.issue_number))}
         if operation.action == "add_sub_issue":
@@ -591,6 +707,8 @@ class SyncEngine:
             child_data = self.client.request("GET", f"repos/{self.repository}/issues/{child}")
             if any(int(item.get("id", -1)) == int(child_data["id"]) for item in self.client.list_sub_issues(parent)):
                 return {"parent": parent, "child": child, "already_present": True}
+            if before_effect:
+                before_effect()
             self.client.add_sub_issue(parent, int(child_data["id"]))
             return {"parent": parent, "child": child}
         if operation.action == "add_blocked_by":
@@ -601,6 +719,8 @@ class SyncEngine:
             blocker_data = self.client.request("GET", f"repos/{self.repository}/issues/{blocker}")
             if any(int(item.get("id", -1)) == int(blocker_data["id"]) for item in self.client.list_blocked_by(dependent)):
                 return {"dependent": dependent, "blocked_by": blocker, "already_present": True}
+            if before_effect:
+                before_effect()
             self.client.add_blocked_by(dependent, int(blocker_data["id"]))
             return {"dependent": dependent, "blocked_by": blocker}
         raise SyncError(f"unsupported operation: {operation.action}")
@@ -662,10 +782,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--receipts", type=Path, default=Path(".forge/receipts.jsonl"))
     parser.add_argument("--json", action="store_true", help="emit machine-readable output")
     parser.add_argument("--authority", choices=("local", "github"), default="local")
+    parser.add_argument("--policy-profile", type=Path, default=None, help="opt into a declarative policy profile")
+    parser.add_argument("--policy-approval", help="one-use approval ID for the exact operation")
+    parser.add_argument("--policy-approvals", type=Path, default=Path(".forge/approvals.jsonl"))
+    parser.add_argument("--policy-staged", action="store_true", help="preview policy-authorized operations without effects")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("plan", help="show proposed operations without writing")
     apply = subparsers.add_parser("apply", help="apply the local-authority plan")
     apply.add_argument("--yes", action="store_true", help="confirm external writes")
+    apply.add_argument("--policy-profile", type=Path, default=argparse.SUPPRESS)
+    apply.add_argument("--policy-approval", default=argparse.SUPPRESS)
+    apply.add_argument("--policy-approvals", type=Path, default=argparse.SUPPRESS)
+    apply.add_argument("--policy-staged", action="store_true", default=argparse.SUPPRESS)
     import_parser = subparsers.add_parser("import", help="import managed GitHub tasks into local Markdown")
     import_parser.add_argument("--write", action="store_true", help="write local task files")
     subparsers.add_parser("status", help="show local/remote mapping and drift")
@@ -678,7 +806,17 @@ def main(argv: list[str] | None = None) -> int:
         repository = args.repo or parse_repo(Path.cwd())
         tasks = load_tasks(args.tasks_dir)
         client = GitHubClient(repository)
-        engine = SyncEngine(tasks, client, args.state, repository, args.receipts)
+        engine = SyncEngine(
+            tasks,
+            client,
+            args.state,
+            repository,
+            args.receipts,
+            policy_profile=args.policy_profile,
+            policy_approval=args.policy_approval,
+            policy_staged=args.policy_staged,
+            policy_approvals_path=args.policy_approvals,
+        )
         engine.discover()
         if args.authority == "github" and args.command not in {"import", "status"}:
             raise SyncError("github authority supports import and status; local authority is required for apply")

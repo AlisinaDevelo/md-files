@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "profile": "release",
+  "description": "Release profile for publishing artifacts, tags, and release metadata.",
+  "default_decision": "deny",
+  "protected_paths": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    "SECURITY.md",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "poetry.lock",
+    "Cargo.lock",
+    "**/AGENTS.md",
+    "**/CLAUDE.md",
+    "instructions/**",
+    ".github/workflows/**",
+    "**/package-lock.json",
+    "**/pnpm-lock.yaml",
+    "**/yarn.lock",
+    "**/poetry.lock",
+    "**/Cargo.lock",
+    ".forge/stack.json",
+    ".forge/github-sync.json",
+    "settings/**",
+    "plugins/**/.claude-plugin/**",
+    "plugins/**/.codex-plugin/**"
+  ],
+  "constraints": {
+    "allowed_domains": ["github.com", "registry.npmjs.org", "pypi.org"],
+    "max_cost_usd": 100,
+    "max_fan_out": 20
+  },
+  "rules": [
+    {
+      "id": "release-inspection",
+      "decision": "allow",
+      "match": {
+        "intent": {
+          "external": false,
+          "effect": ["inspect", "plan", "preview", "read"]
+        }
+      },
+      "reason": "Release inspection and planning are safe."
+    },
+    {
+      "id": "release-effect",
+      "decision": "require_approval",
+      "match": {
+        "intent": {
+          "external": true,
+          "effect": ["release", "publish", "tag", "package_publish"]
+        }
+      },
+      "reason": "Publishing and release effects require an explicit scoped approval."
+    }
+  ]
+}

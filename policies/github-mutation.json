@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "profile": "github-mutation",
+  "description": "GitHub mutation profile for issue-ledger and native stacked-PR adapters.",
+  "default_decision": "deny",
+  "protected_paths": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    "SECURITY.md",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "poetry.lock",
+    "Cargo.lock",
+    "**/AGENTS.md",
+    "**/CLAUDE.md",
+    "instructions/**",
+    ".github/workflows/**",
+    "**/package-lock.json",
+    "**/pnpm-lock.yaml",
+    "**/yarn.lock",
+    "**/poetry.lock",
+    "**/Cargo.lock",
+    ".forge/stack.json",
+    ".forge/github-sync.json",
+    "settings/**",
+    "plugins/**/.claude-plugin/**",
+    "plugins/**/.codex-plugin/**"
+  ],
+  "constraints": {
+    "allowed_domains": ["github.com"],
+    "max_cost_usd": 25,
+    "max_fan_out": 10
+  },
+  "rules": [
+    {
+      "id": "safe-github-inspection",
+      "decision": "allow",
+      "match": {
+        "intent": {
+          "external": false,
+          "effect": ["inspect", "plan", "preview", "read"]
+        }
+      },
+      "reason": "GitHub inspection and planning do not mutate the remote repository."
+    },
+    {
+      "id": "github-task-mutation",
+      "decision": "require_approval",
+      "match": {
+        "tool": "forge-tasks.apply",
+        "intent": {
+          "external": true,
+          "effect": "github_issue_write"
+        }
+      },
+      "constraints": {
+        "allowed_domains": ["github.com"],
+        "max_fan_out": 10
+      },
+      "reason": "Issue creation, updates, and relationships require one scoped approval."
+    },
+    {
+      "id": "github-stack-mutation",
+      "decision": "require_approval",
+      "match": {
+        "tool": "forge-stack-sync.apply",
+        "intent": {
+          "external": true,
+          "effect": "github_stack_write"
+        }
+      },
+      "constraints": {
+        "allowed_domains": ["github.com"],
+        "max_fan_out": 10
+      },
+      "reason": "Native stacked-PR mutations require one scoped approval."
+    }
+  ]
+}

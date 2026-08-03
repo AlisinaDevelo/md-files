@@ -10,7 +10,7 @@ import json
 import re
 import subprocess
 import sys
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -508,23 +508,101 @@ def apply_operations(
     *,
     yes: bool,
     authority: str,
+    policy_profile: Path | None = None,
+    policy_approval: str | None = None,
+    policy_staged: bool = False,
+    policy_approvals_path: Path | None = None,
+    policy_principal: str | None = None,
+    workspace: Path | None = None,
 ) -> list[dict[str, Any]]:
     if authority != "local":
         raise StackSyncError("only local authority may apply native stack mutations")
-    if not yes:
+    if not yes and not policy_staged:
         raise StackSyncError("apply requires explicit --yes")
+    if policy_staged and policy_profile is None:
+        raise StackSyncError("--policy-staged requires --policy-profile")
     if any(operation.action == "conflict" for operation in operations):
         raise ConflictError("conflicts must be resolved before apply")
     state = {"schema_version": 1, "repository": repository, "completed_operations": []}
     if state_path.exists():
         state = json.loads(state_path.read_text(encoding="utf-8"))
+    policy = None
+    policy_error_type: Any = None
+    if policy_profile is not None:
+        module_path = Path(__file__).resolve().parents[2] / "policy" / "scripts" / "forge-policy.py"
+        spec = importlib.util.spec_from_file_location("forge_policy", module_path)
+        if spec is None or spec.loader is None:
+            raise StackSyncError("could not load Forge policy engine")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        policy_error_type = module.PolicyError
+        try:
+            policy = module.PolicySession(
+                policy_profile,
+                approvals_path=policy_approvals_path or state_path.with_name("approvals.jsonl"),
+                receipts_path=receipts_path,
+                principal=policy_principal,
+                workspace=workspace or Path.cwd(),
+            )
+        except module.PolicyError as exc:
+            raise StackSyncError(str(exc)) from exc
     completed = set(state.get("completed_operations", []))
     results = []
     for operation in operations:
         if operation.key() in completed:
             results.append({"operation": operation.as_dict(), "status": "already-complete"})
             continue
-        result = apply_one(client, operation)
+        authorization = None
+        if policy is not None:
+            payload_paths = operation.payload.get("paths", [])
+            if isinstance(payload_paths, str):
+                payload_paths = [payload_paths]
+            if not isinstance(payload_paths, list):
+                payload_paths = []
+            branch = operation.payload.get("base") or operation.payload.get("branch") or "main"
+            action = policy.action(
+                action_id=f"forge-stack-sync:{operation.key()}",
+                tool="forge-stack-sync.apply",
+                arguments=operation.as_dict(),
+                repository=repository,
+                branch=str(branch),
+                paths=[str(path) for path in payload_paths],
+                domains=["github.com"],
+                effect="github_stack_write",
+                risk="high",
+                fan_out=len(operation.payload.get("pull_requests", [])) or 1,
+            )
+            try:
+                authorization = policy.authorize(action, approval_id=policy_approval, staged=policy_staged)
+            except Exception as exc:
+                if policy_error_type is not None and isinstance(exc, policy_error_type):
+                    raise StackSyncError(str(exc)) from exc
+                raise
+            if authorization.status == "staged":
+                results.append({"operation": operation.as_dict(), "status": "staged", "policy": authorization.as_dict()})
+                continue
+            if authorization.effective_action != authorization.action:
+                raise StackSyncError("policy transform is not supported by the stacked-changes adapter")
+
+            def policy_guard(session=policy, authorized=authorization, error_type=policy_error_type) -> None:
+                try:
+                    session.recheck(authorized)
+                except Exception as exc:
+                    if error_type is not None and isinstance(exc, error_type):
+                        raise StackSyncError(str(exc)) from exc
+                    raise
+
+        else:
+            policy_guard = None
+        result = apply_one(client, operation, before_effect=policy_guard)
+        if authorization is not None:
+            try:
+                policy.commit(authorization, result)
+            except Exception as exc:
+                if policy_error_type is not None and isinstance(exc, policy_error_type):
+                    raise StackSyncError(str(exc)) from exc
+                raise
         completed.add(operation.key())
         state["completed_operations"] = sorted(completed)
         state_path.parent.mkdir(parents=True, exist_ok=True)
@@ -534,7 +612,12 @@ def apply_operations(
     return results
 
 
-def apply_one(client: GitHubStackClient, operation: Operation) -> dict[str, Any]:
+def apply_one(
+    client: GitHubStackClient,
+    operation: Operation,
+    *,
+    before_effect: Callable[[], None] | None = None,
+) -> dict[str, Any]:
     payload = operation.payload
     if operation.action == "create_stack":
         current = client.stack_for_pull_request(int(payload["pull_requests"][0]))
@@ -542,6 +625,8 @@ def apply_one(client: GitHubStackClient, operation: Operation) -> dict[str, Any]
             if [item.number for item in current.pull_requests] == payload["pull_requests"]:
                 return {"stack_number": current.number, "recovered": True}
             raise ConflictError("the first pull request already belongs to a different stack")
+        if before_effect:
+            before_effect()
         response = client.create_stack(payload["pull_requests"])
         return {"stack_number": response.get("number"), "created": True}
     if operation.action == "append_stack":
@@ -555,6 +640,8 @@ def apply_one(client: GitHubStackClient, operation: Operation) -> dict[str, Any]
         actual_sha = ((top or {}).get("head") or {}).get("sha")
         if actual_sha and actual_sha != payload["expected_top_sha"]:
             raise ConflictError("stack top SHA changed before append")
+        if before_effect:
+            before_effect()
         response = client.append_stack(int(payload["stack_number"]), list(payload["pull_requests"]))
         return {"stack_number": response.get("number", payload["stack_number"]), "appended": payload["pull_requests"]}
     if operation.action == "relink_pr":
@@ -563,6 +650,8 @@ def apply_one(client: GitHubStackClient, operation: Operation) -> dict[str, Any]
             raise ConflictError(f"PR #{payload['pr']} head SHA changed before relink")
         if current.base_ref != payload["expected_base"]:
             raise ConflictError(f"PR #{payload['pr']} base changed before relink")
+        if before_effect:
+            before_effect()
         response = client.relink_pull_request(int(payload["pr"]), str(payload["base"]))
         return {"pr": payload["pr"], "base": response.get("base", {}).get("ref", payload["base"])}
     if operation.action == "unstack":
@@ -573,6 +662,8 @@ def apply_one(client: GitHubStackClient, operation: Operation) -> dict[str, Any]
         current_shas = [str((item.get("head") or {}).get("sha", "")) for item in current.get("pull_requests", [])]
         if payload.get("expected_head_shas") and current_shas != payload["expected_head_shas"]:
             raise ConflictError("stack head SHAs changed before unstack")
+        if before_effect:
+            before_effect()
         client.unstack(int(payload["stack_number"]))
         return {"stack_number": payload["stack_number"], "unstacked": True}
     raise StackSyncError(f"unsupported operation: {operation.action}")
@@ -588,6 +679,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--api", choices=("rest", "graphql"), default="rest")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--authority", choices=("local", "github"), default="local")
+    parser.add_argument("--policy-profile", type=Path, default=None, help="opt into a declarative policy profile")
+    parser.add_argument("--policy-approval", help="one-use approval ID for the exact operation")
+    parser.add_argument("--policy-approvals", type=Path, default=Path(".forge/approvals.jsonl"))
+    parser.add_argument("--policy-staged", action="store_true", help="preview policy-authorized operations without effects")
     target = argparse.ArgumentParser(add_help=False)
     target.add_argument("--repo", default=argparse.SUPPRESS)
     target.add_argument("--repo-path", type=Path, default=argparse.SUPPRESS)
@@ -596,6 +691,10 @@ def build_parser() -> argparse.ArgumentParser:
     target.add_argument("--receipts", type=Path, default=argparse.SUPPRESS)
     target.add_argument("--api", choices=("rest", "graphql"), default=argparse.SUPPRESS)
     target.add_argument("--authority", choices=("local", "github"), default=argparse.SUPPRESS)
+    target.add_argument("--policy-profile", type=Path, default=argparse.SUPPRESS)
+    target.add_argument("--policy-approval", default=argparse.SUPPRESS)
+    target.add_argument("--policy-approvals", type=Path, default=argparse.SUPPRESS)
+    target.add_argument("--policy-staged", action="store_true", default=argparse.SUPPRESS)
     target.add_argument("--pr", type=int)
     target.add_argument("--url")
     target.add_argument("--branch")
@@ -651,7 +750,19 @@ def main(argv: list[str] | None = None) -> int:
             operations = plan_reconciliation(manifest, remote, unstack=args.unstack)
             result = {"authority": args.authority, "operations": [operation.as_dict() for operation in operations]}
             if args.command == "apply":
-                result["results"] = apply_operations(client, args.repo, operations, args.state, args.receipts, yes=args.yes, authority=args.authority)
+                result["results"] = apply_operations(
+                    client,
+                    args.repo,
+                    operations,
+                    args.state,
+                    args.receipts,
+                    yes=args.yes,
+                    authority=args.authority,
+                    policy_profile=args.policy_profile,
+                    policy_approval=args.policy_approval,
+                    policy_staged=args.policy_staged,
+                    policy_approvals_path=args.policy_approvals,
+                )
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
     except (OSError, StackSyncError, ValueError, json.JSONDecodeError) as exc:

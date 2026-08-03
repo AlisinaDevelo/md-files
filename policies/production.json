@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "profile": "production",
+  "description": "Production profile with explicit deployment approval and bounded blast radius.",
+  "default_decision": "deny",
+  "protected_paths": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    "SECURITY.md",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "poetry.lock",
+    "Cargo.lock",
+    "**/AGENTS.md",
+    "**/CLAUDE.md",
+    "instructions/**",
+    ".github/workflows/**",
+    "**/package-lock.json",
+    "**/pnpm-lock.yaml",
+    "**/yarn.lock",
+    "**/poetry.lock",
+    "**/Cargo.lock",
+    ".forge/stack.json",
+    ".forge/github-sync.json",
+    "settings/**",
+    "plugins/**/.claude-plugin/**",
+    "plugins/**/.codex-plugin/**"
+  ],
+  "constraints": {
+    "allowed_domains": ["github.com"],
+    "max_cost_usd": 250,
+    "max_fan_out": 5
+  },
+  "rules": [
+    {
+      "id": "production-inspection",
+      "decision": "allow",
+      "match": {
+        "intent": {
+          "external": false,
+          "effect": ["inspect", "plan", "preview", "read"]
+        }
+      },
+      "reason": "Production inspection and planning are safe."
+    },
+    {
+      "id": "production-effect",
+      "decision": "require_approval",
+      "match": {
+        "intent": {
+          "external": true,
+          "effect": ["deploy", "production_write", "rollback", "production_delete"]
+        }
+      },
+      "reason": "Production effects require explicit approval and bounded fan-out."
+    }
+  ]
+}

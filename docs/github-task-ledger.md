@@ -11,6 +11,8 @@ From a repository containing `.forge/tasks/`:
 ```bash
 python3 scripts/forge-tasks.py --repo AlisinaDevelo/md-files --json plan
 python3 scripts/forge-tasks.py --repo AlisinaDevelo/md-files --json apply --yes
+python3 scripts/forge-tasks.py --repo AlisinaDevelo/md-files --policy-profile policies/github-mutation.json --json apply --yes
+python3 scripts/forge-tasks.py --repo AlisinaDevelo/md-files --policy-profile policies/github-mutation.json --policy-staged --json apply
 python3 scripts/forge-tasks.py --repo AlisinaDevelo/md-files --json status
 python3 scripts/forge-tasks.py --repo AlisinaDevelo/md-files --authority github --json import
 python3 scripts/forge-tasks.py --repo AlisinaDevelo/md-files --authority github --json import --write
@@ -19,7 +21,11 @@ python3 scripts/forge-tasks.py --repo AlisinaDevelo/md-files --authority github 
 `plan` is read-only. `apply` is the only command that mutates GitHub and it requires
 `--yes`. Every successful mutation is persisted to `.forge/github-sync.json` and emits a
 privacy-safe idempotent event to `.forge/receipts.jsonl`; use `--receipts PATH` to choose a
-different evidence file.
+different evidence file. With `--policy-profile`, Forge also evaluates the exact
+operation immediately before the effect, requires a one-use approval when the profile
+requires it, and records the policy decision and final committed effect. Use
+`--policy-staged` for a no-effect preview; it does not require `--yes` or consume an
+approval. See [the policy-plane guide](policy-plane.md).
 
 ## Identity and mapping
 

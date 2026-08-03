@@ -105,6 +105,7 @@ automatically when the situation matches, or you can request them by name:
 - `/forge-cmd-solve-loop` — drain ready ledger tasks until done or blocked
 - `/forge-cmd-stack` — inspect, submit, restack, repair, or land a PR stack
 - `/forge-cmd-stack-review` — review each layer against its immediate parent
+- `/forge-cmd-policy` — evaluate policy, stage effects, approve, authorize, or record outcomes
 
 **Methodology skills (automatically triggered):**
 
@@ -114,7 +115,7 @@ automatically when the situation matches, or you can request them by name:
   `performance-profiling`, `observability`, `technical-writing`,
   `git-workflow`, `error-handling`, `feature-flags`, `caching-strategies`,
   `concurrency-and-parallelism`, `prompt-engineering`, `forge-catalog`,
-  `orchestration`, `task-ledger`, `iterate-to-done`, `stacked-changes`
+  `orchestration`, `task-ledger`, `iterate-to-done`, `stacked-changes`, `policy`
 
 ---
 

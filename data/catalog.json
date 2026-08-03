@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "total": 65,
+  "total": 67,
   "components": [
     {
       "id": "accessibility-auditor",
@@ -275,6 +275,14 @@
       "risk": "safe"
     },
     {
+      "id": "policy",
+      "kind": "skill",
+      "path": "plugins/forge/skills/policy/SKILL.md",
+      "description": "Use when an orchestrated run may create an external effect or mutate a protected resource. Defines versioned action envelopes, declarative profiles, scoped one-use approvals, staged previews, pre-effect re-evaluation, and privacy-safe decision receipts for Forge mutation adapters.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
       "id": "prompt-engineering",
       "kind": "skill",
       "path": "plugins/forge/skills/prompt-engineering/SKILL.md",
@@ -433,6 +441,14 @@
       "description": "Produce a step-by-step implementation plan before writing code",
       "model": "opus",
       "risk": "safe"
+    },
+    {
+      "id": "policy",
+      "kind": "command",
+      "path": "plugins/forge/commands/policy.md",
+      "description": "Evaluate Forge policy, stage an effect, issue a scoped approval, or record a committed outcome",
+      "model": "opus",
+      "risk": "critical"
     },
     {
       "id": "pr",

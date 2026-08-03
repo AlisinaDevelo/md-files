@@ -26,4 +26,6 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .forge/receipts.jsonl
+.forge/approvals.jsonl
+.forge/policy-previews/
 .forge/scenario-results/

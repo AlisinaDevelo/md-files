@@ -22,6 +22,10 @@ All notable changes to this project are documented here. The format is based on
 - **Cross-host conformance scenarios** — versioned JSONL fixtures, deterministic reference and
   Agent Skills adapters, explicit Claude/Codex live contracts, tool/artifact/score enforcement,
   receipt-linked results, confidence intervals, flaky-run gates, and CI evidence artifacts.
+- **Declarative policy plane** — versioned action envelopes and decision schemas, readable
+  default/review/GitHub/release/production profiles, protected-resource constraints, staged
+  no-effect previews, one-use approvals bound to exact digests and policy revisions, pre-effect
+  re-evaluation, privacy-safe committed-effect receipts, and opt-in task-ledger/stack adapters.
 
 ## [3.0.1] — 2026-07-31
 

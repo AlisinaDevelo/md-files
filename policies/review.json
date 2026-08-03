@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "profile": "review",
+  "description": "Review profile for local engineering work with explicit write approval.",
+  "default_decision": "deny",
+  "protected_paths": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    "SECURITY.md",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "poetry.lock",
+    "Cargo.lock",
+    "**/AGENTS.md",
+    "**/CLAUDE.md",
+    "instructions/**",
+    ".github/workflows/**",
+    "**/package-lock.json",
+    "**/pnpm-lock.yaml",
+    "**/yarn.lock",
+    "**/poetry.lock",
+    "**/Cargo.lock",
+    ".forge/stack.json",
+    ".forge/github-sync.json",
+    "settings/**",
+    "plugins/**/.claude-plugin/**",
+    "plugins/**/.codex-plugin/**"
+  ],
+  "constraints": {},
+  "rules": [
+    {
+      "id": "safe-inspection",
+      "decision": "allow",
+      "match": {
+        "intent": {
+          "external": false,
+          "effect": ["inspect", "plan", "preview", "read"]
+        }
+      },
+      "reason": "Read-only inspection and planning are safe during review."
+    },
+    {
+      "id": "local-effect",
+      "decision": "require_approval",
+      "match": {
+        "intent": {
+          "external": false,
+          "effect": ["write", "delete", "execute"]
+        }
+      },
+      "reason": "Local writes and execution require a scoped approval during review."
+    },
+    {
+      "id": "external-effect",
+      "decision": "require_approval",
+      "match": {
+        "intent": {
+          "external": true
+        }
+      },
+      "reason": "External effects require a scoped approval during review."
+    }
+  ]
+}
