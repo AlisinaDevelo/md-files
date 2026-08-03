@@ -24,8 +24,9 @@ md-files/                       # the marketplace repository
 ├── mcp/                        # example MCP server configs
 ├── evals/                      # prompt eval harness + cases (the evidence layer)
 ├── tests/                      # runnable tests for the hooks
+├── data/                       # schemas and generated capability/catalog metadata
 ├── docs/                       # this documentation
-├── scripts/                    # repo tooling (validate.sh, install.sh)
+├── scripts/                    # repo tooling (validate.sh, install.sh, compilers)
 └── .github/                    # CI, issue/PR templates, CODEOWNERS, dependabot
 ```
 
@@ -34,6 +35,21 @@ marketplace catalog (`.claude-plugin/marketplace.json`) that lists one plugin wh
 `source` resolves to `./plugins/forge`. Keeping the plugin in a subdirectory (rather than
 at the marketplace root) avoids the root-source component-scanning edge case and leaves
 room to add more plugins to the catalog later.
+
+## Canonical capability graph
+
+[`docs/capability-ir.md`](capability-ir.md) describes the versioned graph in
+[`data/capabilities.json`](../data/capabilities.json) and its schema in
+[`data/capabilities.schema.json`](../data/capabilities.schema.json). The graph imports
+the reviewed Markdown inventory, records source and body digests, inventories nested skill
+resources, and makes host degradation explicit. `scripts/compile_capabilities.py --check`
+is a deterministic drift gate; `scripts/generate_catalog.py` consumes the graph for the
+catalog projection.
+
+Markdown remains the source of truth in this phase. The graph is an interoperability and
+review contract, not yet a body-level prompt generator. This boundary keeps the migration
+auditable while later compiler work adds generated manifests, bundles, workflows, and
+third-party host adapters.
 
 ## The four component types
 
@@ -126,5 +142,5 @@ flowchart LR
 - **Least privilege.** Read-only agents (reviewers, auditors) get no Edit tool. Hooks
   fail open on parse errors so they can't brick a session, but block hard on real
   threats.
-- **Self-validating.** `scripts/validate.sh` checks frontmatter, JSON, and hook scripts;
-  CI runs it on every push so the toolkit stays well-formed.
+- **Self-validating.** `scripts/validate.sh` checks frontmatter, JSON, hook scripts, and
+  capability-graph drift; CI runs it on every push so the toolkit stays well-formed.

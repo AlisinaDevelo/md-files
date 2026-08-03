@@ -128,3 +128,5 @@ See [release-provenance.md](release-provenance.md) for release asset verificatio
 installed-file mapping, SBOMs, and artifact attestations.
 See [marketplace-readiness.md](marketplace-readiness.md) for repository marketplace
 installation, directory status, publisher links, and host smoke tests.
+See [capability-ir.md](capability-ir.md) for the canonical capability graph, host
+projections, and migration workflow.

@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- **Canonical capability graph foundation** — a versioned, deterministic inventory of
+  Forge agents, skills, and commands with source/body digests, resource discovery, risk
+  labels, and explicit Claude, Codex, and Agent Skills host projections. Validation and
+  release packaging now fail when the committed graph drifts from reviewed Markdown.
+
 ## [3.4.0] — 2026-08-03
 
 ### Added

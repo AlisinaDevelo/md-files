@@ -1,0 +1,2188 @@
+{
+  "$schema": "https://github.com/AlisinaDevelo/md-files/schema/capabilities/v1",
+  "schema_version": 1,
+  "project": "forge",
+  "version": "3.4.0",
+  "source_contract": {
+    "root": "plugins/forge",
+    "encoding": "utf-8",
+    "frontmatter": "simple-folded-yaml",
+    "body_digest": "sha256",
+    "source_digest": "sha256"
+  },
+  "hosts": {
+    "claude": {
+      "display_name": "Claude Code",
+      "manifest": "plugins/forge/.claude-plugin/plugin.json",
+      "native_kinds": [
+        "agent",
+        "skill",
+        "command"
+      ],
+      "extensions": [
+        "hooks",
+        "output-styles"
+      ]
+    },
+    "codex": {
+      "display_name": "OpenAI Codex",
+      "manifest": "plugins/forge/.codex-plugin/plugin.json",
+      "native_kinds": [
+        "skill"
+      ],
+      "extensions": []
+    },
+    "agentskills": {
+      "display_name": "Agent Skills reference format",
+      "manifest": ".agents/plugins/marketplace.json",
+      "native_kinds": [
+        "skill"
+      ],
+      "extensions": [
+        "zed/skills/agents",
+        "zed/skills/commands"
+      ]
+    }
+  },
+  "components": [
+    {
+      "id": "accessibility-auditor",
+      "kind": "agent",
+      "source": "plugins/forge/agents/accessibility-auditor.md",
+      "frontmatter": {
+        "color": "purple",
+        "description": "Use this agent to audit and fix web/UI accessibility against WCAG \u2014 semantics, keyboard navigation, ARIA, contrast, focus management, and screen-reader support. Invoke when building or reviewing user-facing UI, or when a11y compliance is required. Examples \u2014 (1) User: \"Is this modal accessible?\" (2) User: \"Audit our checkout form for WCAG 2.2 AA.\" \u2192 launch accessibility-auditor.",
+        "model": "sonnet",
+        "name": "accessibility-auditor",
+        "tools": "Read, Grep, Glob, Bash"
+      },
+      "body_sha256": "ce4c615162b0e3c906871cf37d54507b7916f5ad4a2036a485a1a7f56ef47658",
+      "source_sha256": "54738106efb247c607961a8f1676a425ec629ad4db7baaa86910f57f55f934c8",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "agent",
+          "path": "plugins/forge/agents/accessibility-auditor.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/agents/forge-accessibility-auditor.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "agent",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "api-designer",
+      "kind": "agent",
+      "source": "plugins/forge/agents/api-designer.md",
+      "frontmatter": {
+        "color": "green",
+        "description": "Use this agent to design or review APIs \u2014 REST, GraphQL, gRPC, or library interfaces \u2014 for consistency, evolvability, and a good developer experience. Invoke when adding endpoints, designing a public interface, or reviewing API surface before it ships and becomes hard to change. Examples \u2014 (1) User: \"Design the REST API for our orders service.\" (2) User: \"Review this endpoint's contract before we publish it.\"",
+        "model": "sonnet",
+        "name": "api-designer",
+        "tools": "Read, Grep, Glob, Bash"
+      },
+      "body_sha256": "bae392bbbdc5ac77f2a025ea0cdeb18f6b836d64e07c86b6385bf428364c86be",
+      "source_sha256": "74aa3e9370503b0adf900b7db2ac9e9be5f9700e74cdbc54a6d9248b3669e8e2",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "agent",
+          "path": "plugins/forge/agents/api-designer.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/agents/forge-api-designer.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "agent",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "architect",
+      "kind": "agent",
+      "source": "plugins/forge/agents/architect.md",
+      "frontmatter": {
+        "color": "purple",
+        "description": "Use this agent to design an implementation strategy before writing code \u2014 for non-trivial features, refactors, or anything touching multiple systems. It returns a step-by-step plan, identifies the critical files, and weighs architectural trade-offs. Invoke when the user asks \"how should I build X\" or before a task large enough to benefit from a plan. Examples \u2014 (1) User: \"I want to add multi-tenant billing.\" (2) User: \"Plan the migration from REST to gRPC.\"",
+        "model": "opus",
+        "name": "architect",
+        "tools": "Read, Grep, Glob, Bash"
+      },
+      "body_sha256": "695d55950015726e7d00ad4b8c487f55c93ea7ae7ea256092c7d07576898b8e3",
+      "source_sha256": "bf46373a5273e0fd54e38cd1f52c2b76c64d20ff11a8e2b218b9a6b9060f38b3",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "agent",
+          "path": "plugins/forge/agents/architect.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/agents/forge-architect.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "agent",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "code-archaeologist",
+      "kind": "agent",
+      "source": "plugins/forge/agents/code-archaeologist.md",
+      "frontmatter": {
+        "color": "yellow",
+        "description": "Use this agent to understand an unfamiliar, large, or legacy codebase \u2014 tracing how a feature works, reconstructing intent, and mapping data and control flow before you change anything. Invoke when onboarding to a repo, before modifying code you didn't write, or when asked \"how does X work here?\". Examples \u2014 (1) User: \"How does authentication flow through this app?\" (2) User: \"I need to change the billing logic but I don't understand it yet.\" \u2192 launch code-archaeologist first.",
+        "model": "sonnet",
+        "name": "code-archaeologist",
+        "tools": "Read, Grep, Glob, Bash"
+      },
+      "body_sha256": "8eb5d0de84bd32c6983897abd8b59d8a334b3a94f65151b523ea48f652910e10",
+      "source_sha256": "31a91b340d1edbe3393f8d461a6a0379a5ce24a9846a59d28bf1c0d11ebb3b04",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "agent",
+          "path": "plugins/forge/agents/code-archaeologist.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/agents/forge-code-archaeologist.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "agent",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "code-reviewer",
+      "kind": "agent",
+      "source": "plugins/forge/agents/code-reviewer.md",
+      "frontmatter": {
+        "color": "green",
+        "description": "Use this agent to review a diff, pull request, or recently written code for correctness, security, readability, and maintainability. Invoke it proactively after a logical chunk of work is complete and before committing or opening a PR. Examples \u2014 (1) User: \"I just finished the auth refactor, can you look it over?\" \u2192 launch code-reviewer on the diff. (2) After implementing a feature yourself, proactively launch code-reviewer to catch regressions before handing back.",
+        "model": "sonnet",
+        "name": "code-reviewer",
+        "tools": "Read, Grep, Glob, Bash"
+      },
+      "body_sha256": "203dcd1efd0e0c9e11f534b956680da2de6044ab4fb6fa9de6b8c41cf1b50091",
+      "source_sha256": "ad469ba0735a130fded8ffec9f8f2cf7cafaa5f4e023eac0f19f668cf438b241",
+      "resources": [],
+      "risk": "security-sensitive",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "agent",
+          "path": "plugins/forge/agents/code-reviewer.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/agents/forge-code-reviewer.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "agent",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "data-engineer",
+      "kind": "agent",
+      "source": "plugins/forge/agents/data-engineer.md",
+      "frontmatter": {
+        "color": "blue",
+        "description": "Use this agent for data-pipeline and analytics-infrastructure work \u2014 ETL/ELT design, batch vs streaming, warehouse/lakehouse modeling, partitioning, and data quality. Invoke when building or fixing pipelines, modeling analytical tables, or debugging a data-correctness issue. Distinct from database-expert (OLTP schemas and query tuning). Examples \u2014 (1) User: \"Design the pipeline that loads events into our warehouse.\" (2) User: \"Our nightly job double-counts revenue \u2014 find why.\"",
+        "model": "sonnet",
+        "name": "data-engineer",
+        "tools": "Read, Grep, Glob, Bash"
+      },
+      "body_sha256": "53ae64dc017598889ae613ce73f3197481491710f213fb3280224868bcaf3be7",
+      "source_sha256": "357fbce2708490f8f75e92e9d764a72a398ec659a958c07d39b5ae160e4ecfe7",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "agent",
+          "path": "plugins/forge/agents/data-engineer.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/agents/forge-data-engineer.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "agent",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "database-expert",
+      "kind": "agent",
+      "source": "plugins/forge/agents/database-expert.md",
+      "frontmatter": {
+        "color": "blue",
+        "description": "Use this agent for database work \u2014 schema design, query optimization, indexing, migrations, and data-integrity decisions across SQL and NoSQL stores. Invoke when designing a data model, debugging a slow query, planning a migration, or choosing a storage strategy. Examples \u2014 (1) User: \"Design the schema for a subscription billing system.\" (2) User: \"This query does a full table scan \u2014 fix it.\" (3) User: \"Write a zero-downtime migration to add a NOT NULL column.\"",
+        "model": "sonnet",
+        "name": "database-expert",
+        "tools": "Read, Grep, Glob, Bash"
+      },
+      "body_sha256": "1e83fdc2226bc516b39c0316b09c76dc555b8dda667ebd2666ab3fd6691c347e",
+      "source_sha256": "1c5be60b93f8983c8ae5138345167b70b5be0e8eb8b0d9f49032c6935a376cf3",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "agent",
+          "path": "plugins/forge/agents/database-expert.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/agents/forge-database-expert.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "agent",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "debugger",
+      "kind": "agent",
+      "source": "plugins/forge/agents/debugger.md",
+      "frontmatter": {
+        "color": "red",
+        "description": "Use this agent to diagnose a failing test, exception, crash, or incorrect behavior and find the root cause before any fix is written. Invoke it when the user reports a bug, pastes a stack trace, or says something \"doesn't work.\" Examples \u2014 (1) User: \"This test fails intermittently in CI but passes locally.\" \u2192 launch debugger to isolate the flake. (2) User pastes a NullPointerException \u2192 launch debugger to trace it to the originating assumption.",
+        "model": "sonnet",
+        "name": "debugger",
+        "tools": "Read, Grep, Glob, Bash"
+      },
+      "body_sha256": "0013c8ad345dcf7ea7dde809820ee0e82f1c689da3a72048a1f842cd314fbaa4",
+      "source_sha256": "a38f7d9e57cb39c7c8d4863d3bc41081578fbef0f281ab213cee42c63f57eb5f",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "agent",
+          "path": "plugins/forge/agents/debugger.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/agents/forge-debugger.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "agent",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "dependency-auditor",
+      "kind": "agent",
+      "source": "plugins/forge/agents/dependency-auditor.md",
+      "frontmatter": {
+        "color": "orange",
+        "description": "Use this agent to audit project dependencies for known vulnerabilities, license risk, staleness, and supply-chain hygiene \u2014 and to plan safe upgrades. Invoke before a release, during routine maintenance, or when a CVE is reported. Examples \u2014 (1) User: \"Audit our dependencies before the release.\" (2) User: \"Is it safe to upgrade from React 18 to 19?\" \u2192 launch dependency-auditor.",
+        "model": "sonnet",
+        "name": "dependency-auditor",
+        "tools": "Read, Grep, Glob, Bash"
+      },
+      "body_sha256": "2335ee864cf77237f8e6966df9b9fd0a98e12ce110ab66b4caa1b807b5bd3a1f",
+      "source_sha256": "8398c12031f0d7d93435388a0c0cfe92618bc9e8f0636d65d8ac98bb6cd99f61",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "agent",
+          "path": "plugins/forge/agents/dependency-auditor.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/agents/forge-dependency-auditor.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "agent",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "devops-engineer",
+      "kind": "agent",
+      "source": "plugins/forge/agents/devops-engineer.md",
+      "frontmatter": {
+        "color": "blue",
+        "description": "Use this agent for CI/CD, containerization, infrastructure-as-code, deployment, and observability work. Invoke when writing pipelines, Dockerfiles, Terraform, Kubernetes manifests, or debugging a deploy. Examples \u2014 (1) User: \"Write a multi-stage Dockerfile for this Go service.\" (2) User: \"Our GitHub Actions pipeline is slow and flaky \u2014 fix it.\" (3) User: \"Set up zero-downtime deploys.\"",
+        "model": "sonnet",
+        "name": "devops-engineer",
+        "tools": "Read, Grep, Glob, Bash"
+      },
+      "body_sha256": "ad7112d198c0506d0f4a01853a1b9721b32c195c5428004e21f258fb3a5e97d8",
+      "source_sha256": "7aece34b7d7c9167f3a72c59ae2b27e36cfeece23d8262de2b97f62c70e6ee20",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "agent",
+          "path": "plugins/forge/agents/devops-engineer.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/agents/forge-devops-engineer.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "agent",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "docs-writer",
+      "kind": "agent",
+      "source": "plugins/forge/agents/docs-writer.md",
+      "frontmatter": {
+        "color": "cyan",
+        "description": "Use this agent to write or improve documentation \u2014 READMEs, API references, architecture docs, runbooks, ADRs, docstrings, and onboarding guides \u2014 grounded in the actual code. Invoke when docs are missing, stale, or unclear. Examples \u2014 (1) User: \"Write a README for this service.\" (2) User: \"Document the public API of this module.\" \u2192 launch docs-writer to produce accurate, example-driven docs.",
+        "model": "sonnet",
+        "name": "docs-writer",
+        "tools": "Read, Grep, Glob, Bash"
+      },
+      "body_sha256": "1deef777c71a3cded5ecf881cdef002354c67a14d93c38517d7d1180ce9a188f",
+      "source_sha256": "8771d2826afdb87a4e76b167aca94c3311250f5ae78e0b80ea6e4d5e085c49b3",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "agent",
+          "path": "plugins/forge/agents/docs-writer.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/agents/forge-docs-writer.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "agent",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "frontend-specialist",
+      "kind": "agent",
+      "source": "plugins/forge/agents/frontend-specialist.md",
+      "frontmatter": {
+        "color": "cyan",
+        "description": "Use this agent for frontend work \u2014 component architecture, state management, rendering performance, and correct, accessible, responsive UI in React/Vue/Svelte and modern web stacks. Invoke when building or reviewing UI, debugging render behavior, or improving perceived performance. Examples \u2014 (1) User: \"Build a data table with sorting and virtualization.\" (2) User: \"This component re-renders too much \u2014 why?\" (3) User: \"Make this layout responsive.\"",
+        "model": "sonnet",
+        "name": "frontend-specialist",
+        "tools": "Read, Grep, Glob, Bash, Edit"
+      },
+      "body_sha256": "a17ab0e2e9dba1cd114df9aa5eece023b3037668979a3ddd3a709ce2aecf1615",
+      "source_sha256": "cd6180f80bb71de216068899c20002b97a9bb4f96bc1133aa0f8651bfcae64ad",
+      "resources": [],
+      "risk": "critical",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "agent",
+          "path": "plugins/forge/agents/frontend-specialist.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/agents/forge-frontend-specialist.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "agent",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "incident-responder",
+      "kind": "agent",
+      "source": "plugins/forge/agents/incident-responder.md",
+      "frontmatter": {
+        "color": "red",
+        "description": "Use this agent during a production incident to triage, mitigate, and find the cause under time pressure \u2014 and to drive the blameless postmortem afterward. Invoke when something is down or degraded in production. Examples \u2014 (1) User: \"The API is returning 500s in prod right now.\" (2) User: \"Latency spiked 10x after the last deploy.\" \u2192 launch incident-responder to stabilize first, diagnose second.",
+        "model": "sonnet",
+        "name": "incident-responder",
+        "tools": "Read, Grep, Glob, Bash"
+      },
+      "body_sha256": "c409259d4326a4b02570b4c4299d4b699d2fd3061227b77d2f15b15893cb6644",
+      "source_sha256": "70aee685a281d29a00d51dfd68feec4568c6c3d003ed883e2391dc94a1329f51",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "agent",
+          "path": "plugins/forge/agents/incident-responder.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/agents/forge-incident-responder.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "agent",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "migration-specialist",
+      "kind": "agent",
+      "source": "plugins/forge/agents/migration-specialist.md",
+      "frontmatter": {
+        "color": "blue",
+        "description": "Use this agent to plan and execute a migration \u2014 a framework or library major upgrade, a language version bump, or an API/schema cutover \u2014 incrementally and reversibly. Invoke when a dependency has breaking changes, or when moving from one technology/pattern to another across a codebase. Examples \u2014 (1) User: \"Upgrade us from React 18 to 19.\" (2) User: \"Migrate from the deprecated v1 client to v2 across the repo.\" (3) User: \"Move our tests from Mocha to Vitest.\"",
+        "model": "sonnet",
+        "name": "migration-specialist",
+        "tools": "Read, Grep, Glob, Bash, Edit"
+      },
+      "body_sha256": "0653121b247dd338416f419bf21439e7e3c3fc6e4d12cd15d3e3a63f6c8bf17a",
+      "source_sha256": "5d32b28d81e115dc9fe85343741e537b6888f0bd050e4ef6076f107517c2a8b9",
+      "resources": [],
+      "risk": "critical",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "agent",
+          "path": "plugins/forge/agents/migration-specialist.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/agents/forge-migration-specialist.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "agent",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "performance-optimizer",
+      "kind": "agent",
+      "source": "plugins/forge/agents/performance-optimizer.md",
+      "frontmatter": {
+        "color": "yellow",
+        "description": "Use this agent to diagnose and fix performance problems \u2014 slow endpoints, high latency, excessive memory/CPU, N+1 queries, or scaling issues. It measures before it optimizes. Invoke when something is \"slow,\" a profile/benchmark needs interpreting, or before scaling a hot path. Examples \u2014 (1) User: \"This page takes 4 seconds to load.\" (2) User: \"Our worker is OOMing under load.\" \u2192 launch performance-optimizer to find the bottleneck.",
+        "model": "sonnet",
+        "name": "performance-optimizer",
+        "tools": "Read, Grep, Glob, Bash"
+      },
+      "body_sha256": "255fa5c9c8b62bf35bd9a4fc78e153213b0aa3c0a63b3ac895c96e628cac2824",
+      "source_sha256": "7c7a4e0245402a8e2a8e9dfcbfa46d9eac6dca88534ac935b3b5d62cd0a5e48a",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "agent",
+          "path": "plugins/forge/agents/performance-optimizer.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/agents/forge-performance-optimizer.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "agent",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "refactoring-specialist",
+      "kind": "agent",
+      "source": "plugins/forge/agents/refactoring-specialist.md",
+      "frontmatter": {
+        "color": "blue",
+        "description": "Use this agent to improve the structure of existing code without changing its behavior \u2014 reducing duplication, untangling complexity, improving names, and extracting seams. Invoke when code is hard to change, when the user asks to \"clean up\" or \"simplify,\" or after a feature lands and the surrounding code needs tidying. Examples \u2014 (1) User: \"This 400-line function is unmaintainable.\" (2) User: \"Refactor this to remove the duplicated validation logic.\"",
+        "model": "sonnet",
+        "name": "refactoring-specialist",
+        "tools": "Read, Grep, Glob, Bash, Edit"
+      },
+      "body_sha256": "e7dc2a70f860e9450e855010923e052cf32c1106ec0c52a6af7f3b4793741746",
+      "source_sha256": "94892407e23bd621ac6afc5dbbb591b3da76acd2d4ae05e35da02430be4feffe",
+      "resources": [],
+      "risk": "critical",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "agent",
+          "path": "plugins/forge/agents/refactoring-specialist.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/agents/forge-refactoring-specialist.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "agent",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "security-auditor",
+      "kind": "agent",
+      "source": "plugins/forge/agents/security-auditor.md",
+      "frontmatter": {
+        "color": "orange",
+        "description": "Use this agent for defensive security review of code, configuration, or dependencies \u2014 threat modeling, finding vulnerabilities, and hardening. Invoke before shipping anything that handles auth, secrets, user input, payments, or PII. Examples \u2014 (1) User: \"Audit this login endpoint before we deploy.\" (2) User: \"We're adding file uploads \u2014 what could go wrong?\" \u2192 launch security-auditor to threat-model the feature. Defensive use only; refuse to build offensive tooling.",
+        "model": "sonnet",
+        "name": "security-auditor",
+        "tools": "Read, Grep, Glob, Bash"
+      },
+      "body_sha256": "e781a665689d53bd692b778c373d7ed9f52e348c3513b00f3b9b0c71398919e5",
+      "source_sha256": "5b32200ccb42a6042d6ceb27c9b11fa662e6e5505002e978a95333547804d6cf",
+      "resources": [],
+      "risk": "security-sensitive",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "agent",
+          "path": "plugins/forge/agents/security-auditor.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/agents/forge-security-auditor.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "agent",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "sre",
+      "kind": "agent",
+      "source": "plugins/forge/agents/sre.md",
+      "frontmatter": {
+        "color": "green",
+        "description": "Use this agent for reliability engineering \u2014 defining SLOs and error budgets, capacity and load planning, reducing toil, and hardening a service against failure before it breaks. Invoke proactively when designing for scale/reliability or when asked \"is this production-ready?\". Distinct from incident-responder (active outages) and devops-engineer (CI/CD and infra plumbing). Examples \u2014 (1) User: \"Set SLOs for our checkout API.\" (2) User: \"Will this service hold up at 10x traffic?\"",
+        "model": "sonnet",
+        "name": "sre",
+        "tools": "Read, Grep, Glob, Bash"
+      },
+      "body_sha256": "57edd643742d61db9c162324cc0eb41d3137955b97b0825977e5b7ef2dce533c",
+      "source_sha256": "829486ee1b8c09f928a8fe216f309f223f4b1f2e52be08e8918e9e200f066f2f",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "agent",
+          "path": "plugins/forge/agents/sre.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/agents/forge-sre.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "agent",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "tech-lead",
+      "kind": "agent",
+      "source": "plugins/forge/agents/tech-lead.md",
+      "frontmatter": {
+        "color": "purple",
+        "description": "Use this agent to coordinate a large or ambiguous task end-to-end \u2014 breaking it down, deciding which specialists to involve, sequencing the work, and keeping the whole effort coherent. Invoke for multi-faceted requests that span planning, implementation, review, and testing. Examples \u2014 (1) User: \"Ship a complete password-reset feature.\" (2) User: \"Take this vague request and drive it to done.\" \u2192 launch tech-lead to orchestrate.",
+        "model": "opus",
+        "name": "tech-lead",
+        "tools": "Read, Grep, Glob, Bash"
+      },
+      "body_sha256": "a4923b2e8409da6651567dbfd762aa3c1e01f1536680d4c86e8771048a84187e",
+      "source_sha256": "32c8a7183d108f0386b742c0bb49a4a97fd15c6e34143426c0deff47797000e4",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "agent",
+          "path": "plugins/forge/agents/tech-lead.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/agents/forge-tech-lead.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "agent",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "test-engineer",
+      "kind": "agent",
+      "source": "plugins/forge/agents/test-engineer.md",
+      "frontmatter": {
+        "color": "cyan",
+        "description": "Use this agent to design and write tests \u2014 unit, integration, property-based, or regression \u2014 that assert behavior and meaningfully reduce risk. Invoke after implementing a feature, when coverage is thin, or when reproducing a bug as a failing test. Examples \u2014 (1) User: \"Add tests for the new pricing module.\" (2) User: \"Write a failing test that reproduces this bug first.\" \u2192 launch test-engineer to capture the defect before the fix.",
+        "model": "sonnet",
+        "name": "test-engineer",
+        "tools": "Read, Grep, Glob, Bash"
+      },
+      "body_sha256": "ddaaf6a04bb93500b8b649052ce6e71042578952daee0d8a93a3c3b39b78bb85",
+      "source_sha256": "7b95df76dd94a6ffc07377107f73af5cd3566d811ec8741321e32989afaf50fb",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "agent",
+          "path": "plugins/forge/agents/test-engineer.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/agents/forge-test-engineer.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "agent",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "api-design",
+      "kind": "skill",
+      "source": "plugins/forge/skills/api-design/SKILL.md",
+      "frontmatter": {
+        "description": "Use when designing or reviewing an API \u2014 REST, GraphQL, gRPC, or a library interface. Covers consistency, resource modeling, versioning and evolution, error contracts, pagination, and idempotency so the interface stays usable and changeable after it ships.",
+        "name": "api-design"
+      },
+      "body_sha256": "1f80f5a12bfcc94f372ca1fcd6d7d8620e54a18f270522be56c403ec5ee4e2b6",
+      "source_sha256": "7a2162ce1ac517d3e7df8b8bcf506f21638cda4135baf35cc9ffa0a8393cdfd1",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/api-design/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/api-design/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/api-design/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "caching-strategies",
+      "kind": "skill",
+      "source": "plugins/forge/skills/caching-strategies/SKILL.md",
+      "frontmatter": {
+        "description": "Use when designing or debugging a cache \u2014 choosing a caching pattern, setting TTLs and invalidation, picking a layer (client/CDN/app/DB), or fixing staleness, a low hit rate, or a stampede. Complements performance-profiling (which finds the bottleneck); this decides whether and how to cache it.",
+        "name": "caching-strategies"
+      },
+      "body_sha256": "9d0994e21df2092607c7ee7f0398f221fb8affa2c9d07d0410ef719e0d31aa03",
+      "source_sha256": "881ca516125657121a9099d6c71035e124d84f811349e2ce44f3a73151f1ca5d",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/caching-strategies/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/caching-strategies/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/caching-strategies/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "code-review-rubric",
+      "kind": "skill",
+      "source": "plugins/forge/skills/code-review-rubric/SKILL.md",
+      "frontmatter": {
+        "description": "Use when reviewing code or a pull request to apply a consistent quality bar. Provides a severity-ranked rubric covering correctness, security, tests, readability, and maintainability, plus how to write feedback that gets fixed. See CHECKLIST.md for the full pre-merge checklist.",
+        "name": "code-review-rubric"
+      },
+      "body_sha256": "6a6f16dcacb1e2bf71e88d09d441f6da7129bba9878c88140ca2b21968399bea",
+      "source_sha256": "d13bcec6572d6785f083a9242ebea823339a2c1a5c1cb7edcc652bcc5de781a2",
+      "resources": [
+        "CHECKLIST.md"
+      ],
+      "risk": "security-sensitive",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/code-review-rubric/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/code-review-rubric/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/code-review-rubric/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "concurrency-and-parallelism",
+      "kind": "skill",
+      "source": "plugins/forge/skills/concurrency-and-parallelism/SKILL.md",
+      "frontmatter": {
+        "description": "Use when writing or reviewing concurrent code \u2014 threads, async/await, shared state, locks, and parallel work \u2014 or diagnosing a race condition, deadlock, or heisenbug that only appears under load. Covers the patterns that make concurrency correct and the traps that make it intermittently wrong.",
+        "name": "concurrency-and-parallelism"
+      },
+      "body_sha256": "0c9fc40b39dc66aad4cd91d0d251f15f7b070465aced08e41876a825c6c7d3f4",
+      "source_sha256": "c94a23c52ff57e97f8527d268a4b91b606e725d512b9f655395adb44a3e3637e",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/concurrency-and-parallelism/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/concurrency-and-parallelism/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/concurrency-and-parallelism/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "conventional-commits",
+      "kind": "skill",
+      "source": "plugins/forge/skills/conventional-commits/SKILL.md",
+      "frontmatter": {
+        "description": "Use when writing git commit messages and structuring commits. Covers the Conventional Commits format, choosing the right type/scope, breaking-change notation, and how to split work into small, atomic, reviewable commits.",
+        "name": "conventional-commits"
+      },
+      "body_sha256": "373d829dd57928b2060aa5df8b242e6cd122a5b7f5525a0456fd8b1f0984ddd0",
+      "source_sha256": "3e87bcf6e86baf63c2d22d44e24a371503ccea8906bb1914c662afad8e49888d",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/conventional-commits/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/conventional-commits/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/conventional-commits/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "doctor",
+      "kind": "skill",
+      "source": "plugins/forge/skills/doctor/SKILL.md",
+      "frontmatter": {
+        "description": "Use before orchestration, stack delivery, or a release when the host and repository need a read-only capability and merge-readiness preflight. Run the Forge Doctor CLI, interpret pass/warn/fail/unknown evidence, and never mutate policy or install tools.",
+        "name": "doctor"
+      },
+      "body_sha256": "3ee8ad333b6b03776e5ab61e52e47170d1df80c56170aa6d03f8a7b6a0a71726",
+      "source_sha256": "15d27faf86e21428b3e096d6eae8d4362691b7e42749e609998241f5e02acfb0",
+      "resources": [
+        "scripts/forge-doctor.py"
+      ],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/doctor/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/doctor/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/doctor/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "error-handling",
+      "kind": "skill",
+      "source": "plugins/forge/skills/error-handling/SKILL.md",
+      "frontmatter": {
+        "description": "Use when designing how code handles failure \u2014 where to catch, what to propagate, fail-fast vs recover, retries and idempotency, and error types. Covers building robust failure paths without swallowing bugs or over-engineering for impossible cases.",
+        "name": "error-handling"
+      },
+      "body_sha256": "98bb37d2aec1ad3eb7d103e911efadc7085d0886a156430a910199d85f2bfc13",
+      "source_sha256": "8da3b14a619b0301d2b5b4cd3c792b5dbea196d3e0b3510eb0f0464e257d25de",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/error-handling/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/error-handling/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/error-handling/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "feature-flags",
+      "kind": "skill",
+      "source": "plugins/forge/skills/feature-flags/SKILL.md",
+      "frontmatter": {
+        "description": "Use when adding, rolling out, or cleaning up feature flags \u2014 gating a change, doing a progressive/canary release, building a kill switch, or removing a stale flag. Covers flag types, safe rollout, and the discipline that keeps flags from becoming permanent tech debt.",
+        "name": "feature-flags"
+      },
+      "body_sha256": "0265ac163d334c45e2696923af8e9ee10c00bceb5eb3c622ec44c5ae51febd0b",
+      "source_sha256": "6c27586b337af7f9d2673e891bb67518016f6bbaaf93ccbdee457a25c14c2e24",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/feature-flags/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/feature-flags/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/feature-flags/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "forge-catalog",
+      "kind": "skill",
+      "source": "plugins/forge/skills/forge-catalog/SKILL.md",
+      "frontmatter": {
+        "description": "Use when choosing which Forge agent, skill, command, bundle, or workflow should handle a request; when comparing Forge capabilities; when building a focused install surface; or when a user asks \"what should I use?\" before starting work. Routes to the smallest useful Forge capability instead of loading everything.",
+        "name": "forge-catalog"
+      },
+      "body_sha256": "977c1ab5e241d01e438b62418fccacfe944f5ae087e6398f0aeb21d5518e02ef",
+      "source_sha256": "a964d7fad8ce69bc7e47ed152308c8c39a1d8420dace287dd735bcc1bc0c6b33",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/forge-catalog/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/forge-catalog/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/forge-catalog/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "git-workflow",
+      "kind": "skill",
+      "source": "plugins/forge/skills/git-workflow/SKILL.md",
+      "frontmatter": {
+        "description": "Use when working with git beyond writing a commit message \u2014 branching, rebasing vs merging, resolving conflicts, recovering lost work, and bisecting to find a bad commit. Covers what is safe on shared branches and what is not.",
+        "name": "git-workflow"
+      },
+      "body_sha256": "0926760615b3d4d39aa60d90d8e0886a61fa88c5c24514b74e8f3d6d7c1dd0fb",
+      "source_sha256": "14971a75844cb996762e577301b7a323b5811956903ba7e974668be5048d2692",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/git-workflow/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/git-workflow/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/git-workflow/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "iterate-to-done",
+      "kind": "skill",
+      "source": "plugins/forge/skills/iterate-to-done/SKILL.md",
+      "frontmatter": {
+        "description": "Use when running a solve-loop over a task ledger \u2014 repeatedly pick the next ready task, dispatch it, verify against acceptance criteria, update the ledger, and repeat until done or blocked. Covers the loop, its stop conditions, and how to drive it recurring or in the background with the harness (/loop, the scheduler, background agents).",
+        "name": "iterate-to-done"
+      },
+      "body_sha256": "57ea502d15c0c6ec653758b354c1580fdf6335ebc1a5212e5c4cc3181747ff53",
+      "source_sha256": "5a1008b81dca6bb38d51ecb9235857b05971d5111dc94dbad4ed44347dd20d96",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/iterate-to-done/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/iterate-to-done/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/iterate-to-done/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "observability",
+      "kind": "skill",
+      "source": "plugins/forge/skills/observability/SKILL.md",
+      "frontmatter": {
+        "description": "Use when adding logging, metrics, or tracing to code, or designing how a service is monitored. Covers the three pillars, structured logging, what to measure (RED/ USE), useful alerts, and the SLO mindset \u2014 so failures are debuggable after the fact.",
+        "name": "observability"
+      },
+      "body_sha256": "25e4f8c09d7e0b59f6a86b913d9ec609e5c0bd2f4622b059aad70cc1aedd06da",
+      "source_sha256": "b76e2377e287effa4eb756547b8b25f442b85a4324e46d848ed73455dfc80d85",
+      "resources": [
+        "scripts/forge-receipts.py"
+      ],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/observability/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/observability/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/observability/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "orchestration",
+      "kind": "skill",
+      "source": "plugins/forge/skills/orchestration/SKILL.md",
+      "frontmatter": {
+        "description": "Use when driving a large, multi-part task end to end with multiple models \u2014 planning at a high tier, decomposing into a task ledger, and delegating each piece to the right specialist at the right model (plan with Opus/Fable, implement with Sonnet, mechanical work with Haiku). Covers the conductor loop and how to delegate. See MODEL-ROUTING.md for the tier policy.",
+        "name": "orchestration"
+      },
+      "body_sha256": "baee0d4daa5dbb872773d9267bc1fdf697d05f054c70f9f4b4b26e8f42af6e97",
+      "source_sha256": "7ed61f7735bdeed222ea5417d8639b07083a3549feff8f50787e3ee404bc77e1",
+      "resources": [
+        "MODEL-ROUTING.md"
+      ],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/orchestration/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/orchestration/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/orchestration/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "performance-profiling",
+      "kind": "skill",
+      "source": "plugins/forge/skills/performance-profiling/SKILL.md",
+      "frontmatter": {
+        "description": "Use when investigating a performance problem \u2014 slow endpoints, high latency, memory/CPU pressure, or N+1 queries. A measure-first method to find the real bottleneck and verify the gain, instead of guessing at optimizations.",
+        "name": "performance-profiling"
+      },
+      "body_sha256": "df90b02501d9b0172c36e3e974888624a4e1d2b1889183c866725ba54fe65b15",
+      "source_sha256": "fee0044e55dafa17c7ac727f19c1383a73b51e4c3ffafbf63632db986dd16ee6",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/performance-profiling/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/performance-profiling/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/performance-profiling/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "policy",
+      "kind": "skill",
+      "source": "plugins/forge/skills/policy/SKILL.md",
+      "frontmatter": {
+        "description": "Use when an orchestrated run may create an external effect or mutate a protected resource. Defines versioned action envelopes, declarative profiles, scoped one-use approvals, staged previews, pre-effect re-evaluation, and privacy-safe decision receipts for Forge mutation adapters.",
+        "name": "policy"
+      },
+      "body_sha256": "c333ee11dac02c05f267353f88b98d2acad83b5aa7cfa893e8c1fab65e7323ef",
+      "source_sha256": "7b0f864fe0ba88626883e5998a243b04708cf7de3f14e3f1c788362d30aa53d8",
+      "resources": [
+        "scripts/forge-policy.py"
+      ],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/policy/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/policy/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/policy/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "prompt-engineering",
+      "kind": "skill",
+      "source": "plugins/forge/skills/prompt-engineering/SKILL.md",
+      "frontmatter": {
+        "description": "Use when authoring or improving Claude Code agents, skills, slash commands, or CLAUDE.md instructions. Covers how to write a triggering description, structure a system prompt, scope tools, and apply progressive disclosure so the model actually uses what you build. See PATTERNS.md for operating-discipline techniques distilled from production agent prompts.",
+        "name": "prompt-engineering"
+      },
+      "body_sha256": "81a4ae59453a019245d6a6fbd0b1377fe47257b648c22365b3e2d4db97bb4180",
+      "source_sha256": "3357ee2652311e9bb1dce73fa5493dc17dea5d87201c8c6d5a7ac500aab3e9b5",
+      "resources": [
+        "PATTERNS.md"
+      ],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/prompt-engineering/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/prompt-engineering/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/prompt-engineering/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "pull-request-authoring",
+      "kind": "skill",
+      "source": "plugins/forge/skills/pull-request-authoring/SKILL.md",
+      "frontmatter": {
+        "description": "Use when opening a pull request \u2014 writing the description, sizing the change, and making it easy and fast to review. Covers PR structure, what reviewers need, and how to keep PRs small enough to actually get good review.",
+        "name": "pull-request-authoring"
+      },
+      "body_sha256": "c8e0a134d09f2bd9b3fdac9c9b626bfdcf2f7483138ebdc884fb934f04b35e15",
+      "source_sha256": "21621a11de65b1e8239ead3ae3d81e4eacfcfe4a46618e568a02481f16d713b8",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/pull-request-authoring/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/pull-request-authoring/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/pull-request-authoring/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "refactoring-catalog",
+      "kind": "skill",
+      "source": "plugins/forge/skills/refactoring-catalog/SKILL.md",
+      "frontmatter": {
+        "description": "Use when improving the structure of existing code without changing behavior \u2014 identifying code smells and applying the right named refactoring safely. Covers the discipline of behavior-preserving change; see CATALOG.md for the smell\u2192fix reference.",
+        "name": "refactoring-catalog"
+      },
+      "body_sha256": "78d2ea938c4954dfff01b65c995cef20d024b2b200e014fea66554aeb582f957",
+      "source_sha256": "5c1d9e1e3dd1d26cc75db7eb7ff56aee450e0bc29fd233c8525f96e64961bc24",
+      "resources": [
+        "CATALOG.md"
+      ],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/refactoring-catalog/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/refactoring-catalog/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/refactoring-catalog/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "root-cause-debugging",
+      "kind": "skill",
+      "source": "plugins/forge/skills/root-cause-debugging/SKILL.md",
+      "frontmatter": {
+        "description": "Use when diagnosing a bug, failing test, crash, or wrong output. A disciplined, hypothesis-driven method for finding the true root cause from evidence instead of guessing or masking symptoms. Use before writing any fix.",
+        "name": "root-cause-debugging"
+      },
+      "body_sha256": "3433b698727d61f30d5583efab4c5ff180c6cf50a671a7c1feb9e81a9435b7f0",
+      "source_sha256": "50455815ad17844cec9fac3ad648ac43f0ec681a36681433257671a86206c679",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/root-cause-debugging/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/root-cause-debugging/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/root-cause-debugging/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "safe-database-migrations",
+      "kind": "skill",
+      "source": "plugins/forge/skills/safe-database-migrations/SKILL.md",
+      "frontmatter": {
+        "description": "Use when writing or reviewing a database schema migration, especially on a live system. Covers the expand/contract pattern for zero-downtime changes, avoiding long locks, safe backfills, and always having a rollback path.",
+        "name": "safe-database-migrations"
+      },
+      "body_sha256": "9c63a53da8f28800516e7dd21c8fe1729bce69360ffeea12a2868a60ed24ded8",
+      "source_sha256": "8a2dac3a3067d9731b0adcdb15f6a77e9a288e269ba1c12b2bbea4d499a151ec",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/safe-database-migrations/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/safe-database-migrations/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/safe-database-migrations/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "stacked-changes",
+      "kind": "skill",
+      "source": "plugins/forge/skills/stacked-changes/SKILL.md",
+      "frontmatter": {
+        "description": "Use when a feature is too large for one reviewable pull request; when creating, restacking, reviewing, repairing, or landing dependent GitHub pull requests; or when choosing between vanilla git/gh, Graphite, and Sapling for a stacked-change workflow.",
+        "name": "stacked-changes"
+      },
+      "body_sha256": "dbb80a285c80dc20220af5cff4a28a7975ea77277b6b6e41c0c0ef442c999423",
+      "source_sha256": "d963bbab6cf3c5604a3f34a2a9e5b224971d150269b90aa8b280cef5fb2035fa",
+      "resources": [
+        "REFERENCE.md",
+        "scripts/forge-stack-merge.py",
+        "scripts/forge-stack-sync.py",
+        "scripts/forge-stack.py"
+      ],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/stacked-changes/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/stacked-changes/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/stacked-changes/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "task-ledger",
+      "kind": "skill",
+      "source": "plugins/forge/skills/task-ledger/SKILL.md",
+      "frontmatter": {
+        "description": "Use when turning a plan into trackable tasks and working them to done \u2014 a lightweight issue tracker for an orchestrated run. Covers the task format (acceptance criteria, status, dependencies, assigned agent + model) and three backends: local markdown files (default), GitHub issues via gh, or Jira/Linear via MCP. See TEMPLATE.md for the issue format.",
+        "name": "task-ledger"
+      },
+      "body_sha256": "4fbc8527ae6be77a4aa8c2abda6fa1f93d6216382e022c21dc55142c7444c89c",
+      "source_sha256": "fdc80657b2376e0af8fefc9bb1873aa2bb482969801d0e1a66bffdd2bd1eb115",
+      "resources": [
+        "TEMPLATE.md",
+        "scripts/forge-tasks.py"
+      ],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/task-ledger/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/task-ledger/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/task-ledger/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "technical-writing",
+      "kind": "skill",
+      "source": "plugins/forge/skills/technical-writing/SKILL.md",
+      "frontmatter": {
+        "description": "Use when writing developer-facing documentation \u2014 READMEs, API references, architecture docs, ADRs, runbooks, and docstrings. Covers structure by document type, writing for the reader's task, and keeping docs accurate against the code.",
+        "name": "technical-writing"
+      },
+      "body_sha256": "007a3ee913719bad92921307b96fe728d1cdda6e5054f4fd4f8d04ed745dbd51",
+      "source_sha256": "fe4d752555b495abc833f326b59092651834cc86737addeae4f727176b22bc7a",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/technical-writing/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/technical-writing/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/technical-writing/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "test-driven-development",
+      "kind": "skill",
+      "source": "plugins/forge/skills/test-driven-development/SKILL.md",
+      "frontmatter": {
+        "description": "Use when implementing a feature or fixing a bug test-first: write a failing test, make it pass with the minimum code, then refactor. Covers the red-green-refactor loop, what is worth testing, and the common pitfalls that make TDD backfire.",
+        "name": "test-driven-development"
+      },
+      "body_sha256": "df358a49dc7d3ffa1bb45ee7c96ce9db71b24888c7f6793c9717648d11167edd",
+      "source_sha256": "2a2f9f206308a864f4ef673242096774f89a77379e1e04274379a6dd7f34b3b4",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/test-driven-development/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/test-driven-development/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/test-driven-development/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "threat-modeling",
+      "kind": "skill",
+      "source": "plugins/forge/skills/threat-modeling/SKILL.md",
+      "frontmatter": {
+        "description": "Use when designing or reviewing a feature for security before it ships \u2014 to systematically identify what can go wrong and where the defenses must be. Covers the STRIDE method, trust boundaries, and turning threats into concrete controls. Defensive use only.",
+        "name": "threat-modeling"
+      },
+      "body_sha256": "19d97f16861a52374970b9481a0f676f4492ae43dc5972c5120a6bf79987d12d",
+      "source_sha256": "af5c0486594f2638f3334e1df5f729469728db98af6182a40ae9b12faa22e7ca",
+      "resources": [],
+      "risk": "security-sensitive",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/threat-modeling/SKILL.md"
+        },
+        "codex": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/threat-modeling/SKILL.md"
+        },
+        "agentskills": {
+          "mode": "native",
+          "kind": "skill",
+          "path": "plugins/forge/skills/threat-modeling/SKILL.md"
+        }
+      }
+    },
+    {
+      "id": "changelog",
+      "kind": "command",
+      "source": "plugins/forge/commands/changelog.md",
+      "frontmatter": {
+        "allowed-tools": "Read, Bash(git log:*), Bash(git tag:*), Bash(git describe:*)",
+        "argument-hint": "[optional: a version tag/range, defaults to since the last tag]",
+        "description": "Draft a changelog entry from the commits since the last release",
+        "model": "sonnet"
+      },
+      "body_sha256": "b1d052fab15d8c96c313c9364a878ff19aa0a9101a45fdebf53b977b97a0e186",
+      "source_sha256": "3e86a0887a6226edf3e8a81afdf08c059cb1013d32b90fc50217c61d07712050",
+      "resources": [],
+      "risk": "critical",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/changelog.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-changelog.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "commit",
+      "kind": "command",
+      "source": "plugins/forge/commands/commit.md",
+      "frontmatter": {
+        "allowed-tools": "Read, Bash(git diff:*), Bash(git status:*), Bash(git log:*), Bash(git add:*), Bash(git commit:*)",
+        "argument-hint": "[optional: a hint about intent or scope]",
+        "description": "Create a well-formed Conventional Commit for the staged changes",
+        "disable-model-invocation": "true",
+        "model": "sonnet"
+      },
+      "body_sha256": "84ab7e518512cbd60fa91a514f940f673bddd9a3e9b7ce978b5c41d5fa80a9b6",
+      "source_sha256": "7a97e9780f0bc2806a847c7614b6131d3bc4f7994235c9811a0cbb0a60e2b01d",
+      "resources": [],
+      "risk": "critical",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/commit.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-commit.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "debug",
+      "kind": "command",
+      "source": "plugins/forge/commands/debug.md",
+      "frontmatter": {
+        "allowed-tools": "Read, Grep, Glob, Bash",
+        "argument-hint": "<the error, failing test, or wrong behavior>",
+        "description": "Diagnose a bug or failing test and find the root cause before fixing",
+        "model": "sonnet"
+      },
+      "body_sha256": "945d33b5fa4175d7d63305488fc85015b5be7d4e3e499b14f7afc9dd22e2c11f",
+      "source_sha256": "9dab85f1421cd8218c3f87f65f8a6656b92a743cddbc14358a7635ba623f65c5",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/debug.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-debug.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "docs",
+      "kind": "command",
+      "source": "plugins/forge/commands/docs.md",
+      "frontmatter": {
+        "allowed-tools": "Read, Grep, Glob, Bash",
+        "argument-hint": "<what to document: file, module, API, or 'README'>",
+        "description": "Write or update documentation grounded in the actual code",
+        "model": "sonnet"
+      },
+      "body_sha256": "b62e5d49519bd4b7b40f220b47779f63291b3ba662ada0d25b633ac98804ac09",
+      "source_sha256": "7a0b0d8b189caad8d9176a3299b103c0a3a126be1cf7b874103122357c42f23d",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/docs.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-docs.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "doctor",
+      "kind": "command",
+      "source": "plugins/forge/commands/doctor.md",
+      "frontmatter": {
+        "argument-hint": "[--json|--offline|--strict]",
+        "description": "Run the read-only Forge capability and merge-readiness preflight"
+      },
+      "body_sha256": "5c1ef9de47279a6c9b5ce5d89f7de268f1b93573f414d6d77f623b5b9960ee54",
+      "source_sha256": "cc95c8e1fd2358c41fe8140248298564c57686b4d41699715c914fae80be1fc4",
+      "resources": [],
+      "risk": "none",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/doctor.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-doctor.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "explain",
+      "kind": "command",
+      "source": "plugins/forge/commands/explain.md",
+      "frontmatter": {
+        "allowed-tools": "Read, Grep, Glob, Bash",
+        "argument-hint": "<file path, symbol, or concept>",
+        "description": "Explain how a file, function, or system works \u2014 clearly and accurately",
+        "model": "sonnet"
+      },
+      "body_sha256": "581518fd1b16b7f90869531609b0f55121a9b94f77c15c4fd5ff6bf6b841bb82",
+      "source_sha256": "f1c3924357a240e3a2c6a6bf00e3602dea409b0fa0547a14c99c07185b0fde00",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/explain.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-explain.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "forge",
+      "kind": "command",
+      "source": "plugins/forge/commands/forge.md",
+      "frontmatter": {
+        "allowed-tools": "Read, Grep, Glob, Bash",
+        "argument-hint": "<goal, workflow, bundle, or capability question>",
+        "description": "Choose the right Forge agent, skill, command, bundle, or workflow for a goal",
+        "model": "sonnet"
+      },
+      "body_sha256": "025ccfe43c1283318a370493f4650e2270b6f0e31e277ec13a426f47718c8092",
+      "source_sha256": "0c8883f56b1f4b8bffd79bfdf816b79f093e4432cfae146fcb145521c8237128",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/forge.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-forge.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "optimize",
+      "kind": "command",
+      "source": "plugins/forge/commands/optimize.md",
+      "frontmatter": {
+        "allowed-tools": "Read, Grep, Glob, Bash",
+        "argument-hint": "<the slow path, endpoint, or symptom>",
+        "description": "Diagnose and fix a performance problem, measuring before and after",
+        "model": "sonnet"
+      },
+      "body_sha256": "b438dc5123db9c38752102d5d2e5d5484c213dcd5034844dc1a46719a7f702ee",
+      "source_sha256": "85316174622c05a159e0bd885c94da067ab044df21488baf314ebe28b0d20fc8",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/optimize.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-optimize.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "orchestrate",
+      "kind": "command",
+      "source": "plugins/forge/commands/orchestrate.md",
+      "frontmatter": {
+        "allowed-tools": "Read, Grep, Glob, Bash, Edit, Write",
+        "argument-hint": "<the goal to drive end to end>",
+        "description": "Plan a big goal at a high tier, decompose into a task ledger, and solve it by delegating each task to the right specialist and model",
+        "model": "opus"
+      },
+      "body_sha256": "5381dfc861c2abd2f015b65b64fac658a76a1b417e6e9bdcfbe1bb60094e8b1d",
+      "source_sha256": "f3bf77ca7f6ceb9099bbea60f96471cd608d90dd3c2792e82c6409b29be58a16",
+      "resources": [],
+      "risk": "critical",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/orchestrate.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-orchestrate.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "plan",
+      "kind": "command",
+      "source": "plugins/forge/commands/plan.md",
+      "frontmatter": {
+        "allowed-tools": "Read, Grep, Glob, Bash",
+        "argument-hint": "<the feature, refactor, or task to plan>",
+        "description": "Produce a step-by-step implementation plan before writing code",
+        "model": "opus"
+      },
+      "body_sha256": "d70035b715a316f0bb89cf03adbf8f2fefe67198374ddae55f5e9259b892d81f",
+      "source_sha256": "7746b4b8ee5aaaef7326dd77488d36f357ab4009b16914f2e0a348eedb20d8a5",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/plan.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-plan.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "policy",
+      "kind": "command",
+      "source": "plugins/forge/commands/policy.md",
+      "frontmatter": {
+        "allowed-tools": "Read, Grep, Glob, Bash(python3:*), Edit, Write",
+        "argument-hint": "[profiles | evaluate | stage | approve | authorize | commit]",
+        "description": "Evaluate Forge policy, stage an effect, issue a scoped approval, or record a committed outcome",
+        "model": "opus"
+      },
+      "body_sha256": "f3417954fc6ecbcd93c3f67de25849565f1cdbbfc4d905d783f9941435afbc35",
+      "source_sha256": "0b1b05550c40923500a5de1931e376ee63d980848262c15b442f8eb643fa4eee",
+      "resources": [],
+      "risk": "critical",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/policy.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-policy.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "pr",
+      "kind": "command",
+      "source": "plugins/forge/commands/pr.md",
+      "frontmatter": {
+        "allowed-tools": "Read, Bash(git diff:*), Bash(git log:*), Bash(git status:*), Bash(git branch:*), Bash(git config:*), Bash(git remote:*)",
+        "argument-hint": "[optional: base branch, defaults to stack parent or default branch]",
+        "description": "Draft a pull request description from the branch's commits and incremental diff",
+        "model": "sonnet"
+      },
+      "body_sha256": "4e54263edc5ceb53c21dcaabedde643c93314f60711132f617969963d1532119",
+      "source_sha256": "f89df42b3bd2f99acf94deac7f2f9904d0e0e08797edcea8bddf43d70bb22636",
+      "resources": [],
+      "risk": "critical",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/pr.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-pr.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "refactor",
+      "kind": "command",
+      "source": "plugins/forge/commands/refactor.md",
+      "frontmatter": {
+        "allowed-tools": "Read, Grep, Glob, Bash, Edit",
+        "argument-hint": "<file, function, or smell to address>",
+        "description": "Refactor code to improve structure while preserving behavior exactly",
+        "model": "sonnet"
+      },
+      "body_sha256": "699650f6d97dbf7457591686c0718f714ee27a16dd192baba6de2fa9058bd3ca",
+      "source_sha256": "c347911bcb5b9cd0829951fc3f952213f2a170c5d71840dd12b567247b493dac",
+      "resources": [],
+      "risk": "critical",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/refactor.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-refactor.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "review",
+      "kind": "command",
+      "source": "plugins/forge/commands/review.md",
+      "frontmatter": {
+        "allowed-tools": "Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git status:*)",
+        "argument-hint": "[optional: base branch or path, defaults to staged/working changes]",
+        "description": "Review the current diff for correctness, security, and maintainability",
+        "model": "sonnet"
+      },
+      "body_sha256": "b569a0b615009b217e7cf6f81eb994bbfd057bab9a2a43a813ee1ccb202ae4f3",
+      "source_sha256": "65763fdd8b0b8158b0d97f66b14631b7751f1afe21d2385e8f5058f6d69a89ee",
+      "resources": [],
+      "risk": "security-sensitive",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/review.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-review.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "scaffold",
+      "kind": "command",
+      "source": "plugins/forge/commands/scaffold.md",
+      "frontmatter": {
+        "allowed-tools": "Read, Grep, Glob, Bash, Edit, Write",
+        "argument-hint": "<what to scaffold, e.g. 'a new API endpoint for orders' or 'a React Button component'>",
+        "description": "Scaffold a new module/component matching the repo's existing conventions",
+        "model": "sonnet"
+      },
+      "body_sha256": "553961a24ee6e7480d961935631aafea6cf8fc4eb8ae603f2191cb9bbbc4adb2",
+      "source_sha256": "bfa9e666b082f7c51446a0862e30d99785714e9f44c0a5eb72cc976e7416ba7f",
+      "resources": [],
+      "risk": "critical",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/scaffold.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-scaffold.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "security-scan",
+      "kind": "command",
+      "source": "plugins/forge/commands/security-scan.md",
+      "frontmatter": {
+        "allowed-tools": "Read, Grep, Glob, Bash(git diff:*), Bash(git status:*)",
+        "argument-hint": "[optional: path; defaults to current changes]",
+        "description": "Defensive security review of the current diff or a target path",
+        "model": "sonnet"
+      },
+      "body_sha256": "73972b264bd080f2c81f528428b5361a7a0eb129d1496a2f3b1c1d37904abe86",
+      "source_sha256": "d670d67104cab045d3449dda9520dc48fb3db20ed322604f23d109cce92b3b63",
+      "resources": [],
+      "risk": "security-sensitive",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/security-scan.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-security-scan.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "solve-loop",
+      "kind": "command",
+      "source": "plugins/forge/commands/solve-loop.md",
+      "frontmatter": {
+        "allowed-tools": "Read, Grep, Glob, Bash, Edit, Write",
+        "argument-hint": "[optional focus, task id, or stop condition]",
+        "description": "Drain the current task ledger by repeatedly dispatching ready tasks, verifying results, and updating task status",
+        "model": "opus"
+      },
+      "body_sha256": "974ad9fb4cbc8d253e1afdc570c1b9832675252fe0202930f32360d0fb1efe4a",
+      "source_sha256": "973e9b276be7fde413e1ad6567973106b65028858f1e60b0dfc66743aa5c9dd8",
+      "resources": [],
+      "risk": "critical",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/solve-loop.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-solve-loop.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "stack",
+      "kind": "command",
+      "source": "plugins/forge/commands/stack.md",
+      "frontmatter": {
+        "allowed-tools": "Read, Grep, Glob, Bash(git:*), Bash(gh pr:*), Bash(gh stack:*), Bash(gt:*), Bash(av:*), Bash(sl:*), Bash(ghstack:*), Bash(python3:*), Edit, Write",
+        "argument-hint": "[status | init | add | check | submit | restack | review | land | repair]",
+        "description": "Plan, inspect, submit, restack, repair, or land a stack of dependent pull requests",
+        "model": "opus"
+      },
+      "body_sha256": "ea4e400b2ed02244985b4df1344f8fb65ba19b98bdf2b8c0366a5ab74acf9d99",
+      "source_sha256": "53fc3faaa59ff0649b4553d4a298b7dd008162a9fc784e3d619abda1f4f0dc8e",
+      "resources": [],
+      "risk": "critical",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/stack.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-stack.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "stack-review",
+      "kind": "command",
+      "source": "plugins/forge/commands/stack-review.md",
+      "frontmatter": {
+        "allowed-tools": "Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*), Bash(gh pr view:*), Bash(gh stack view:*), Bash(python3:*)",
+        "argument-hint": "[optional: path to .forge/stack.json or PR/branch]",
+        "description": "Review a stacked pull request series bottom-up against each immediate parent",
+        "model": "opus"
+      },
+      "body_sha256": "92157e18f49e800e180fdab1aedf15552b55ab13f751e5d330e8fc6efe5feff2",
+      "source_sha256": "edce9690aacfac9097f70bd83559708f5602da15d89bc80c249790636b533f91",
+      "resources": [],
+      "risk": "critical",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/stack-review.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-stack-review.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "tasks",
+      "kind": "command",
+      "source": "plugins/forge/commands/tasks.md",
+      "frontmatter": {
+        "allowed-tools": "Read, Grep, Glob, Bash(ls:*), Bash(gh issue:*), Edit, Write",
+        "argument-hint": "[list | add <title> | done <id> | block <id> <reason> | sync-gh]",
+        "description": "Create, list, or update the task ledger (local files, or GitHub issues via gh)",
+        "model": "sonnet"
+      },
+      "body_sha256": "fdd51ae05098dd4beb5b542224ac3cf14da8e3ecb600a2d3369ecc7421070499",
+      "source_sha256": "9cfa59cc2522a2320e9892dcd058d796dfe9107ca9a71fc55b61e6f26c7d6c4b",
+      "resources": [],
+      "risk": "critical",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/tasks.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-tasks.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "test",
+      "kind": "command",
+      "source": "plugins/forge/commands/test.md",
+      "frontmatter": {
+        "allowed-tools": "Read, Grep, Glob, Bash",
+        "argument-hint": "<file, function, or feature to test>",
+        "description": "Write or extend tests for the given code, matching the repo's harness",
+        "model": "sonnet"
+      },
+      "body_sha256": "eed9d0fa4386d68dea71ac1cefaff77bd583bae5871926df9b037b9661b6f94a",
+      "source_sha256": "17389d4ccabb450fb41dacfef4945be14580b3983f40584f857875ef2ce13d23",
+      "resources": [],
+      "risk": "safe",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/test.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-test.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    },
+    {
+      "id": "tidy",
+      "kind": "command",
+      "source": "plugins/forge/commands/tidy.md",
+      "frontmatter": {
+        "allowed-tools": "Read, Grep, Glob, Bash(git diff:*), Bash(git status:*), Edit",
+        "argument-hint": "[optional: path; defaults to current changes]",
+        "description": "Clean up the current diff \u2014 remove cruft and simplify, without changing behavior",
+        "model": "sonnet"
+      },
+      "body_sha256": "a2e330a7ae1f05332ee892bc6bc1d4b1d66bc938e282e5e4447310015a9290cf",
+      "source_sha256": "8b6ddadbe77b74c3cc4b0fb13979685e99d5ad5e6e320db01795b5f606a42f73",
+      "resources": [],
+      "risk": "critical",
+      "host_projections": {
+        "claude": {
+          "mode": "native",
+          "kind": "command",
+          "path": "plugins/forge/commands/tidy.md"
+        },
+        "agentskills": {
+          "mode": "shim",
+          "kind": "skill",
+          "path": "zed/skills/commands/forge-cmd-tidy.md"
+        },
+        "codex": {
+          "mode": "omitted",
+          "kind": "command",
+          "path": ""
+        }
+      }
+    }
+  ],
+  "generated_projections": [
+    "CATALOG.md",
+    "data/catalog.json"
+  ]
+}
