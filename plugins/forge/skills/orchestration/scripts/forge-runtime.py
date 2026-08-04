@@ -17,6 +17,10 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
+try:
+    from typing import Self
+except ImportError:  # pragma: no cover - Python 3.10 and earlier
+    Self = Any
 
 SCHEMA_VERSION = 1
 GENESIS_HASH = "0" * 64
@@ -393,10 +397,10 @@ class RuntimeStore:
     def close(self) -> None:
         self.connection.close()
 
-    def __enter__(self) -> "RuntimeStore":
+    def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *_args: Any) -> None:
+    def __exit__(self, *_args: object) -> None:
         self.close()
 
     @contextlib.contextmanager

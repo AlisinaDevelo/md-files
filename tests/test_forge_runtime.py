@@ -10,7 +10,6 @@ from pathlib import Path
 
 import pytest
 
-
 REPO = Path(__file__).resolve().parents[1]
 SCRIPT = REPO / "plugins/forge/skills/orchestration/scripts/forge-runtime.py"
 
@@ -118,9 +117,10 @@ def test_tampering_breaks_replay(tmp_path):
     connection.execute("UPDATE runtime_events SET payload_json = ? WHERE sequence = 1", ("{}",))
     connection.commit()
     connection.close()
-    with module.RuntimeStore(database) as reopened:
-        with pytest.raises(module.RuntimeStoreError, match="event hash mismatch"):
-            reopened.state("run-1")
+    with module.RuntimeStore(database) as reopened, pytest.raises(
+        module.RuntimeStoreError, match="event hash mismatch"
+    ):
+        reopened.state("run-1")
 
 
 def test_tampered_run_metadata_breaks_replay(tmp_path):
@@ -132,9 +132,10 @@ def test_tampered_run_metadata_breaks_replay(tmp_path):
     connection.execute("UPDATE runtime_runs SET workflow_id = ? WHERE run_id = ?", ("tampered", "run-1"))
     connection.commit()
     connection.close()
-    with module.RuntimeStore(database) as reopened:
-        with pytest.raises(module.RuntimeStoreError, match="run.started payload does not match workflow_id"):
-            reopened.state("run-1")
+    with module.RuntimeStore(database) as reopened, pytest.raises(
+        module.RuntimeStoreError, match="run.started payload does not match workflow_id"
+    ):
+        reopened.state("run-1")
 
 
 def test_concurrent_task_writers_get_unique_sequences(tmp_path):
