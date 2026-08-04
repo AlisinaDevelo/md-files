@@ -4,6 +4,10 @@ Forge receipts are the evidence contract for orchestration. They are append-only
 events that let a later task sync, policy engine, router, or runtime reconstruct what
 happened without treating telemetry as conversation memory.
 
+Receipts are observability, not canonical execution state. Long-running runs use the
+local durable runtime contract in [`docs/runtime.md`](runtime.md); keep prompts, raw tool
+arguments/results, and credentials out of both stores.
+
 ## Local storage
 
 The bundled standard-library CLI writes to `.forge/receipts.jsonl` by default:

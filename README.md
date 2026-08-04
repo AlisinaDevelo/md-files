@@ -12,7 +12,7 @@ maximize the efficacy of LLMs in software engineering.**
 [![Agents](https://img.shields.io/badge/agents-20-8b5cf6.svg)](plugins/forge/agents/)
 [![Skills](https://img.shields.io/badge/skills-25-06b6d4.svg)](plugins/forge/skills/)
 [![Commands](https://img.shields.io/badge/commands-22-22c55e.svg)](plugins/forge/commands/)
-[![Tests](https://img.shields.io/badge/tests-170%20passing-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-187%20passing-success.svg)](tests/)
 [![Prompt evals](https://img.shields.io/badge/prompt%20evals-312%20checks-success.svg)](evals/)
 
 </div>
@@ -56,6 +56,9 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   reviewer, a debugger that finds root causes, an auditor that traces taint to sinks.
 - **Orchestration for big work.** Plan at Opus/Fable, decompose into a task ledger, route
   implementation to Sonnet, fan out mechanical work to Haiku, and iterate to verified done.
+- **Durable local execution.** SQLite/WAL run history, idempotent lifecycle events,
+  tamper-evident replay, and a strict separation between execution state, task planning,
+  and privacy-safe receipts give long-running orchestration a recoverable foundation.
 - **Stacked delivery, now native.** Design and verify dependent PRs with a portable stack
   manifest, default to GitHub's first-party `gh stack`, or adapt the same safety protocol
   to vanilla GitHub, Graphite, Aviator, Sapling, and classic ghstack.
@@ -80,7 +83,8 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   deterministically, without relying on the model to remember.
 - **Proven, not asserted.** A real eval harness scores prompts and high-risk behavior
   contracts (312 deterministic checks plus cross-host scenarios and an opt-in LLM judge);
-  182 tests cover safety hooks, task sync, receipts, doctor, policy, stacks, marketplace readiness, capability graph, rendering, semantic evidence, and conformance. Run
+  187 tests cover safety hooks, task sync, receipts, durable runtime replay, doctor, policy,
+  stacks, marketplace readiness, capability graph, rendering, semantic evidence, and conformance. Run
   them yourself — `just check`.
 - **Auditable & self-validating.** Read every prompt and script. CI validates structure,
   runs the tests, and scores the evals on every push. GitHub-backed task ledgers add stable
@@ -249,8 +253,8 @@ Deterministic guardrails the harness runs on lifecycle events — no model memor
 
 - [`evals/`](evals/) — deterministic prompt-quality and behavior-contract checks, shared
   cross-host scenarios, and an opt-in LLM-judge eval that scores agents against real tasks.
-- [`tests/`](tests/) — pytest cases covering safety hooks, task sync, receipts, doctor,
-  stacks, and conformance. `just check` runs it all.
+- [`tests/`](tests/) — pytest cases covering safety hooks, task sync, receipts, durable
+  runtime replay, doctor, stacks, and conformance. `just check` runs it all.
 
 ## Release provenance
 
@@ -336,6 +340,8 @@ scripts/               validation, installation, release, and marketplace checks
   publisher surfaces, asset policy, and submission smoke-test matrix
 - [Capability IR](docs/capability-ir.md) — body-aware graph, deterministic host renderer,
   adapter contract, migration workflow, and current compiler boundary
+- [Durable runtime](docs/runtime.md) — local SQLite/WAL history, deterministic replay,
+  idempotency, hash-chain verification, and runtime boundaries
 - [Architecture](docs/architecture.md) — how the repo is organized and why
 - [Design rationale](docs/design-rationale.md) — the decisions and trade-offs behind Forge
 - [CI & headless usage](docs/ci-and-headless.md) — run Forge in pipelines and automated review

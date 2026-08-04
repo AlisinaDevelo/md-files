@@ -52,6 +52,15 @@ intermediate representation. The renderer generates component files, manifests, 
 skill resources, explicit shims, resolved catalogs, bundles, workflows, and release
 install inputs. Release packaging consumes that generated surface before archiving it.
 
+## Durable runtime boundary
+
+The local runtime foundation lives beside the methodology rather than inside a provider
+session. `scripts/forge-runtime.py` stores version-pinned run metadata and an append-only
+SQLite/WAL event stream; a pure reducer reconstructs execution state and verifies a
+per-run hash chain. Receipts remain privacy-safe evidence, task ledgers remain planning
+state, and provider sessions/MCP Tasks remain optional adapters. External writes will cross
+an explicit policy-approved outbox/inbox boundary in a later runtime slice.
+
 ## The four component types
 
 | Type | Lives in | Loaded | Decides to act on… |

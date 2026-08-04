@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/events/v1",
+  "title": "Forge Runtime Event",
+  "description": "Versioned, hash-chained local execution-history event.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "event_type",
+    "run_id",
+    "sequence",
+    "occurred_at",
+    "idempotency_key",
+    "payload",
+    "previous_hash",
+    "event_hash"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "event_id": {"type": "string", "minLength": 1},
+    "event_type": {
+      "enum": [
+        "run.started",
+        "run.paused",
+        "run.resumed",
+        "run.cancel_requested",
+        "run.cancelled",
+        "run.completed",
+        "run.failed",
+        "task.scheduled",
+        "task.started",
+        "task.completed",
+        "task.failed",
+        "task.cancelled"
+      ]
+    },
+    "run_id": {"type": "string", "minLength": 1},
+    "sequence": {"type": "integer", "minimum": 1},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "idempotency_key": {"type": "string", "minLength": 1},
+    "payload": {"type": "object"},
+    "previous_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "event_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

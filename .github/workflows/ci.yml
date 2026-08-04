@@ -92,7 +92,7 @@ jobs:
       - name: Lint with ruff
         uses: astral-sh/ruff-action@146cd51f235777a9bc491eead18e0d5a4b05406a # v3
         with:
-          args: check plugins/forge/hooks/scripts plugins/forge/skills/policy/scripts plugins/forge/skills/stacked-changes/scripts plugins/forge/skills/doctor/scripts plugins/forge/skills/observability/scripts plugins/forge/skills/task-ledger/scripts scripts/build_release.py scripts/compile_capabilities.py scripts/render_capabilities.py scripts/diff_capabilities.py scripts/migrate_capabilities.py scripts/validate_codex_plugin.py scripts/verify_release.py scripts/generate_catalog.py scripts/forge-doctor.py scripts/forge-policy.py scripts/forge-receipts.py scripts/forge-tasks.py scripts/forge-stack-sync.py evals tests
+          args: check plugins/forge/hooks/scripts plugins/forge/skills/policy/scripts plugins/forge/skills/stacked-changes/scripts plugins/forge/skills/doctor/scripts plugins/forge/skills/observability/scripts plugins/forge/skills/task-ledger/scripts plugins/forge/skills/orchestration/scripts scripts/build_release.py scripts/compile_capabilities.py scripts/render_capabilities.py scripts/diff_capabilities.py scripts/migrate_capabilities.py scripts/validate_codex_plugin.py scripts/verify_release.py scripts/generate_catalog.py scripts/forge-doctor.py scripts/forge-policy.py scripts/forge-receipts.py scripts/forge-runtime.py scripts/forge-tasks.py scripts/forge-stack-sync.py evals tests
 
   release-package:
     name: Reproducible release package
