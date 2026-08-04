@@ -10,6 +10,9 @@ All notable changes to this project are documented here. The format is based on
 
 ### Added
 
+- **Local durable runtime foundation** - added a SQLite/WAL event store with deterministic
+  replay, idempotency, hash-chain verification, bounded run/task lifecycle events, and a
+  privacy-preserving payload boundary.
 - **Body-aware capability compiler** - upgraded the canonical graph to v2 with embedded
   instructions, semantic permissions, eval links, and deterministic Claude, Codex, Agent
   Skills, and third-party adapter projections.

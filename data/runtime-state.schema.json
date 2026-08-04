@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/state/v1",
+  "title": "Forge Runtime State",
+  "description": "Deterministic state projection reconstructed from Forge runtime events.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "workflow_id",
+    "definition_version",
+    "policy_revision",
+    "status",
+    "sequence",
+    "tasks"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "workflow_id": {"type": "string", "minLength": 1},
+    "definition_version": {"type": "string", "minLength": 1},
+    "policy_revision": {"type": "string", "minLength": 1},
+    "status": {"enum": ["created", "running", "paused", "cancelling", "cancelled", "completed", "failed"]},
+    "sequence": {"type": "integer", "minimum": 0},
+    "started_at": {"type": "string", "format": "date-time"},
+    "error_ref": {"type": "string", "minLength": 1},
+    "tasks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status", "attempt", "depends_on"],
+        "properties": {
+          "status": {"enum": ["scheduled", "started", "completed", "failed", "cancelled"]},
+          "attempt": {"type": "integer", "minimum": 0},
+          "depends_on": {"type": "array", "items": {"type": "string"}},
+          "title": {"type": "string"},
+          "retryable": {"type": "boolean"},
+          "output_ref": {"type": "string", "minLength": 1},
+          "error_ref": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

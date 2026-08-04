@@ -49,6 +49,20 @@ it to Opus or Fable for hard planning), then delegate outward.
    ledger is empty or genuinely blocked. See the `iterate-to-done` skill for the loop and
    stop conditions.
 
+## Durable execution history
+
+When an orchestration run must survive a process boundary, use the local runtime store at
+`scripts/forge-runtime.py`. Start with a pinned workflow definition and policy revision,
+append lifecycle events with idempotency keys, and query state by replaying the verified
+event history. The store is SQLite/WAL and local-first; its hash chain detects tampering and
+its reducer rejects impossible transitions.
+
+Keep the boundaries distinct: `scripts/forge-receipts.py` is privacy-safe observability,
+`.forge/tasks/` is planning state, and the runtime database is execution state. Do not put
+prompts, raw tool arguments/results, credentials, or tokens in runtime payloads; persist
+references and digests instead. External effects still require a policy-approved outbox or
+inbox adapter, so durable history does not claim exactly-once provider execution.
+
 ## How to delegate well (this makes or breaks it)
 
 When you spawn a specialist subagent, set two things deliberately:

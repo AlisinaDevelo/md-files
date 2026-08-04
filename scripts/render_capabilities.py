@@ -274,6 +274,8 @@ def render_release_surface(repo: Path, graph: dict[str, Any], output: Path) -> d
     metadata_sources = (
         "data/capabilities.schema.json",
         "data/host-adapter.schema.json",
+        "data/runtime-events.schema.json",
+        "data/runtime-state.schema.json",
     )
     common_manifest = {
         "schema_version": 1,

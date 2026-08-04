@@ -14,3 +14,4 @@
 | 0010 | Add semantic capability diff evidence | done | test-engineer | sonnet | 0006 |
 | 0011 | Add fail-closed v1-to-v2 migration | done | migration-specialist | sonnet | 0006 |
 | 0012 | Derive release surfaces from the capability graph | done | devops-engineer | sonnet | 0007, 0008, 0010, 0011 |
+| 0013 | Add local runtime event store and deterministic replay | done | architect | opus | - |

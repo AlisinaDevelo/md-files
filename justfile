@@ -28,7 +28,7 @@ lint-sh:
 
 # Lint python hook scripts (requires ruff)
 lint-py:
-    ruff check plugins/forge/hooks/scripts plugins/forge/skills/*/scripts scripts/compile_capabilities.py scripts/render_capabilities.py scripts/diff_capabilities.py scripts/migrate_capabilities.py scripts/generate_catalog.py tests evals
+    ruff check plugins/forge/hooks/scripts plugins/forge/skills/*/scripts scripts/compile_capabilities.py scripts/render_capabilities.py scripts/diff_capabilities.py scripts/migrate_capabilities.py scripts/generate_catalog.py scripts/forge-runtime.py tests evals
 
 # Compare two capability graph revisions without exposing instruction bodies
 diff-capabilities before after:
