@@ -16,3 +16,4 @@
 | 0012 | Derive release surfaces from the capability graph | done | devops-engineer | sonnet | 0007, 0008, 0010, 0011 |
 | 0013 | Add local runtime event store and deterministic replay | done | architect | opus | - |
 | 0014 | Add transactional runtime outbox and inbox effects | done | concurrency-engineer | sonnet | 0013 |
+| 0015 | Research and refresh the durable runtime roadmap | done | architect | opus | 0014 |
