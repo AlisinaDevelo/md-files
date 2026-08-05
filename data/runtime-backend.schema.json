@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/backend/v1",
+  "title": "Forge Runtime Backend Descriptor",
+  "description": "Capability-negotiated guarantees exposed by a Forge runtime backend.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract_revision",
+    "backend_id",
+    "implementation",
+    "consistency_level",
+    "capabilities",
+    "limits",
+    "degraded_mode",
+    "event_identity",
+    "remote_evidence",
+    "provider_execution",
+    "evidence_schema_version"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "contract_revision": {"type": "string", "minLength": 1},
+    "backend_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"},
+    "implementation": {"type": "string", "minLength": 1},
+    "consistency_level": {"enum": ["single_process", "strict_serializable"]},
+    "capabilities": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "append_ordering",
+          "atomic_event_effect",
+          "backup_restore",
+          "checkpoint_recovery",
+          "compare_and_swap",
+          "durable_storage",
+          "durable_timers",
+          "fenced_leases",
+          "history_verification",
+          "inbox_dedupe",
+          "migration",
+          "offline_lineage",
+          "privacy_boundary"
+        ]
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_wait_ttl_seconds", "max_signals_per_run", "max_effects_per_append"],
+      "properties": {
+        "max_wait_ttl_seconds": {"type": "integer", "minimum": 1},
+        "max_signals_per_run": {"type": "integer", "minimum": 1},
+        "max_effects_per_append": {"type": "integer", "minimum": 1}
+      }
+    },
+    "degraded_mode": {"enum": ["reject", "explicit"]},
+    "event_identity": {"const": "forge-canonical"},
+    "remote_evidence": {"const": "reference-only"},
+    "provider_execution": {"const": "at-least-once-idempotent"},
+    "evidence_schema_version": {"const": 1}
+  }
+}

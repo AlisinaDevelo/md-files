@@ -58,6 +58,11 @@ python3 scripts/forge-mcp-tasks.py --db .forge/runtime.sqlite3 get \
 python3 scripts/forge-lineage.py export \
   --db .forge/runtime.sqlite3 --output .forge/lineage.json
 python3 scripts/forge-lineage.py verify --manifest .forge/lineage.json
+
+python3 scripts/forge-backends.py describe --backend sqlite
+python3 scripts/forge-backends.py negotiate --backend memory \
+  --requirements-json '{"capabilities":["fenced_leases"],"consistency_level":"strict_serializable"}'
+python3 scripts/forge-backends.py conformance --backend all
 ```
 
 The database schemas are versioned in [`data/runtime-events.schema.json`](../data/runtime-events.schema.json),
@@ -68,7 +73,10 @@ The database schemas are versioned in [`data/runtime-events.schema.json`](../dat
 [`data/runtime-checkpoints.schema.json`](../data/runtime-checkpoints.schema.json),
 [`data/runtime-restore.schema.json`](../data/runtime-restore.schema.json), and
 [`data/runtime-migrations.schema.json`](../data/runtime-migrations.schema.json), and
-[`data/runtime-waits.schema.json`](../data/runtime-waits.schema.json). A store
+[`data/runtime-waits.schema.json`](../data/runtime-waits.schema.json),
+[`data/runtime-backend.schema.json`](../data/runtime-backend.schema.json), and
+[`data/runtime-backend-evidence.schema.json`](../data/runtime-backend-evidence.schema.json), and
+[`data/runtime-conformance.schema.json`](../data/runtime-conformance.schema.json). A store
 uses only the reviewed migration registry for an older database and refuses an unknown
 schema version rather than guessing at a transformation.
 
@@ -165,9 +173,13 @@ and provider request IDs. Prompts, raw content, tool arguments/results, credenti
 and provider response bodies are rejected at the persistence boundary. The effect hash also
 makes direct outbox tampering detectable before inspection or delivery.
 
-Adaptive routing and distributed backends remain follow-up work under
-[#22](https://github.com/AlisinaDevelo/md-files/issues/22) and
-[#58](https://github.com/AlisinaDevelo/md-files/issues/58).
+Adaptive routing remains follow-up work under
+[#22](https://github.com/AlisinaDevelo/md-files/issues/22); remote distributed adapters remain
+the next stage beyond [#58](https://github.com/AlisinaDevelo/md-files/issues/58). The first portable backend
+contract is executable: `forge-backends.py` negotiates capabilities and consistency,
+keeps Forge history canonical, normalizes remote metadata through a reference-only evidence
+envelope, and runs the same deterministic fixture matrix against the SQLite/WAL reference and
+a fault-injected in-memory adapter.
 
 ## Boundary
 

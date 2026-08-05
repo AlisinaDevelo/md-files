@@ -71,11 +71,15 @@ jobs:
         run: python3 evals/run.py
       - name: Run deterministic cross-host conformance
         run: python3 evals/run_scenarios.py --adapter all --no-receipts --output "$RUNNER_TEMP/forge-scenario-results.json"
+      - name: Run portable backend conformance
+        run: python3 plugins/forge/skills/orchestration/scripts/forge-backends.py conformance --backend all > "$RUNNER_TEMP/forge-backend-conformance.json"
       - name: Upload conformance evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: forge-conformance-${{ github.run_id }}
-          path: ${{ runner.temp }}/forge-scenario-results.json
+          path: |
+            ${{ runner.temp }}/forge-scenario-results.json
+            ${{ runner.temp }}/forge-backend-conformance.json
           if-no-files-found: error
           retention-days: 14
 

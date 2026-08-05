@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/backend-evidence/v1",
+  "title": "Forge Adapter Evidence",
+  "description": "Reference-only backend metadata; never a replacement for Forge event identity.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "backend_id", "revision_ref", "transaction_ref", "cursor_ref", "compaction_ref", "cloud_event"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "backend_id": {"type": "string", "minLength": 1},
+    "revision_ref": {"$ref": "#/$defs/optional_digest"},
+    "transaction_ref": {"$ref": "#/$defs/optional_digest"},
+    "cursor_ref": {"$ref": "#/$defs/optional_digest"},
+    "compaction_ref": {"$ref": "#/$defs/optional_digest"},
+    "cloud_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "id", "type", "time", "identity_ref"],
+      "properties": {
+        "source": {"type": "string", "minLength": 1, "maxLength": 128},
+        "id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "type": {"type": "string", "minLength": 1, "maxLength": 128},
+        "subject": {"type": "string", "minLength": 1, "maxLength": 128},
+        "time": {"type": "string", "format": "date-time"},
+        "identity_ref": {"$ref": "#/$defs/digest"},
+        "data_ref": {"$ref": "#/$defs/digest"}
+      }
+    }
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "optional_digest": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]}
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/conformance/v1",
+  "title": "Forge Runtime Conformance Result",
+  "description": "Digest-only, reproducible offline evidence from the portable backend fixtures.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "contract_revision", "status", "result_digest"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "contract_revision": {"type": "string", "minLength": 1},
+    "status": {"enum": ["passed", "unsupported", "degraded", "failed"]},
+    "backend": {"$ref": "runtime-backend.schema.json"},
+    "cases": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/case"}
+    },
+    "summary": {"$ref": "#/$defs/summary"},
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["schema_version", "contract_revision", "backend", "status", "cases", "summary", "result_digest"],
+        "properties": {
+          "schema_version": {"const": 1},
+          "contract_revision": {"type": "string", "minLength": 1},
+          "backend": {"$ref": "runtime-backend.schema.json"},
+          "status": {"enum": ["passed", "unsupported", "degraded", "failed"]},
+          "cases": {"type": "array", "items": {"$ref": "#/$defs/case"}},
+          "summary": {"$ref": "#/$defs/summary"},
+          "result_digest": {"$ref": "#/$defs/digest"}
+        }
+      }
+    },
+    "result_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["case_id", "capability", "status", "error_ref", "evidence_digest"],
+      "properties": {
+        "case_id": {"type": "string", "minLength": 1},
+        "capability": {"type": "string", "minLength": 1},
+        "status": {"enum": ["passed", "unsupported", "degraded", "failed"]},
+        "error_ref": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+        "evidence_digest": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]}
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "passed", "unsupported", "degraded", "failed"],
+      "properties": {
+        "total": {"type": "integer", "minimum": 0},
+        "passed": {"type": "integer", "minimum": 0},
+        "unsupported": {"type": "integer", "minimum": 0},
+        "degraded": {"type": "integer", "minimum": 0},
+        "failed": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

@@ -962,7 +962,7 @@ class RuntimeStore:
         self.connection.execute("PRAGMA foreign_keys = ON")
         self.connection.execute(f"PRAGMA busy_timeout = {max(1, int(timeout * 1000))}")
         journal_mode = str(self.connection.execute("PRAGMA journal_mode = WAL").fetchone()[0]).lower()
-        if journal_mode != "wal":
+        if journal_mode not in {"wal", "memory"}:
             self.close()
             raise RuntimeStoreError(f"SQLite WAL is unavailable; got journal mode {journal_mode}")
         self.connection.executescript(SCHEMA_SQL)
