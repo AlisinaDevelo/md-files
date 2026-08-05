@@ -11,6 +11,9 @@ All notable changes to this project are documented here. The format is based on
 - **Transactional runtime effects** - added a local SQLite/WAL outbox and inbox boundary
   with deterministic effect identities, worker leases, retries, dead letters, reference-only
   receipts, payload privacy checks, and explicit at-least-once delivery semantics.
+- **Generation-fenced worker leases** - added bounded heartbeats, monotonic lease generations,
+  stale-worker rejection before acknowledgement or provider submission, pinned lease policy
+  revisions, and inspectable lease-loss evidence.
 
 ## [3.6.0] — 2026-08-03
 

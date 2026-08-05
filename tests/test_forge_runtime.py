@@ -198,19 +198,27 @@ def test_outbox_claim_ack_and_duplicate_inbox_delivery(tmp_path):
     assert len(claimed) == 1
     assert claimed[0]["status"] == "leased"
     assert claimed[0]["delivery_attempts"] == 1
+    lease_generation = claimed[0]["lease_generation"]
     with pytest.raises(module.RuntimeStoreError, match="not allowed in durable state"):
         store.acknowledge_outbox(
             effect_id,
             "worker-a",
             {"status": "succeeded", "response_body": "raw provider body"},
+            lease_generation=lease_generation,
         )
     receipt = {
         "status": "succeeded",
         "provider_request_id": "provider:req-123",
         "result_ref": "sha256:" + "a" * 64,
     }
-    assert store.acknowledge_outbox(effect_id, "worker-a", receipt) == receipt
-    assert store.record_inbox(effect_id, receipt) == receipt
+    assert store.acknowledge_outbox(
+        effect_id,
+        "worker-a",
+        receipt,
+        lease_generation=lease_generation,
+        received_at="2026-08-04T08:10:01Z",
+    ) == receipt
+    assert store.record_inbox(effect_id, receipt, received_at="2026-08-04T08:10:02Z") == receipt
     with pytest.raises(module.RuntimeStoreError, match="conflicting inbox receipt"):
         store.record_inbox(effect_id, {"status": "succeeded", "provider_request_id": "provider:req-999"})
     assert store.list_outbox("run-1")[0]["status"] == "succeeded"
@@ -262,16 +270,18 @@ def test_outbox_lease_expiry_retry_and_dead_letter(tmp_path):
     retried = store.fail_outbox(
         effect_id,
         "worker-b",
+        lease_generation=reclaimed[0]["lease_generation"],
         error_ref="sha256:" + "b" * 64,
         retryable=True,
         next_attempt_at="2026-08-04T08:11:00Z",
         now="2026-08-04T08:10:12Z",
     )
     assert retried["status"] == "retry"
-    store.claim_outbox("worker-c", now="2026-08-04T08:11:00Z", lease_seconds=10)
+    claimed = store.claim_outbox("worker-c", now="2026-08-04T08:11:00Z", lease_seconds=10)
     dead_lettered = store.fail_outbox(
         effect_id,
         "worker-c",
+        lease_generation=claimed[0]["lease_generation"],
         error_ref="sha256:" + "c" * 64,
         retryable=False,
         now="2026-08-04T08:11:01Z",
@@ -282,6 +292,201 @@ def test_outbox_lease_expiry_retry_and_dead_letter(tmp_path):
         "retry",
         "dead_letter",
     ]
+
+
+def test_heartbeat_extends_current_lease_with_pinned_policy_and_evidence(tmp_path):
+    module = load_module()
+    store = start(module, tmp_path / "runtime.sqlite3")
+    store.append_event(
+        "run-1",
+        "task.scheduled",
+        {"task_id": "build", "depends_on": []},
+        idempotency_key="task-build-scheduled",
+        effect=make_effect(),
+        occurred_at="2026-08-04T08:03:00Z",
+    )
+    effect_id = store.list_outbox("run-1")[0]["effect_id"]
+    claimed = store.claim_outbox(
+        "worker-a",
+        now="2026-08-04T08:10:00Z",
+        lease_seconds=10,
+        max_lease_seconds=30,
+        heartbeat_seconds=8,
+        policy_revisions={
+            "lease": "lease-v2",
+            "heartbeat": "heartbeat-v2",
+            "activity_timeout": "timeout-v2",
+            "cancellation": "cancel-v2",
+            "retry": "retry-v2",
+        },
+    )
+    assert claimed[0]["lease_generation"] == 1
+    assert claimed[0]["lease"]["deadline_at"] == "2026-08-04T08:10:30.000Z"
+    assert claimed[0]["lease"]["policy_revisions"]["heartbeat"] == "heartbeat-v2"
+
+    heartbeated = store.heartbeat_outbox(
+        effect_id,
+        "worker-a",
+        lease_generation=1,
+        now="2026-08-04T08:10:05Z",
+    )
+    assert heartbeated["lease"]["expires_at"] == "2026-08-04T08:10:13.000Z"
+    assert heartbeated["lease"]["last_heartbeat_at"] == "2026-08-04T08:10:05.000Z"
+    assert heartbeated["lease"]["heartbeat_count"] == 1
+    store.heartbeat_outbox(effect_id, "worker-a", lease_generation=1, now="2026-08-04T08:10:10Z")
+    store.heartbeat_outbox(effect_id, "worker-a", lease_generation=1, now="2026-08-04T08:10:16Z")
+    bounded = store.heartbeat_outbox(effect_id, "worker-a", lease_generation=1, now="2026-08-04T08:10:22Z")
+    assert bounded["lease"]["expires_at"] == "2026-08-04T08:10:30.000Z"
+    assert bounded["lease"]["heartbeat_count"] == 4
+    context = store.authorize_outbox_effect(
+        effect_id,
+        "worker-a",
+        lease_generation=1,
+        now="2026-08-04T08:10:06Z",
+    )
+    assert context == {
+        "effect_id": effect_id,
+        "idempotency_key": "forge-effect:" + effect_id,
+        "worker_id": "worker-a",
+        "lease_generation": 1,
+        "lease_expires_at": "2026-08-04T08:10:30.000Z",
+        "lease_deadline_at": "2026-08-04T08:10:30.000Z",
+    }
+    assert [event["event_type"] for event in store.lease_events(effect_id)] == [
+        "claimed",
+        "heartbeat",
+        "heartbeat",
+        "heartbeat",
+        "heartbeat",
+    ]
+    with pytest.raises(module.RuntimeStoreError, match="lease generation mismatch"):
+        store.heartbeat_outbox(effect_id, "worker-a", lease_generation=2, now="2026-08-04T08:10:07Z")
+    with module.RuntimeStore(tmp_path / "runtime.sqlite3") as reopened:
+        persisted = reopened.list_outbox("run-1")[0]
+        assert persisted["lease_generation"] == 1
+        assert persisted["lease"]["last_heartbeat_at"] == "2026-08-04T08:10:22.000Z"
+        assert persisted["lease"]["policy_revisions"] == {
+            "lease": "lease-v2",
+            "heartbeat": "heartbeat-v2",
+            "activity_timeout": "timeout-v2",
+            "cancellation": "cancel-v2",
+            "retry": "retry-v2",
+        }
+
+
+def test_reclaim_advances_generation_and_fences_stale_same_worker(tmp_path):
+    module = load_module()
+    store = start(module, tmp_path / "runtime.sqlite3")
+    store.append_event(
+        "run-1",
+        "task.scheduled",
+        {"task_id": "build", "depends_on": []},
+        idempotency_key="task-build-scheduled",
+        effect=make_effect(),
+        occurred_at="2026-08-04T08:03:00Z",
+    )
+    effect_id = store.list_outbox("run-1")[0]["effect_id"]
+    first = store.claim_outbox(
+        "worker-a",
+        now="2026-08-04T08:10:00Z",
+        lease_seconds=10,
+        max_lease_seconds=20,
+        heartbeat_seconds=5,
+    )[0]
+    second = store.claim_outbox(
+        "worker-a",
+        now="2026-08-04T08:10:11Z",
+        lease_seconds=10,
+        max_lease_seconds=20,
+        heartbeat_seconds=5,
+    )[0]
+    assert first["lease_generation"] == 1
+    assert second["lease_generation"] == 2
+    with pytest.raises(module.RuntimeStoreError, match="lease generation mismatch"):
+        store.authorize_outbox_effect(effect_id, "worker-a", lease_generation=1, now="2026-08-04T08:10:12Z")
+    with pytest.raises(module.RuntimeStoreError, match="lease generation mismatch"):
+        store.heartbeat_outbox(effect_id, "worker-a", lease_generation=1, now="2026-08-04T08:10:12Z")
+    with pytest.raises(module.RuntimeStoreError, match="lease generation mismatch"):
+        store.fail_outbox(
+            effect_id,
+            "worker-a",
+            lease_generation=1,
+            error_ref="sha256:" + "d" * 64,
+            retryable=True,
+            now="2026-08-04T08:10:12Z",
+        )
+    receipt = {"status": "succeeded", "provider_request_id": "provider:req-1"}
+    assert store.acknowledge_outbox(
+        effect_id,
+        "worker-a",
+        receipt,
+        lease_generation=2,
+        received_at="2026-08-04T08:10:13Z",
+    ) == receipt
+    assert [event["event_type"] for event in store.lease_events(effect_id)] == [
+        "claimed",
+        "lease_lost",
+        "claimed",
+    ]
+
+
+def test_heartbeat_and_reclaim_have_one_serialized_owner_outcome(tmp_path):
+    module = load_module()
+    database = tmp_path / "runtime.sqlite3"
+    store = start(module, database)
+    store.append_event(
+        "run-1",
+        "task.scheduled",
+        {"task_id": "build", "depends_on": []},
+        idempotency_key="task-build-scheduled",
+        effect=make_effect(),
+        occurred_at="2026-08-04T08:03:00Z",
+    )
+    claimed = store.claim_outbox(
+        "worker-a",
+        now="2026-08-04T08:10:00Z",
+        lease_seconds=10,
+        max_lease_seconds=30,
+        heartbeat_seconds=8,
+    )[0]
+    store.close()
+
+    def heartbeat():
+        with module.RuntimeStore(database) as worker:
+            try:
+                return ("heartbeat", worker.heartbeat_outbox(
+                    claimed["effect_id"],
+                    "worker-a",
+                    lease_generation=claimed["lease_generation"],
+                    now="2026-08-04T08:10:09Z",
+                ))
+            except module.RuntimeStoreError as exc:
+                return ("heartbeat-error", str(exc))
+
+    def reclaim():
+        with module.RuntimeStore(database) as worker:
+            try:
+                return ("reclaim", worker.claim_outbox(
+                    "worker-b",
+                    now="2026-08-04T08:10:11Z",
+                    lease_seconds=10,
+                    max_lease_seconds=30,
+                    heartbeat_seconds=8,
+                ))
+            except module.RuntimeStoreError as exc:
+                return ("reclaim-error", str(exc))
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        first, second = executor.map(lambda operation: operation(), (heartbeat, reclaim))
+    outcomes = {first[0], second[0]}
+    assert outcomes in ({"heartbeat", "reclaim"}, {"heartbeat-error", "reclaim"})
+    with module.RuntimeStore(database) as reopened:
+        current = reopened.list_outbox("run-1")[0]
+        if current["lease_generation"] == 1:
+            assert current["lease"]["expires_at"] == "2026-08-04T08:10:17.000Z"
+        else:
+            assert current["lease_generation"] == 2
+            assert current["lease"]["owner"] == "worker-b"
 
 
 def test_concurrent_outbox_claimers_get_one_lease(tmp_path):
