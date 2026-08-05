@@ -20,4 +20,5 @@
 | 0016 | Add generation-fenced worker heartbeats and recovery | done | concurrency-engineer | sonnet | 0014, 0015 |
 | 0017 | Add checkpointed recovery and fail-closed migrations | done | migration-specialist | sonnet | 0015, 0016 |
 | 0018 | Add verifiable execution lineage and receipt integrity | done | observability-specialist | sonnet | 0017 |
-| 0019 | Add durable human-input waits, signals, and cancellation | in-progress | orchestration-specialist | sonnet | 0018 |
+| 0019 | Add durable human-input waits, signals, and cancellation | done | orchestration-specialist | sonnet | 0018 |
+| 0020 | Define portable backend adapter and conformance contract | in-progress | architect | opus | 0019 |

@@ -52,17 +52,19 @@ workflows, and telemetry remain adapters or evidence surfaces.
    policy/receipt stores. Offline verification binds event parents, effect attempts, lease
    generations, adapter revisions, provider references, and receipt digests.
 
+4. [#57 Human-input waits, signals, and cancellation](https://github.com/AlisinaDevelo/md-files/issues/57)
+   This slice adds checkpoint-before-input waits, digest-bound submissions and signals, explicit
+   expiry outcomes, sticky cancellation evidence, and an MCP Tasks projection over Forge state.
+
 ### In progress
 
-1. [#57 Human-input waits, signals, and cancellation](https://github.com/AlisinaDevelo/md-files/issues/57)
+1. [#58 Portable backend adapter and conformance](https://github.com/AlisinaDevelo/md-files/issues/58)
 
-This slice will make human interruption and cancellation durable, authorization-bound, and
-replayable across process restart. Research is focused on MCP Tasks mapping, checkpoint-before-
-interrupt semantics, deterministic expiry, and late-response races.
+This slice will make backend portability a negotiated semantic contract rather than a shared CRUD
+interface. Research is focused on consistency levels, revision/cursor mapping, ambiguous commit
+classification, deterministic fault injection, and cross-backend conformance fixtures.
 
 ### Next runtime slices
-
-1. [#58 Portable backend adapter and conformance](https://github.com/AlisinaDevelo/md-files/issues/58)
 
 These issues are the minimum credible v4 runtime contract. They are intentionally separate:
 recovery, evidence, interaction, and backend portability have different failure modes and

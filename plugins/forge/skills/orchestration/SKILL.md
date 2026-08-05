@@ -80,6 +80,26 @@ is a three-event request/acknowledgement/terminal protocol, and the MCP Tasks vi
 `scripts/forge-mcp-tasks.py` maps task IDs, status, TTL, polling, result references, and
 cancellation back to Forge history without becoming a second source of truth.
 
+When a run needs a different storage implementation, negotiate the backend contract before
+starting it with `scripts/forge-backends.py`. The descriptor is capability- and consistency-
+aware; unsupported guarantees fail closed, while an explicitly allowed degraded result carries
+only a digest reference. The SQLite/WAL adapter is the durable reference. The in-memory fault
+adapter is useful for deterministic crash, duplicate-delivery, and ambiguous-commit fixtures.
+Run the same offline matrix against both adapters before accepting a new implementation:
+
+```bash
+python3 scripts/forge-backends.py describe --backend sqlite
+python3 scripts/forge-backends.py negotiate --backend memory \
+  --requirements-json '{"capabilities":["fenced_leases"],"consistency_level":"strict_serializable"}'
+python3 scripts/forge-backends.py conformance --backend all
+```
+
+Remote revisions, transaction IDs, watch cursors, compaction markers, and CloudEvents belong
+in the reference-only envelope returned by `adapter_evidence`; its schema is
+`data/runtime-backend-evidence.schema.json`. Forge event IDs, sequence numbers, hash-chain
+parents, leases, and provider idempotency remain canonical. The contract promises at-least-once
+delivery with idempotent effects, never exactly-once provider execution.
+
 ## How to delegate well (this makes or breaks it)
 
 When you spawn a specialist subagent, set two things deliberately:

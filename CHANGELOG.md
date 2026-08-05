@@ -23,6 +23,10 @@ All notable changes to this project are documented here. The format is based on
 - **Durable human waits and cancellation** - added checkpoint-before-input waits, digest-bound
   submissions and signals, explicit expiry outcomes, sticky cancellation evidence, an MCP Tasks
   projection, and a reviewed runtime database migration for the wait-aware state contract.
+- **Portable backend conformance** - added capability and consistency negotiation, fail-closed
+  degraded-mode handling, SQLite/WAL and deterministic in-memory adapters, ambiguous-commit
+  recovery fixtures, backup/restore and migration checks, a reference-only adapter evidence
+  envelope, and digest-only conformance results.
 
 ## [3.6.0] — 2026-08-03
 

@@ -1,7 +1,7 @@
 ---
 id: 0019
 title: Add durable human-input waits, signals, and cancellation
-status: in-progress
+status: done
 agent: orchestration-specialist
 model: sonnet
 depends_on: [0018]
@@ -30,7 +30,7 @@ or deterministic replay.
       are enforced before state mutation.
 - [x] Raw prompts, credentials, tool arguments/results, and provider response bodies remain out
       of durable wait and signal payloads by default.
-- [ ] Crash/restart, duplicate delivery, auth mismatch, timeout, cancellation races, late
+- [x] Crash/restart, duplicate delivery, auth mismatch, timeout, cancellation races, late
       responses, adapter failure, schemas, CLI inspection, fixtures, docs, and release checks pass.
 
 ## Context
@@ -58,8 +58,7 @@ checkpoint contracts. Provider task state is an adapter view, never the source o
 
 ## Verification
 
-Implemented locally on `feat/runtime-human-waits`. The focused runtime/MCP/lineage suite passes
-30 tests; the full repository suite passes 213 tests. `bash scripts/validate.sh`, capability
-render checks, schema parsing, hosted-version Ruff, and deterministic host projections pass.
-The task remains `in-progress` until the PR, hosted CI, release archive, and GitHub issue closure
-are complete.
+Implemented in PR #63 and merged as `7f17f1f`. The focused runtime/MCP/lineage suite passes 30
+tests; the full repository suite passes 213 tests. `bash scripts/validate.sh`, capability render
+checks, schema parsing, hosted Ruff 0.16.1, reproducible release packaging, host projections,
+Markdown, ShellCheck, static evals, and OpenSSF Scorecard all pass. GitHub issue #57 is closed.
