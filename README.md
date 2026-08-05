@@ -12,7 +12,7 @@ maximize the efficacy of LLMs in software engineering.**
 [![Agents](https://img.shields.io/badge/agents-20-8b5cf6.svg)](plugins/forge/agents/)
 [![Skills](https://img.shields.io/badge/skills-25-06b6d4.svg)](plugins/forge/skills/)
 [![Commands](https://img.shields.io/badge/commands-22-22c55e.svg)](plugins/forge/commands/)
-[![Tests](https://img.shields.io/badge/tests-217%20passing-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-228%20passing-success.svg)](tests/)
 [![Prompt evals](https://img.shields.io/badge/prompt%20evals-312%20checks-success.svg)](evals/)
 
 </div>
@@ -57,7 +57,9 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
 - **Orchestration for big work.** Plan at Opus/Fable, decompose into a task ledger, route
   implementation to Sonnet, fan out mechanical work to Haiku, and iterate to verified done.
 - **Durable local execution.** SQLite/WAL run history, idempotent lifecycle events,
-  tamper-evident replay, checkpointed recovery, offline lineage verification, and a strict
+  tamper-evident replay, digest-pinned workflow code/schema and worker definitions, fail-closed
+  compatibility gates for replay, migration, restore, and effect retry, checkpointed recovery,
+  offline lineage verification, and a strict
   separation between execution state, task planning, and privacy-safe receipts give long-running
   orchestration a recoverable foundation.
 - **Stacked delivery, now native.** Design and verify dependent PRs with a portable stack
@@ -84,7 +86,7 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   deterministically, without relying on the model to remember.
 - **Proven, not asserted.** A real eval harness scores prompts and high-risk behavior
   contracts (312 deterministic checks plus cross-host scenarios and an opt-in LLM judge);
-  217 tests cover safety hooks, task sync, receipts, durable runtime replay, external effect
+  228 tests cover safety hooks, task sync, receipts, durable runtime replay, external effect
   delivery, doctor, policy,
   stacks, marketplace readiness, capability graph, rendering, semantic evidence, and conformance. Run
   them yourself — `just check`.

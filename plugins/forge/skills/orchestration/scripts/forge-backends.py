@@ -528,8 +528,8 @@ def _fixture_fencing(adapter: BackendAdapter, run_id: str) -> dict[str, Any]:
     _start(adapter, run_id)
     _schedule(adapter, run_id, effect=True)
     effect_id = adapter.list_outbox(run_id)[0]["effect_id"]
-    first = adapter.claim_outbox("worker-a", now="2026-08-05T00:03:00Z", lease_seconds=10)[0]
-    second = adapter.claim_outbox("worker-b", now="2026-08-05T00:03:11Z", lease_seconds=10)[0]
+    first = adapter.claim_outbox("worker-a", run_id=run_id, now="2026-08-05T00:03:00Z", lease_seconds=10)[0]
+    second = adapter.claim_outbox("worker-b", run_id=run_id, now="2026-08-05T00:03:11Z", lease_seconds=10)[0]
     assert second["lease_generation"] > first["lease_generation"]
     try:
         adapter.heartbeat_outbox(
@@ -603,7 +603,7 @@ def _fixture_dedupe(adapter: BackendAdapter, run_id: str) -> dict[str, Any]:
     _start(adapter, run_id)
     _schedule(adapter, run_id, effect=True)
     effect_id = adapter.list_outbox(run_id)[0]["effect_id"]
-    claimed = adapter.claim_outbox("worker-a", now="2026-08-05T00:03:00Z", lease_seconds=60)[0]
+    claimed = adapter.claim_outbox("worker-a", run_id=run_id, now="2026-08-05T00:03:00Z", lease_seconds=60)[0]
     receipt = {"status": "succeeded", "provider_request_id": "fixture:req", "result_ref": "sha256:" + "f" * 64}
     adapter.acknowledge_outbox(
         effect_id,
@@ -618,15 +618,25 @@ def _fixture_dedupe(adapter: BackendAdapter, run_id: str) -> dict[str, Any]:
 
 
 def _fixture_migration(adapter: BackendAdapter, run_id: str) -> dict[str, Any]:
-    _start(adapter, run_id)
-    adapter.runtime.connection.execute("UPDATE runtime_meta SET value = '2' WHERE key = 'schema_version'")
-    adapter.runtime.database_schema_version = 2
-    preview = adapter.migrate(dry_run=True)
-    assert preview["requires_migration"] is True
-    result = adapter.migrate()
-    assert result["current_version"] == runtime.DATABASE_SCHEMA_VERSION
-    assert result["applied"][-1]["status"] == "applied"
-    return {"from": preview["current_version"], "to": result["current_version"], "migration_id": result["applied"][-1]["migration_id"]}
+    kind = "sqlite" if adapter.descriptor["backend_id"] == "sqlite-wal" else "memory"
+    with tempfile.TemporaryDirectory(prefix="forge-migration-") as directory:
+        isolated = make_backend(kind, Path(directory) / "runtime.sqlite3" if kind == "sqlite" else None)
+        try:
+            _start(isolated, run_id)
+            isolated.runtime.connection.execute("UPDATE runtime_meta SET value = '2' WHERE key = 'schema_version'")
+            isolated.runtime.database_schema_version = 2
+            preview = isolated.migrate(dry_run=True)
+            assert preview["requires_migration"] is True
+            result = isolated.migrate()
+            assert result["current_version"] == runtime.DATABASE_SCHEMA_VERSION
+            assert result["applied"][-1]["status"] == "applied"
+            return {
+                "from": preview["current_version"],
+                "to": result["current_version"],
+                "migration_id": result["applied"][-1]["migration_id"],
+            }
+        finally:
+            isolated.close()
 
 
 def _fixture_backup(adapter: BackendAdapter, run_id: str, directory: Path) -> dict[str, Any]:

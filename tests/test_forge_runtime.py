@@ -531,7 +531,7 @@ def test_wait_checkpoint_binding_and_cancel_acknowledgement_fail_closed(tmp_path
         store.cancel_run("run-1", occurred_at="2026-08-05T08:04:01Z")
 
 
-def test_v2_checkpoint_migrates_as_legacy_and_allows_v3_replacement(tmp_path):
+def test_v2_checkpoint_migrates_as_legacy_and_allows_v4_replacement(tmp_path):
     module = load_module()
     database = tmp_path / "runtime.sqlite3"
     store = start(module, database)
@@ -581,12 +581,12 @@ def test_v2_checkpoint_migrates_as_legacy_and_allows_v3_replacement(tmp_path):
 
     with module.RuntimeStore(database) as migrated:
         result = migrated.migrate()
-        assert result["current_version"] == 3
+        assert result["current_version"] == 4
         restored = migrated.restore_state("run-1")
         assert restored["state"] == migrated.state("run-1")
         assert restored["recovered"] is True
         replacement = migrated.checkpoint_run("run-1")
-        assert replacement["runtime_schema_version"] == 3
+        assert replacement["runtime_schema_version"] == 4
         assert len(migrated.list_checkpoints("run-1")) == 2
 
 
@@ -695,6 +695,47 @@ def test_outbox_claim_ack_and_duplicate_inbox_delivery(tmp_path):
     assert store.list_outbox("run-1")[0]["status"] == "succeeded"
     assert store.list_inbox("run-1")[0]["receipt"] == receipt
     assert store.outbox_attempts(effect_id)[0]["outcome"] == "succeeded"
+
+
+def test_effect_retry_preflights_the_worker_definition(tmp_path):
+    module = load_module()
+    store = start(module, tmp_path / "runtime.sqlite3")
+    store.append_event(
+        "run-1",
+        "task.scheduled",
+        {"task_id": "build", "depends_on": []},
+        idempotency_key="task-build-scheduled",
+        effect=make_effect(),
+        occurred_at="2026-08-04T08:03:00Z",
+    )
+    pinned = store.definition("run-1")
+    compatible = module.DEFINITION_CONTRACT.make_definition(
+        workflow_id=pinned["workflow_id"],
+        definition_version="definition-v2",
+        worker_build_id="worker-v2",
+        policy_revision=pinned["policy_revision"],
+        compatible_definition_digests=[pinned["definition_digest"]],
+    )
+    incompatible = module.DEFINITION_CONTRACT.make_definition(
+        workflow_id=pinned["workflow_id"],
+        definition_version="definition-v3",
+        worker_build_id="worker-v3",
+        policy_revision=pinned["policy_revision"],
+    )
+    with pytest.raises(module.RuntimeStoreError, match="effect retry definition rejected"):
+        store.claim_outbox(
+            "worker-b",
+            run_id="run-1",
+            definition_descriptor=incompatible,
+            now="2026-08-04T08:10:00Z",
+        )
+    claimed = store.claim_outbox(
+        "worker-b",
+        run_id="run-1",
+        definition_descriptor=compatible,
+        now="2026-08-04T08:10:00Z",
+    )
+    assert claimed[0]["status"] == "leased"
 
 
 def test_tampered_outbox_breaks_delivery(tmp_path):
@@ -1008,7 +1049,7 @@ def test_tampered_run_metadata_breaks_replay(tmp_path):
     connection.commit()
     connection.close()
     with module.RuntimeStore(database) as reopened, pytest.raises(
-        module.RuntimeStoreError, match="run.started payload does not match workflow_id"
+        module.RuntimeStoreError, match="run definition does not match runtime_runs.workflow_id"
     ):
         reopened.state("run-1")
 
@@ -1035,3 +1076,128 @@ def test_concurrent_task_writers_get_unique_sequences(tmp_path):
         assert [event["sequence"] for event in history] == list(range(1, 8))
         assert len({event["event_id"] for event in events}) == 6
         assert len(store.state("run-1")["tasks"]) == 6
+
+
+def test_run_definition_is_pinned_in_history_and_compatibility_is_offline(tmp_path):
+    module = load_module()
+    database = tmp_path / "runtime.sqlite3"
+    store = module.RuntimeStore(database)
+    store.start_run(
+        "run-1",
+        "feature-flow",
+        "definition-v1",
+        "policy-v1",
+        worker_build_id="worker-v1",
+        occurred_at="2026-08-04T08:00:00Z",
+    )
+    pinned = store.definition("run-1")
+    assert pinned["worker_build_id"] == "worker-v1"
+    assert store.history("run-1")[0]["payload"]["definition_digest"] == pinned["definition_digest"]
+    assert store.state("run-1")["definition_digest"] == pinned["definition_digest"]
+
+    candidate = module.DEFINITION_CONTRACT.make_definition(
+        workflow_id="feature-flow",
+        definition_version="definition-v2",
+        worker_build_id="worker-v2",
+        policy_revision="policy-v1",
+        compatible_definition_digests=[pinned["definition_digest"]],
+    )
+    decision = store.compatibility("run-1", candidate)
+    assert decision["decision"] == "accepted"
+    assert decision["reason_code"] == "declared_compatible"
+
+    unrelated = module.DEFINITION_CONTRACT.make_definition(
+        workflow_id="feature-flow",
+        definition_version="definition-v3",
+        worker_build_id="worker-v3",
+        policy_revision="policy-v1",
+    )
+    rejected = store.compatibility("run-1", unrelated)
+    assert rejected["decision"] == "rejected"
+    with pytest.raises(module.RuntimeStoreError, match="checkpoint restore definition rejected"):
+        store.restore_state("run-1", definition_descriptor=unrelated)
+    store.close()
+
+
+def test_offline_rollout_registry_projection_reports_alias_state():
+    module = load_module()
+    descriptor = module.DEFINITION_CONTRACT.make_definition(
+        workflow_id="feature-flow",
+        definition_version="definition-v1",
+        worker_build_id="worker-v1",
+        policy_revision="policy-v1",
+    )
+    registry = module._definition_registry(
+        {
+            "definitions": [
+                {"definition": descriptor, "aliases": ["stable"], "rollout": "canary"},
+            ]
+        }
+    )
+    selection = registry.select("stable")
+    assert selection["selection"]["rollout"] == "canary"
+    assert selection["selection"]["new_run_only"] is True
+
+
+def test_tampered_definition_descriptor_fails_closed(tmp_path):
+    module = load_module()
+    database = tmp_path / "runtime.sqlite3"
+    store = start(module, database)
+    pinned = store.definition("run-1")
+    store.close()
+    connection = sqlite3.connect(database)
+    connection.execute(
+        "UPDATE runtime_run_definitions SET descriptor_json = ? WHERE run_id = ?",
+        (module.canonical_json({**pinned, "worker_build_id": "worker-attacker"}), "run-1"),
+    )
+    connection.commit()
+    connection.close()
+    with module.RuntimeStore(database) as reopened, pytest.raises(
+        module.RuntimeStoreError, match="invalid run definition.*definition_digest does not match"
+    ):
+        reopened.state("run-1")
+
+
+def test_legacy_history_migrates_to_a_compatibility_descriptor_without_rewriting_events(tmp_path):
+    module = load_module()
+    database = tmp_path / "runtime.sqlite3"
+    store = start(module, database)
+    store.close()
+    connection = sqlite3.connect(database)
+    row = connection.execute(
+        "SELECT run_id, sequence, event_id, event_type, idempotency_key, occurred_at, "
+        "payload_json, previous_hash FROM runtime_events WHERE sequence = 1"
+    ).fetchone()
+    legacy_payload = {
+        "workflow_id": "feature-flow",
+        "definition_version": "definition-v1",
+        "policy_revision": "policy-v1",
+    }
+    legacy_event = {
+        "schema_version": 1,
+        "run_id": row[0],
+        "sequence": row[1],
+        "event_id": row[2],
+        "event_type": row[3],
+        "idempotency_key": row[4],
+        "occurred_at": row[5],
+        "payload": legacy_payload,
+        "previous_hash": row[7],
+        "event_hash": "",
+    }
+    legacy_event["event_hash"] = module._hash_event(legacy_event)
+    connection.execute(
+        "UPDATE runtime_events SET payload_json = ?, event_hash = ? WHERE sequence = 1",
+        (module.canonical_json(legacy_payload), legacy_event["event_hash"]),
+    )
+    connection.execute("DELETE FROM runtime_run_definitions WHERE run_id = ?", ("run-1",))
+    connection.execute("UPDATE runtime_meta SET value = '3' WHERE key = 'schema_version'")
+    connection.commit()
+    connection.close()
+
+    with module.RuntimeStore(database) as migrated:
+        result = migrated.migrate()
+        assert result["current_version"] == 4
+        assert migrated.definition("run-1")["worker_build_id"] == "legacy"
+        assert migrated.state("run-1")["definition_legacy"] is True
+        assert migrated.history("run-1")[0]["event_hash"] == legacy_event["event_hash"]

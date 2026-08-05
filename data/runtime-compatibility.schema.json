@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/compatibility/v1",
+  "title": "Forge Runtime Definition Compatibility Decision",
+  "description": "Offline, digest-bound decision for replay, restore, effect retry, or continue-as-new.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "operation",
+    "decision",
+    "reason_code",
+    "requires_new_run",
+    "pinned_definition_digest",
+    "candidate_definition_digest",
+    "differences",
+    "decision_digest"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "operation": {"enum": ["replay", "checkpoint_restore", "effect_retry", "migration", "continue_as_new"]},
+    "decision": {"enum": ["accepted", "rejected"]},
+    "reason_code": {"type": "string", "minLength": 1},
+    "requires_new_run": {"type": "boolean"},
+    "pinned_definition_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "candidate_definition_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "differences": {"type": "array", "items": {"type": "string"}},
+    "decision_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}
