@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/restore/v1",
+  "title": "Forge Runtime Restore Report",
+  "description": "Deterministic restore result from a verified checkpoint and event suffix.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "checkpoint_id",
+    "checkpoint_sequence",
+    "replayed_sequence",
+    "history_sequence",
+    "history_head_hash",
+    "state",
+    "state_digest",
+    "recovered",
+    "recovery_error_ref"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "checkpoint_id": {"type": ["string", "null"], "format": "uuid"},
+    "checkpoint_sequence": {"type": "integer", "minimum": 0},
+    "replayed_sequence": {"type": "integer", "minimum": 0},
+    "history_sequence": {"type": "integer", "minimum": 0},
+    "history_head_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "state": {"type": "object"},
+    "state_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "recovered": {"type": "boolean"},
+    "recovery_error_ref": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

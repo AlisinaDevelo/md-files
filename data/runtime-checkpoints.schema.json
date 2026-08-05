@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/checkpoints/v1",
+  "title": "Forge Runtime Checkpoint",
+  "description": "Reference-only, hash-bound state captured at a verified event boundary.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "checkpoint_id",
+    "runtime_schema_version",
+    "event_sequence",
+    "event_hash",
+    "workflow_id",
+    "definition_version",
+    "policy_revision",
+    "state",
+    "state_digest",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "checkpoint_id": {"type": "string", "format": "uuid"},
+    "runtime_schema_version": {"const": 2},
+    "event_sequence": {"type": "integer", "minimum": 1},
+    "event_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "workflow_id": {"type": "string", "minLength": 1},
+    "definition_version": {"type": "string", "minLength": 1},
+    "policy_revision": {"type": "string", "minLength": 1},
+    "state": {"type": "object"},
+    "state_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "created_at": {"type": "string", "format": "date-time"}
+  }
+}

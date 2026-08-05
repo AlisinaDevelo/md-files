@@ -31,6 +31,11 @@ python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 append \
 
 python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 state --run-id run-demo
 python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 verify --run-id run-demo
+python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 checkpoint --run-id run-demo
+python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 checkpoints --run-id run-demo
+python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 restore --run-id run-demo
+python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 migrations --dry-run
+python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 migrate --dry-run
 python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 outbox --run-id run-demo
 python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 inbox --run-id run-demo
 python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 lease-events \
@@ -39,10 +44,14 @@ python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 lease-events \
 
 The database schemas are versioned in [`data/runtime-events.schema.json`](../data/runtime-events.schema.json),
 [`data/runtime-state.schema.json`](../data/runtime-state.schema.json),
-[`data/runtime-outbox.schema.json`](../data/runtime-outbox.schema.json), and
-[`data/runtime-inbox.schema.json`](../data/runtime-inbox.schema.json), and
-[`data/runtime-lease-events.schema.json`](../data/runtime-lease-events.schema.json). A store
-refuses an unknown schema version rather than guessing at a migration.
+[`data/runtime-outbox.schema.json`](../data/runtime-outbox.schema.json),
+[`data/runtime-inbox.schema.json`](../data/runtime-inbox.schema.json),
+[`data/runtime-lease-events.schema.json`](../data/runtime-lease-events.schema.json),
+[`data/runtime-checkpoints.schema.json`](../data/runtime-checkpoints.schema.json),
+[`data/runtime-restore.schema.json`](../data/runtime-restore.schema.json), and
+[`data/runtime-migrations.schema.json`](../data/runtime-migrations.schema.json). A store
+uses only the reviewed migration registry for an older database and refuses an unknown
+schema version rather than guessing at a transformation.
 
 ## Execution contract
 
@@ -60,6 +69,26 @@ refuses an unknown schema version rather than guessing at a migration.
 
 The lifecycle supports start, pause, resume, cancellation request, cancellation, completion,
 failure, and bounded task scheduling/start/completion/failure/cancellation.
+
+## Checkpointed recovery
+
+`checkpoint_run` captures reducer state at a verified event boundary. The checkpoint binds the
+run, workflow, definition, policy, database schema, event sequence, event hash, and state
+digest; its state passes the same reference-only payload boundary as event data. Repeating a
+checkpoint request for the same boundary returns the existing deterministic checkpoint.
+
+`restore_state` selects the newest valid checkpoint, verifies its metadata, state digest, and
+event head, then applies only the verified event suffix. A corrupt checkpoint is skipped. A
+corrupt event suffix stops at the last verified prefix and returns a recovery report with a
+privacy-safe error reference; unsafe state is never used. Full `state` and `history` remain
+strict verification APIs and fail closed on any corruption.
+
+Database upgrades are explicit and append migration evidence with source and target versions,
+preconditions, result digest, status, and restore guidance. Use `migrations --dry-run` to
+inspect a legacy database and `migrate` only after preserving a verified backup. Interrupted
+migrations remain resumable; canonical event rows are not rewritten by the checkpoint schema
+upgrade. Checkpoints are retained as evidence and no compaction command deletes history needed
+to verify active runs or external effects.
 
 ## External effect protocol
 
@@ -90,8 +119,8 @@ and provider request IDs. Prompts, raw content, tool arguments/results, credenti
 and provider response bodies are rejected at the persistence boundary. The effect hash also
 makes direct outbox tampering detectable before inspection or delivery.
 
-Snapshots/migrations, human-input waits, adaptive routing, and distributed backends remain
-follow-up work under [#19](https://github.com/AlisinaDevelo/md-files/issues/19).
+Human-input waits, adaptive routing, and distributed backends remain follow-up work under
+[#19](https://github.com/AlisinaDevelo/md-files/issues/19).
 
 ## Boundary
 
