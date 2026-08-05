@@ -1271,9 +1271,7 @@ class RuntimeStore:
                     ):
                         raise RuntimeStoreError(f"lease policy revision conflict: {row['effect_id']}")
                 attempt = row["delivery_attempts"] + 1
-                generation = row["lease_generation"] + 1
-                if generation < 1:
-                    generation = 1
+                generation = max(row["lease_generation"] + 1, 1)
                 self.connection.execute(
                     "UPDATE runtime_outbox SET status = 'leased', lease_owner = ?, "
                     "lease_expires_at = ?, delivery_attempts = ?, last_attempt_at = ?, "
