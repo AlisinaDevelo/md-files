@@ -25,6 +25,9 @@ except ImportError:  # pragma: no cover - Python 3.10 and earlier
 SCHEMA_VERSION = 1
 EFFECT_SCHEMA_VERSION = 1
 LEASE_SCHEMA_VERSION = 1
+DATABASE_SCHEMA_VERSION = 2
+CHECKPOINT_SCHEMA_VERSION = 1
+MIGRATION_SCHEMA_VERSION = 1
 GENESIS_HASH = "0" * 64
 IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/_-]{0,127}$")
 HASH_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -70,6 +73,7 @@ EFFECT_STATUSES = {"pending", "leased", "retry", "succeeded", "dead_letter"}
 RECEIPT_STATUSES = {"accepted", "succeeded"}
 ATTEMPT_OUTCOMES = {"leased", "reclaimed", "succeeded", "retry", "dead_letter"}
 LEASE_EVENT_TYPES = {"claimed", "heartbeat", "lease_lost"}
+MIGRATION_STATUSES = {"started", "applied", "failed"}
 POLICY_REVISION_KEYS = ("lease", "heartbeat", "activity_timeout", "cancellation", "retry")
 DEFAULT_POLICY_REVISIONS = {
     "lease": "lease-v1",
@@ -77,6 +81,22 @@ DEFAULT_POLICY_REVISIONS = {
     "activity_timeout": "activity-timeout-v1",
     "cancellation": "cancellation-v1",
     "retry": "retry-v1",
+}
+MIGRATION_REGISTRY = {
+    1: {
+        "migration_id": "runtime-db-1-to-2-checkpoint-recovery",
+        "source_version": 1,
+        "target_version": 2,
+        "preconditions": [
+            "every run has a contiguous, hash-valid event prefix",
+            "every event reducer transition is valid",
+            "canonical event rows remain unchanged",
+        ],
+        "rollback_instructions": (
+            "Restore a verified SQLite backup and rerun the migration. The migration is additive; "
+            "canonical event rows are never rewritten."
+        ),
+    }
 }
 
 
@@ -90,6 +110,14 @@ def utc_now() -> str:
 
 def canonical_json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+
+
+def _digest(value: Any) -> str:
+    return sha256(canonical_json(value).encode("utf-8")).hexdigest()
+
+
+def _error_ref(error: BaseException | str) -> str:
+    return "sha256:" + sha256(str(error).encode("utf-8")).hexdigest()
 
 
 def _text(value: Any, field: str) -> str:
@@ -162,11 +190,11 @@ def _lease_policy(value: Mapping[str, Any] | None) -> dict[str, Any]:
     }
 
 
-def _payload(value: Mapping[str, Any]) -> dict[str, Any]:
+def _payload(value: Mapping[str, Any], path: str = "payload") -> dict[str, Any]:
     if not isinstance(value, Mapping):
-        raise RuntimeStoreError("payload must be a JSON object")
+        raise RuntimeStoreError(f"{path} must be a JSON object")
     normalized = json.loads(canonical_json(dict(value)))
-    _validate_payload_keys(normalized)
+    _validate_payload_keys(normalized, path)
     return normalized
 
 
@@ -451,28 +479,46 @@ def apply_event(state: Mapping[str, Any], event: Mapping[str, Any]) -> dict[str,
     return next_state
 
 
-def replay(run: Mapping[str, Any], events: list[Mapping[str, Any]]) -> dict[str, Any]:
-    """Verify the hash chain and rebuild state from the event prefix."""
+def _replay_prefix(
+    run: Mapping[str, Any], events: list[Mapping[str, Any]]
+) -> tuple[dict[str, Any], int, str | None]:
+    """Replay as far as possible and return the last verified sequence and error."""
 
     state = _run_state(run)
     previous_hash = GENESIS_HASH
     if events:
         first = events[0]
+        if "_decode_error" in first:
+            return state, 0, f"invalid event at sequence {first.get('sequence')}: {first['_decode_error']}"
         if first["event_type"] != "run.started":
-            raise RuntimeStoreError("run history must begin with run.started")
+            return state, 0, "run history must begin with run.started"
         if run["started_at"] != first["occurred_at"]:
-            raise RuntimeStoreError("run metadata started_at does not match run.started")
+            return state, 0, "run metadata started_at does not match run.started"
     for event in events:
-        _validate_event_shape(event)
-        if event["run_id"] != run["run_id"]:
-            raise RuntimeStoreError("event run_id does not match its stream")
-        if event["previous_hash"] != previous_hash:
-            raise RuntimeStoreError(f"broken hash chain at sequence {event['sequence']}")
-        expected_hash = _hash_event(event)
-        if event["event_hash"] != expected_hash:
-            raise RuntimeStoreError(f"event hash mismatch at sequence {event['sequence']}")
-        state = apply_event(state, event)
-        previous_hash = event["event_hash"]
+        if "_decode_error" in event:
+            return state, state["sequence"], f"invalid event at sequence {event.get('sequence')}: {event['_decode_error']}"
+        try:
+            _validate_event_shape(event)
+            if event["run_id"] != run["run_id"]:
+                raise RuntimeStoreError("event run_id does not match its stream")
+            if event["previous_hash"] != previous_hash:
+                raise RuntimeStoreError(f"broken hash chain at sequence {event['sequence']}")
+            expected_hash = _hash_event(event)
+            if event["event_hash"] != expected_hash:
+                raise RuntimeStoreError(f"event hash mismatch at sequence {event['sequence']}")
+            state = apply_event(state, event)
+            previous_hash = event["event_hash"]
+        except (RuntimeStoreError, KeyError, TypeError, ValueError) as exc:
+            return state, state["sequence"], str(exc)
+    return state, state["sequence"], None
+
+
+def replay(run: Mapping[str, Any], events: list[Mapping[str, Any]]) -> dict[str, Any]:
+    """Verify the hash chain and rebuild state from the event prefix."""
+
+    state, _sequence, error = _replay_prefix(run, events)
+    if error is not None:
+        raise RuntimeStoreError(error)
     return state
 
 
@@ -569,6 +615,39 @@ CREATE TABLE IF NOT EXISTS runtime_outbox_lease_events (
 );
 CREATE INDEX IF NOT EXISTS runtime_outbox_lease_events_effect
     ON runtime_outbox_lease_events(effect_id, event_sequence);
+CREATE TABLE IF NOT EXISTS runtime_checkpoints (
+    run_id TEXT NOT NULL REFERENCES runtime_runs(run_id),
+    checkpoint_id TEXT NOT NULL,
+    schema_version INTEGER NOT NULL CHECK (schema_version = 1),
+    runtime_schema_version INTEGER NOT NULL CHECK (runtime_schema_version = 2),
+    event_sequence INTEGER NOT NULL CHECK (event_sequence > 0),
+    event_hash TEXT NOT NULL,
+    workflow_id TEXT NOT NULL,
+    definition_version TEXT NOT NULL,
+    policy_revision TEXT NOT NULL,
+    state_json TEXT NOT NULL,
+    state_digest TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (run_id, checkpoint_id),
+    UNIQUE (run_id, event_sequence, event_hash)
+);
+CREATE INDEX IF NOT EXISTS runtime_checkpoints_run_sequence
+    ON runtime_checkpoints(run_id, event_sequence DESC, checkpoint_id);
+CREATE TABLE IF NOT EXISTS runtime_migrations (
+    migration_id TEXT PRIMARY KEY,
+    schema_version INTEGER NOT NULL CHECK (schema_version = 1),
+    source_version INTEGER NOT NULL,
+    target_version INTEGER NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('started', 'applied', 'failed')),
+    preconditions_json TEXT NOT NULL,
+    rollback_instructions TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    completed_at TEXT,
+    result_digest TEXT,
+    error_ref TEXT
+);
+CREATE INDEX IF NOT EXISTS runtime_migrations_status
+    ON runtime_migrations(status, target_version, migration_id);
 CREATE TABLE IF NOT EXISTS runtime_inbox (
     idempotency_key TEXT PRIMARY KEY,
     effect_id TEXT NOT NULL UNIQUE REFERENCES runtime_outbox(effect_id),
@@ -584,8 +663,9 @@ CREATE INDEX IF NOT EXISTS runtime_inbox_effect
 class RuntimeStore:
     """SQLite/WAL event store with serialized writers and deterministic replay."""
 
-    def __init__(self, path: Path, *, timeout: float = 5.0) -> None:
+    def __init__(self, path: Path, *, timeout: float = 5.0, auto_migrate: bool = False) -> None:
         self.path = Path(path)
+        self.auto_migrate = auto_migrate
         if str(self.path) != ":memory:":
             self.path.parent.mkdir(parents=True, exist_ok=True)
         self.connection = sqlite3.connect(self.path, timeout=timeout, isolation_level=None)
@@ -600,13 +680,23 @@ class RuntimeStore:
         self._ensure_effect_columns()
         row = self.connection.execute("SELECT value FROM runtime_meta WHERE key = 'schema_version'").fetchone()
         if row is None:
+            self.database_schema_version = DATABASE_SCHEMA_VERSION
             self.connection.execute(
                 "INSERT INTO runtime_meta(key, value) VALUES ('schema_version', ?)",
-                (str(SCHEMA_VERSION),),
+                (str(DATABASE_SCHEMA_VERSION),),
             )
-        elif row["value"] != str(SCHEMA_VERSION):
-            self.close()
-            raise RuntimeStoreError(f"unsupported runtime database schema: {row['value']}")
+        else:
+            try:
+                self.database_schema_version = int(row["value"])
+            except (TypeError, ValueError) as exc:
+                self.close()
+                raise RuntimeStoreError(f"invalid runtime database schema: {row['value']}") from exc
+            if self.database_schema_version > DATABASE_SCHEMA_VERSION:
+                self.close()
+                raise RuntimeStoreError(
+                    f"unsupported runtime database schema: {self.database_schema_version}; "
+                    f"latest supported version is {DATABASE_SCHEMA_VERSION}"
+                )
         effect_row = self.connection.execute(
             "SELECT value FROM runtime_meta WHERE key = 'effects_schema_version'"
         ).fetchone()
@@ -618,9 +708,18 @@ class RuntimeStore:
         elif effect_row["value"] != str(EFFECT_SCHEMA_VERSION):
             self.close()
             raise RuntimeStoreError(f"unsupported runtime effects schema: {effect_row['value']}")
+        if self.database_schema_version < DATABASE_SCHEMA_VERSION and self.auto_migrate:
+            self.migrate()
 
     def close(self) -> None:
         self.connection.close()
+
+    def _require_database_schema(self) -> None:
+        if self.database_schema_version != DATABASE_SCHEMA_VERSION:
+            raise RuntimeStoreError(
+                f"runtime database schema {self.database_schema_version} requires migration; "
+                "run `python3 scripts/forge-runtime.py migrate` with a verified backup"
+            )
 
     def _ensure_effect_columns(self) -> None:
         """Add lease controls to databases created before heartbeat support."""
@@ -661,6 +760,178 @@ class RuntimeStore:
             "WHERE lease_generation = 0",
         )
 
+    @staticmethod
+    def _row_migration(row: sqlite3.Row) -> dict[str, Any]:
+        if row["schema_version"] != MIGRATION_SCHEMA_VERSION:
+            raise RuntimeStoreError(f"unsupported migration evidence schema: {row['schema_version']}")
+        if row["status"] not in MIGRATION_STATUSES:
+            raise RuntimeStoreError(f"unsupported migration status: {row['status']}")
+        return {
+            "schema_version": row["schema_version"],
+            "migration_id": row["migration_id"],
+            "source_version": row["source_version"],
+            "target_version": row["target_version"],
+            "status": row["status"],
+            "preconditions": json.loads(row["preconditions_json"]),
+            "rollback_instructions": row["rollback_instructions"],
+            "started_at": row["started_at"],
+            "completed_at": row["completed_at"],
+            "result_digest": row["result_digest"],
+            "error_ref": row["error_ref"],
+        }
+
+    def _history_result_digest(self) -> str:
+        materials: list[dict[str, Any]] = []
+        rows = self.connection.execute(
+            "SELECT run_id, workflow_id, definition_version, policy_revision, started_at "
+            "FROM runtime_runs ORDER BY run_id"
+        ).fetchall()
+        for row in rows:
+            run = dict(row)
+            events = self._events(run["run_id"], require_ready=False)
+            state = replay(run, events)
+            materials.append(
+                {
+                    "run_id": run["run_id"],
+                    "sequence": state["sequence"],
+                    "event_hash": events[-1]["event_hash"] if events else GENESIS_HASH,
+                    "state_digest": _digest(state),
+                }
+            )
+        return _digest(materials)
+
+    def _migration_plan(self, source_version: int) -> dict[str, Any]:
+        plan = MIGRATION_REGISTRY.get(source_version)
+        if plan is None:
+            raise RuntimeStoreError(
+                f"no reviewed migration from runtime database schema {source_version} "
+                f"to {DATABASE_SCHEMA_VERSION}; restore a compatible backup"
+            )
+        return plan
+
+    def migration_status(self) -> dict[str, Any]:
+        current = self.database_schema_version
+        pending: list[dict[str, Any]] = []
+        cursor = current
+        while cursor < DATABASE_SCHEMA_VERSION:
+            plan = self._migration_plan(cursor)
+            evidence_row = self.connection.execute(
+                "SELECT * FROM runtime_migrations WHERE migration_id = ?",
+                (plan["migration_id"],),
+            ).fetchone()
+            evidence = self._row_migration(evidence_row) if evidence_row is not None else None
+            pending.append(
+                {
+                    "migration_id": plan["migration_id"],
+                    "source_version": plan["source_version"],
+                    "target_version": plan["target_version"],
+                    "preconditions": list(plan["preconditions"]),
+                    "rollback_instructions": plan["rollback_instructions"],
+                    "status": evidence["status"] if evidence is not None else "pending",
+                    "evidence": evidence,
+                }
+            )
+            cursor = plan["target_version"]
+        applied_rows = self.connection.execute(
+            "SELECT * FROM runtime_migrations ORDER BY target_version, migration_id"
+        ).fetchall()
+        return {
+            "schema_version": MIGRATION_SCHEMA_VERSION,
+            "current_version": current,
+            "target_version": DATABASE_SCHEMA_VERSION,
+            "requires_migration": current < DATABASE_SCHEMA_VERSION,
+            "pending": pending,
+            "applied": [self._row_migration(row) for row in applied_rows],
+        }
+
+    def migrate(self, *, target_version: int | None = None, dry_run: bool = False) -> dict[str, Any]:
+        target_version = DATABASE_SCHEMA_VERSION if target_version is None else target_version
+        if isinstance(target_version, bool) or not isinstance(target_version, int):
+            raise RuntimeStoreError("target_version must be an integer")
+        if target_version < self.database_schema_version or target_version > DATABASE_SCHEMA_VERSION:
+            raise RuntimeStoreError(
+                f"target_version must be between {self.database_schema_version} and {DATABASE_SCHEMA_VERSION}"
+            )
+        if dry_run:
+            result = self.migration_status()
+            result["dry_run"] = True
+            return result
+        while self.database_schema_version < target_version:
+            source_version = self.database_schema_version
+            plan = self._migration_plan(source_version)
+            started_at = utc_now()
+            with self._transaction(require_ready=False):
+                existing = self.connection.execute(
+                    "SELECT migration_id, status FROM runtime_migrations WHERE migration_id = ?",
+                    (plan["migration_id"],),
+                ).fetchone()
+                if existing is not None and existing["status"] == "applied":
+                    raise RuntimeStoreError(
+                        f"migration evidence is applied but runtime schema is still {source_version}: "
+                        f"{plan['migration_id']}"
+                    )
+                if existing is None:
+                    self.connection.execute(
+                        "INSERT INTO runtime_migrations(migration_id, schema_version, source_version, target_version, "
+                        "status, preconditions_json, rollback_instructions, started_at) VALUES (?, ?, ?, ?, 'started', ?, ?, ?)",
+                        (
+                            plan["migration_id"],
+                            MIGRATION_SCHEMA_VERSION,
+                            plan["source_version"],
+                            plan["target_version"],
+                            canonical_json(plan["preconditions"]),
+                            plan["rollback_instructions"],
+                            started_at,
+                        ),
+                    )
+                else:
+                    self.connection.execute(
+                        "UPDATE runtime_migrations SET status = 'started', started_at = ?, completed_at = NULL, "
+                        "result_digest = NULL, error_ref = NULL WHERE migration_id = ?",
+                        (started_at, plan["migration_id"]),
+                    )
+            try:
+                # Hold the writer lock through validation and promotion so a concurrent
+                # append cannot land between the history digest and schema update.
+                with self._transaction(require_ready=False):
+                    result_digest = self._history_result_digest()
+                    meta = self.connection.execute(
+                        "SELECT value FROM runtime_meta WHERE key = 'schema_version'"
+                    ).fetchone()
+                    try:
+                        current_version = int(meta["value"]) if meta is not None else None
+                    except (TypeError, ValueError) as exc:
+                        raise RuntimeStoreError("runtime schema version changed to an invalid value") from exc
+                    if current_version != source_version:
+                        raise RuntimeStoreError(
+                            f"runtime schema changed during migration {plan['migration_id']}; "
+                            "retry from a fresh connection"
+                        )
+                    completed_at = utc_now()
+                    self.connection.execute(
+                        "UPDATE runtime_meta SET value = ? WHERE key = 'schema_version'",
+                        (str(plan["target_version"]),),
+                    )
+                    self.connection.execute(
+                        "UPDATE runtime_migrations SET status = 'applied', completed_at = ?, result_digest = ?, "
+                        "error_ref = NULL WHERE migration_id = ?",
+                        (completed_at, result_digest, plan["migration_id"]),
+                    )
+            except (RuntimeStoreError, TypeError, ValueError, sqlite3.Error) as exc:
+                error_ref = _error_ref(exc)
+                with self._transaction(require_ready=False):
+                    self.connection.execute(
+                        "UPDATE runtime_migrations SET status = 'failed', completed_at = ?, error_ref = ? "
+                        "WHERE migration_id = ?",
+                        (utc_now(), error_ref, plan["migration_id"]),
+                    )
+                raise RuntimeStoreError(
+                    f"migration {plan['migration_id']} rejected by precondition: {exc}; "
+                    f"restore a verified backup or repair history before retrying ({error_ref})"
+                ) from exc
+            self.database_schema_version = plan["target_version"]
+        return self.migration_status()
+
     def __enter__(self) -> Self:
         return self
 
@@ -668,7 +939,9 @@ class RuntimeStore:
         self.close()
 
     @contextlib.contextmanager
-    def _transaction(self) -> Iterator[None]:
+    def _transaction(self, *, require_ready: bool = True) -> Iterator[None]:
+        if require_ready:
+            self._require_database_schema()
         self.connection.execute("BEGIN IMMEDIATE")
         try:
             yield
@@ -678,7 +951,21 @@ class RuntimeStore:
         else:
             self.connection.commit()
 
-    def _run(self, run_id: str) -> dict[str, Any]:
+    @contextlib.contextmanager
+    def _read_transaction(self) -> Iterator[None]:
+        self._require_database_schema()
+        self.connection.execute("BEGIN")
+        try:
+            yield
+        except Exception:
+            self.connection.rollback()
+            raise
+        else:
+            self.connection.commit()
+
+    def _run(self, run_id: str, *, require_ready: bool = True) -> dict[str, Any]:
+        if require_ready:
+            self._require_database_schema()
         row = self.connection.execute(
             "SELECT run_id, workflow_id, definition_version, policy_revision, started_at "
             "FROM runtime_runs WHERE run_id = ?",
@@ -688,16 +975,34 @@ class RuntimeStore:
             raise RuntimeStoreError(f"unknown run: {run_id}")
         return dict(row)
 
-    def _events(self, run_id: str) -> list[dict[str, Any]]:
-        rows = self.connection.execute(
+    def _events(self, run_id: str, *, require_ready: bool = True) -> list[dict[str, Any]]:
+        if require_ready:
+            self._require_database_schema()
+        rows = self._event_rows(run_id)
+        return [self._row_event(row) for row in rows]
+
+    def _event_rows(self, run_id: str) -> list[sqlite3.Row]:
+        return self.connection.execute(
             "SELECT run_id, sequence, event_id, event_type, idempotency_key, occurred_at, "
             "payload_json, previous_hash, event_hash FROM runtime_events "
             "WHERE run_id = ? ORDER BY sequence",
             (run_id,),
         ).fetchall()
+
+    def _events_for_restore(self, run_id: str) -> list[dict[str, Any]]:
+        self._require_database_schema()
         events: list[dict[str, Any]] = []
-        for row in rows:
-            events.append(self._row_event(row))
+        for row in self._event_rows(run_id):
+            try:
+                events.append(self._row_event(row))
+            except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                events.append(
+                    {
+                        "_decode_error": str(exc),
+                        "sequence": row["sequence"],
+                        "event_id": row["event_id"],
+                    }
+                )
         return events
 
     def _append_locked(
@@ -893,6 +1198,38 @@ class RuntimeStore:
             "lease_expires_at": row["lease_expires_at"],
             "lease_deadline_at": row["lease_deadline_at"],
             "details": details,
+        }
+
+    @staticmethod
+    def _row_checkpoint(row: sqlite3.Row) -> dict[str, Any]:
+        if row["schema_version"] != CHECKPOINT_SCHEMA_VERSION:
+            raise RuntimeStoreError(f"unsupported checkpoint schema: {row['schema_version']}")
+        if row["runtime_schema_version"] != DATABASE_SCHEMA_VERSION:
+            raise RuntimeStoreError(
+                f"checkpoint {row['checkpoint_id']} targets unsupported runtime schema "
+                f"{row['runtime_schema_version']}"
+            )
+        if not HASH_RE.fullmatch(str(row["event_hash"])) or not HASH_RE.fullmatch(str(row["state_digest"])):
+            raise RuntimeStoreError(f"checkpoint hashes are invalid: {row['checkpoint_id']}")
+        state = json.loads(row["state_json"])
+        if not isinstance(state, dict):
+            raise RuntimeStoreError(f"checkpoint state must be an object: {row['checkpoint_id']}")
+        _payload(state, "checkpoint.state")
+        if _digest(state) != row["state_digest"]:
+            raise RuntimeStoreError(f"checkpoint state digest mismatch: {row['checkpoint_id']}")
+        return {
+            "schema_version": row["schema_version"],
+            "run_id": row["run_id"],
+            "checkpoint_id": row["checkpoint_id"],
+            "runtime_schema_version": row["runtime_schema_version"],
+            "event_sequence": row["event_sequence"],
+            "event_hash": row["event_hash"],
+            "workflow_id": row["workflow_id"],
+            "definition_version": row["definition_version"],
+            "policy_revision": row["policy_revision"],
+            "state": state,
+            "state_digest": row["state_digest"],
+            "created_at": row["created_at"],
         }
 
     @staticmethod
@@ -1142,7 +1479,193 @@ class RuntimeStore:
         replay(run, events)
         return events
 
+    def checkpoint_run(
+        self,
+        run_id: str,
+        *,
+        upto_sequence: int | None = None,
+        created_at: str | None = None,
+    ) -> dict[str, Any]:
+        """Persist a deterministic, hash-bound state snapshot at an event boundary."""
+
+        run_id = _identifier(run_id, "run_id")
+        if upto_sequence is not None:
+            _positive_int(upto_sequence, "upto_sequence")
+        created_at = _utc_timestamp(created_at or utc_now())
+        with self._transaction():
+            run = self._run(run_id)
+            events = self._events(run_id)
+            replay(run, events)
+            sequence = len(events) if upto_sequence is None else upto_sequence
+            if sequence < 1:
+                raise RuntimeStoreError("cannot checkpoint an empty run history")
+            if sequence > len(events):
+                raise RuntimeStoreError(
+                    f"checkpoint sequence {sequence} is beyond verified history head {len(events)}"
+                )
+            checkpoint_event = events[sequence - 1]
+            state = _payload(replay(run, events[:sequence]), "checkpoint.state")
+            state_digest = _digest(state)
+            checkpoint_id = str(
+                uuid.uuid5(
+                    uuid.NAMESPACE_URL,
+                    "forge-checkpoint:" + canonical_json(
+                        {
+                            "run_id": run_id,
+                            "event_sequence": sequence,
+                            "event_hash": checkpoint_event["event_hash"],
+                            "state_digest": state_digest,
+                            "definition_version": run["definition_version"],
+                            "policy_revision": run["policy_revision"],
+                        }
+                    ),
+                )
+            )
+            existing = self.connection.execute(
+                "SELECT * FROM runtime_checkpoints WHERE run_id = ? AND checkpoint_id = ?",
+                (run_id, checkpoint_id),
+            ).fetchone()
+            if existing is not None:
+                checkpoint = self._row_checkpoint(existing)
+                if checkpoint["state_digest"] != state_digest or checkpoint["event_hash"] != checkpoint_event["event_hash"]:
+                    raise RuntimeStoreError(f"conflicting checkpoint identity: {checkpoint_id}")
+                return checkpoint
+            try:
+                self.connection.execute(
+                    "INSERT INTO runtime_checkpoints(run_id, checkpoint_id, schema_version, runtime_schema_version, "
+                    "event_sequence, event_hash, workflow_id, definition_version, policy_revision, state_json, "
+                    "state_digest, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        run_id,
+                        checkpoint_id,
+                        CHECKPOINT_SCHEMA_VERSION,
+                        DATABASE_SCHEMA_VERSION,
+                        sequence,
+                        checkpoint_event["event_hash"],
+                        run["workflow_id"],
+                        run["definition_version"],
+                        run["policy_revision"],
+                        canonical_json(state),
+                        state_digest,
+                        created_at,
+                    ),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise RuntimeStoreError(f"checkpoint identity already exists: {checkpoint_id}") from exc
+            return self._row_checkpoint(
+                self.connection.execute(
+                    "SELECT * FROM runtime_checkpoints WHERE run_id = ? AND checkpoint_id = ?",
+                    (run_id, checkpoint_id),
+                ).fetchone()
+            )
+
+    def list_checkpoints(self, run_id: str) -> list[dict[str, Any]]:
+        run_id = _identifier(run_id, "run_id")
+        self._run(run_id)
+        rows = self.connection.execute(
+            "SELECT * FROM runtime_checkpoints WHERE run_id = ? ORDER BY event_sequence DESC, checkpoint_id",
+            (run_id,),
+        ).fetchall()
+        return [self._row_checkpoint(row) for row in rows]
+
+    def _validate_checkpoint_candidate(
+        self,
+        row: sqlite3.Row,
+        run: Mapping[str, Any],
+        events: list[Mapping[str, Any]],
+        valid_sequence: int,
+    ) -> dict[str, Any]:
+        checkpoint = self._row_checkpoint(row)
+        if checkpoint["run_id"] != run["run_id"]:
+            raise RuntimeStoreError("checkpoint run_id does not match its stream")
+        if any(
+            checkpoint[field] != run[field]
+            for field in ("workflow_id", "definition_version", "policy_revision")
+        ):
+            raise RuntimeStoreError(f"checkpoint metadata is incompatible with run {run['run_id']}")
+        sequence = checkpoint["event_sequence"]
+        if sequence < 1 or sequence > valid_sequence or sequence > len(events):
+            raise RuntimeStoreError(f"checkpoint sequence is outside the verified history: {sequence}")
+        event = events[sequence - 1]
+        if event.get("sequence") != sequence or event.get("event_hash") != checkpoint["event_hash"]:
+            raise RuntimeStoreError(f"checkpoint event head does not match history at sequence {sequence}")
+        prefix_state = replay(run, list(events[:sequence]))
+        if checkpoint["state"] != prefix_state or checkpoint["state_digest"] != _digest(prefix_state):
+            raise RuntimeStoreError(f"checkpoint state digest mismatch: {checkpoint['checkpoint_id']}")
+        return checkpoint
+
+    def restore_state(self, run_id: str, checkpoint_id: str | None = None) -> dict[str, Any]:
+        with self._read_transaction():
+            return self._restore_state(run_id, checkpoint_id)
+
+    def _restore_state(self, run_id: str, checkpoint_id: str | None = None) -> dict[str, Any]:
+        """Restore from the newest valid checkpoint and replay only a verified suffix."""
+
+        run_id = _identifier(run_id, "run_id")
+        checkpoint_id = _text(checkpoint_id, "checkpoint_id") if checkpoint_id is not None else None
+        run = self._run(run_id)
+        events = self._events_for_restore(run_id)
+        prefix_state, valid_sequence, history_error = _replay_prefix(run, events)
+        if checkpoint_id is None:
+            rows = self.connection.execute(
+                "SELECT * FROM runtime_checkpoints WHERE run_id = ? ORDER BY event_sequence DESC, checkpoint_id",
+                (run_id,),
+            ).fetchall()
+        else:
+            rows = self.connection.execute(
+                "SELECT * FROM runtime_checkpoints WHERE run_id = ? AND checkpoint_id = ?",
+                (run_id, checkpoint_id),
+            ).fetchall()
+            if not rows:
+                raise RuntimeStoreError(f"unknown checkpoint: {checkpoint_id}")
+        invalid_reasons: list[str] = []
+        selected: dict[str, Any] | None = None
+        for row in rows:
+            try:
+                selected = self._validate_checkpoint_candidate(row, run, events, valid_sequence)
+                break
+            except (RuntimeStoreError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                reason = f"{row['checkpoint_id']}: {exc}"
+                invalid_reasons.append(reason)
+                if checkpoint_id is not None:
+                    raise RuntimeStoreError(
+                        f"checkpoint {checkpoint_id} is invalid; restore from a verified history prefix "
+                        f"or migrate the checkpoint ({_error_ref(reason)})"
+                    ) from exc
+        if selected is None:
+            state = prefix_state
+            checkpoint_sequence = 0
+            used_checkpoint_id = None
+        else:
+            state = selected["state"]
+            checkpoint_sequence = selected["event_sequence"]
+            used_checkpoint_id = selected["checkpoint_id"]
+            for event in events[checkpoint_sequence:valid_sequence]:
+                try:
+                    state = apply_event(state, event)
+                except (RuntimeStoreError, KeyError, TypeError, ValueError) as exc:
+                    invalid_reasons.append(f"suffix sequence {event.get('sequence')}: {exc}")
+                    break
+        recovery_reasons = invalid_reasons[:]
+        if history_error is not None:
+            recovery_reasons.insert(0, history_error)
+        recovery_error_ref = _error_ref("; ".join(recovery_reasons)) if recovery_reasons else None
+        return {
+            "schema_version": CHECKPOINT_SCHEMA_VERSION,
+            "run_id": run_id,
+            "checkpoint_id": used_checkpoint_id,
+            "checkpoint_sequence": checkpoint_sequence,
+            "replayed_sequence": state["sequence"],
+            "history_sequence": len(events),
+            "history_head_hash": events[valid_sequence - 1]["event_hash"] if valid_sequence else GENESIS_HASH,
+            "state": state,
+            "state_digest": _digest(state),
+            "recovered": bool(recovery_reasons),
+            "recovery_error_ref": recovery_error_ref,
+        }
+
     def list_outbox(self, run_id: str | None = None, status: str | None = None) -> list[dict[str, Any]]:
+        self._require_database_schema()
         conditions = []
         parameters: list[Any] = []
         if run_id is not None:
@@ -1162,6 +1685,7 @@ class RuntimeStore:
         return [self._row_outbox(row) for row in rows]
 
     def list_inbox(self, run_id: str | None = None) -> list[dict[str, Any]]:
+        self._require_database_schema()
         parameters: list[Any] = []
         where = ""
         if run_id is not None:
@@ -1531,6 +2055,7 @@ class RuntimeStore:
             return self._row_outbox(self._outbox_locked(effect_id))
 
     def list_runs(self) -> list[dict[str, Any]]:
+        self._require_database_schema()
         rows = self.connection.execute(
             "SELECT run_id, workflow_id, definition_version, policy_revision, started_at "
             "FROM runtime_runs ORDER BY started_at, run_id"
@@ -1576,6 +2101,20 @@ def _parser() -> argparse.ArgumentParser:
     for name in ("state", "history", "verify"):
         command = sub.add_parser(name, help=f"{name} a run")
         command.add_argument("--run-id", required=True)
+    checkpoint = sub.add_parser("checkpoint", help="persist a deterministic verified run checkpoint")
+    checkpoint.add_argument("--run-id", required=True)
+    checkpoint.add_argument("--upto-sequence", type=int)
+    checkpoint.add_argument("--created-at")
+    checkpoints = sub.add_parser("checkpoints", help="list verified run checkpoints")
+    checkpoints.add_argument("--run-id", required=True)
+    restore = sub.add_parser("restore", help="restore from the newest valid checkpoint and event suffix")
+    restore.add_argument("--run-id", required=True)
+    restore.add_argument("--checkpoint-id")
+    migrations = sub.add_parser("migrations", help="show the reviewed database migration registry")
+    migrations.add_argument("--dry-run", action="store_true", help="show pending work without applying it")
+    migrate = sub.add_parser("migrate", help="apply reviewed database migrations")
+    migrate.add_argument("--target-version", type=int)
+    migrate.add_argument("--dry-run", action="store_true", help="show pending work without applying it")
     outbox = sub.add_parser("outbox", help="list durable external-effect intents")
     outbox.add_argument("--run-id")
     outbox.add_argument("--status", choices=sorted(EFFECT_STATUSES))
@@ -1593,7 +2132,7 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     store: RuntimeStore | None = None
     try:
-        store = RuntimeStore(args.db)
+        store = RuntimeStore(args.db, auto_migrate=False)
         if args.command == "start":
             result = store.start_run(
                 args.run_id,
@@ -1618,6 +2157,21 @@ def main(argv: list[str] | None = None) -> int:
             result = store.history(args.run_id)
         elif args.command == "verify":
             result = {"run_id": args.run_id, "state": store.state(args.run_id), "verified": True}
+        elif args.command == "checkpoint":
+            result = store.checkpoint_run(
+                args.run_id,
+                upto_sequence=args.upto_sequence,
+                created_at=args.created_at,
+            )
+        elif args.command == "checkpoints":
+            result = store.list_checkpoints(args.run_id)
+        elif args.command == "restore":
+            result = store.restore_state(args.run_id, args.checkpoint_id)
+        elif args.command == "migrations":
+            result = store.migration_status()
+            result["dry_run"] = args.dry_run
+        elif args.command == "migrate":
+            result = store.migrate(target_version=args.target_version, dry_run=args.dry_run)
         elif args.command == "outbox":
             result = store.list_outbox(args.run_id, args.status)
         elif args.command == "inbox":

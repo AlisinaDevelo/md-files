@@ -9,7 +9,7 @@ workflows, and telemetry remain adapters or evidence surfaces.
 ## Baseline
 
 - The merged transactional effect boundary from #53 is the baseline; the generation-fenced
-  heartbeat slice in #54 is now implemented on top of it.
+  heartbeat slice in #54 and checkpoint recovery slice in #55 are now implemented on top of it.
 - The local SQLite/WAL runtime has hash-chained events, deterministic replay, bounded
   lifecycle transitions, an atomic event-plus-outbox write, leases, retries, dead letters,
   inbox dedupe, and reference-only payload checks.
@@ -32,19 +32,22 @@ workflows, and telemetry remain adapters or evidence surfaces.
 
 ## Release sequence
 
-### Completed runtime slice
+### Completed runtime slices
 
 1. [#54 Heartbeats and stale-worker fencing](https://github.com/AlisinaDevelo/md-files/issues/54)
+   This slice closes the zombie-worker gap in the existing outbox lease protocol with crash and
+   race tests, schemas, CLI inspection, generation fencing, and policy-pinned timeout evidence.
 
-This slice closes the zombie-worker gap in the existing outbox lease protocol with crash and
-race tests, schemas, CLI inspection, generation fencing, and policy-pinned timeout evidence.
+2. [#55 Checkpointed recovery and migrations](https://github.com/AlisinaDevelo/md-files/issues/55)
+   This slice binds reducer checkpoints to verified event heads, replays only validated suffixes,
+   recovers from corrupt prefixes with privacy-safe references, and applies reviewed additive
+   migrations with resumable evidence.
 
 ### Next runtime slices
 
-1. [#55 Checkpointed recovery and migrations](https://github.com/AlisinaDevelo/md-files/issues/55)
-2. [#56 Verifiable execution lineage and receipt integrity](https://github.com/AlisinaDevelo/md-files/issues/56)
-3. [#57 Human-input waits, signals, and cancellation](https://github.com/AlisinaDevelo/md-files/issues/57)
-4. [#58 Portable backend adapter and conformance](https://github.com/AlisinaDevelo/md-files/issues/58)
+1. [#56 Verifiable execution lineage and receipt integrity](https://github.com/AlisinaDevelo/md-files/issues/56)
+2. [#57 Human-input waits, signals, and cancellation](https://github.com/AlisinaDevelo/md-files/issues/57)
+3. [#58 Portable backend adapter and conformance](https://github.com/AlisinaDevelo/md-files/issues/58)
 
 These issues are the minimum credible v4 runtime contract. They are intentionally separate:
 recovery, evidence, interaction, and backend portability have different failure modes and

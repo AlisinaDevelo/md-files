@@ -18,3 +18,4 @@
 | 0014 | Add transactional runtime outbox and inbox effects | done | concurrency-engineer | sonnet | 0013 |
 | 0015 | Research and refresh the durable runtime roadmap | done | architect | opus | 0014 |
 | 0016 | Add generation-fenced worker heartbeats and recovery | done | concurrency-engineer | sonnet | 0014, 0015 |
+| 0017 | Add checkpointed recovery and fail-closed migrations | done | migration-specialist | sonnet | 0015, 0016 |

@@ -14,6 +14,9 @@ All notable changes to this project are documented here. The format is based on
 - **Generation-fenced worker leases** - added bounded heartbeats, monotonic lease generations,
   stale-worker rejection before acknowledgement or provider submission, pinned lease policy
   revisions, and inspectable lease-loss evidence.
+- **Checkpointed runtime recovery** - added hash-bound state checkpoints, verified suffix replay,
+  corrupt-history recovery reports, and a reviewed migration registry with dry-run and resumable
+  fail-closed upgrades.
 
 ## [3.6.0] — 2026-08-03
 

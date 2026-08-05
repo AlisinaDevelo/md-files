@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/migrations/v1",
+  "title": "Forge Runtime Migration Status",
+  "description": "Reviewed database migration plans and append-only upgrade evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "current_version", "target_version", "requires_migration", "pending", "applied"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "current_version": {"type": "integer", "minimum": 1},
+    "target_version": {"type": "integer", "minimum": 1},
+    "requires_migration": {"type": "boolean"},
+    "dry_run": {"type": "boolean"},
+    "pending": {"type": "array", "items": {"type": "object"}},
+    "applied": {"type": "array", "items": {"type": "object"}}
+  }
+}

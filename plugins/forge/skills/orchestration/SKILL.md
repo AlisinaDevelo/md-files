@@ -68,7 +68,11 @@ monotonic generation; heartbeat, provider submission authorization, acknowledgem
 failure must present the current worker plus generation. Delivery is at-least-once; the
 adapter must make the provider operation idempotent, and durable history never claims
 exactly-once provider execution. Inspect lease evidence with the runtime `lease-events`
-command when diagnosing stale workers or reclaim races.
+command when diagnosing stale workers or reclaim races. At verified workflow boundaries,
+persist a checkpoint and use `restore` to validate it and replay only the verified event
+suffix. Treat unknown runtime, workflow, definition, policy, or checkpoint revisions as
+migration errors; inspect with `migrations --dry-run` and preserve a verified backup before
+applying a reviewed migration.
 
 ## How to delegate well (this makes or breaks it)
 

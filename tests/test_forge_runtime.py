@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sqlite3
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -90,6 +91,181 @@ def test_lifecycle_and_task_state_replay_after_reopen(tmp_path):
         assert reopened.state("run-1") == expected
         history = reopened.history("run-1")
         assert history[-1]["previous_hash"] == history[-2]["event_hash"]
+
+
+def test_checkpoint_plus_suffix_matches_full_replay_and_is_idempotent(tmp_path):
+    module = load_module()
+    database = tmp_path / "runtime.sqlite3"
+    store = start(module, database)
+    store.append_event(
+        "run-1",
+        "task.scheduled",
+        {"task_id": "build", "depends_on": []},
+        idempotency_key="task-build-scheduled",
+        effect=make_effect(),
+        occurred_at="2026-08-04T08:03:00Z",
+    )
+    store.append_event(
+        "run-1",
+        "task.scheduled",
+        {"task_id": "test", "depends_on": []},
+        idempotency_key="task-test-scheduled",
+        effect=make_effect(
+            task_id="test",
+            activity_id="github-test",
+            payload={"target_ref": "github:issues/2", "request_digest": "sha256:test-request"},
+        ),
+        occurred_at="2026-08-04T08:03:01Z",
+    )
+    store.append_event(
+        "run-1",
+        "task.started",
+        {"task_id": "build", "attempt": 1},
+        idempotency_key="task-build-started-1",
+        occurred_at="2026-08-04T08:04:00Z",
+    )
+    checkpoint = store.checkpoint_run("run-1", created_at="2026-08-04T08:04:01Z")
+    store.append_event(
+        "run-1",
+        "task.completed",
+        {"task_id": "build", "output_ref": "sha256:build"},
+        idempotency_key="task-build-completed",
+        occurred_at="2026-08-04T08:05:00Z",
+    )
+    store.append_event(
+        "run-1",
+        "task.started",
+        {"task_id": "test", "attempt": 1},
+        idempotency_key="task-test-started-1",
+        occurred_at="2026-08-04T08:05:01Z",
+    )
+    store.append_event(
+        "run-1",
+        "task.failed",
+        {"task_id": "test", "retryable": False, "error_ref": "sha256:test-failure"},
+        idempotency_key="task-test-failed-1",
+        occurred_at="2026-08-04T08:05:02Z",
+    )
+    store.append_event("run-1", "run.completed", idempotency_key="run-completed", occurred_at="2026-08-04T08:06:00Z")
+    full_state = store.state("run-1")
+    restored = store.restore_state("run-1")
+    assert restored["checkpoint_id"] == checkpoint["checkpoint_id"]
+    assert restored["checkpoint_sequence"] == checkpoint["event_sequence"]
+    assert restored["replayed_sequence"] == full_state["sequence"]
+    assert restored["state"] == full_state
+    assert restored["state_digest"] == module._digest(full_state)
+    assert restored["recovered"] is False
+    assert (
+        store.checkpoint_run(
+            "run-1",
+            upto_sequence=checkpoint["event_sequence"],
+            created_at="2026-08-04T09:00:00Z",
+        )
+        == checkpoint
+    )
+    assert len(store.list_checkpoints("run-1")) == 1
+    assert len(store.list_outbox("run-1")) == 2
+    retry = store.append_event(
+        "run-1",
+        "task.scheduled",
+        {"task_id": "build", "depends_on": []},
+        idempotency_key="task-build-scheduled",
+        effect=make_effect(),
+    )
+    assert retry["sequence"] == 2
+    assert len(store.list_outbox("run-1")) == 2
+
+
+def test_corrupt_checkpoint_and_suffix_recover_from_last_verified_prefix(tmp_path):
+    module = load_module()
+    database = tmp_path / "runtime.sqlite3"
+    store = start(module, database)
+    store.append_event(
+        "run-1",
+        "task.scheduled",
+        {"task_id": "build", "depends_on": []},
+        idempotency_key="task-build-scheduled",
+        occurred_at="2026-08-04T08:03:00Z",
+    )
+    store.append_event(
+        "run-1",
+        "task.started",
+        {"task_id": "build", "attempt": 1},
+        idempotency_key="task-build-started-1",
+        occurred_at="2026-08-04T08:04:00Z",
+    )
+    checkpoint = store.checkpoint_run("run-1", created_at="2026-08-04T08:04:01Z")
+    store.append_event(
+        "run-1",
+        "task.completed",
+        {"task_id": "build", "output_ref": "sha256:build"},
+        idempotency_key="task-build-completed",
+        occurred_at="2026-08-04T08:05:00Z",
+    )
+    connection = sqlite3.connect(database)
+    connection.execute(
+        "UPDATE runtime_checkpoints SET state_json = ? WHERE checkpoint_id = ?",
+        (json.dumps({"prompt": "must never persist"}), checkpoint["checkpoint_id"]),
+    )
+    connection.execute(
+        "UPDATE runtime_events SET event_hash = ? WHERE sequence = 4",
+        ("f" * 64,),
+    )
+    connection.commit()
+    connection.close()
+
+    with pytest.raises(module.RuntimeStoreError, match="event hash mismatch"):
+        store.state("run-1")
+    with pytest.raises(module.RuntimeStoreError, match="not allowed in durable state"):
+        store.list_checkpoints("run-1")
+    restored = store.restore_state("run-1")
+    assert restored["checkpoint_id"] is None
+    assert restored["replayed_sequence"] == 3
+    assert restored["history_sequence"] == 4
+    assert restored["state"]["tasks"]["build"]["status"] == "started"
+    assert restored["recovered"] is True
+    assert restored["recovery_error_ref"].startswith("sha256:")
+    with pytest.raises(module.RuntimeStoreError, match="checkpoint .* is invalid"):
+        store.restore_state("run-1", checkpoint["checkpoint_id"])
+
+
+def test_migration_registry_supports_dry_run_rejection_resume_and_repeat(tmp_path):
+    module = load_module()
+    database = tmp_path / "runtime.sqlite3"
+    store = start(module, database)
+    store.append_event("run-1", "run.paused", idempotency_key="pause-1", occurred_at="2026-08-04T08:01:00Z")
+    store.close()
+    connection = sqlite3.connect(database)
+    original_hash = connection.execute("SELECT event_hash FROM runtime_events WHERE sequence = 2").fetchone()[0]
+    connection.execute("UPDATE runtime_meta SET value = '1' WHERE key = 'schema_version'")
+    connection.execute("UPDATE runtime_events SET event_hash = ? WHERE sequence = 2", ("f" * 64,))
+    connection.commit()
+    connection.close()
+
+    legacy = module.RuntimeStore(database, auto_migrate=False)
+    assert legacy.migration_status()["requires_migration"] is True
+    assert legacy.migrate(dry_run=True)["dry_run"] is True
+    with pytest.raises(module.RuntimeStoreError, match="rejected by precondition"):
+        legacy.migrate()
+    failed = legacy.migration_status()
+    assert failed["pending"][0]["status"] == "failed"
+    connection = sqlite3.connect(database)
+    connection.execute("UPDATE runtime_events SET event_hash = ? WHERE sequence = 2", (original_hash,))
+    connection.execute(
+        "UPDATE runtime_migrations SET status = 'started', completed_at = NULL, error_ref = NULL "
+        "WHERE migration_id = ?",
+        (module.MIGRATION_REGISTRY[1]["migration_id"],),
+    )
+    connection.commit()
+    connection.close()
+    resumed = legacy.migrate()
+    assert resumed["current_version"] == module.DATABASE_SCHEMA_VERSION
+    assert resumed["applied"][0]["status"] == "applied"
+    assert legacy.state("run-1")["status"] == "paused"
+    assert legacy.migrate()["applied"][0]["status"] == "applied"
+    legacy.close()
+    with module.RuntimeStore(database, auto_migrate=False) as reopened:
+        assert reopened.state("run-1")["status"] == "paused"
 
 
 def test_idempotency_returns_original_and_conflicts_fail_closed(tmp_path):
