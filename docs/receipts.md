@@ -5,8 +5,9 @@ events that let a later task sync, policy engine, router, or runtime reconstruct
 happened without treating telemetry as conversation memory.
 
 Receipts are observability, not canonical execution state. Long-running runs use the
-local durable runtime contract in [`docs/runtime.md`](runtime.md); keep prompts, raw tool
-arguments/results, and credentials out of both stores.
+local durable runtime contract in [`docs/runtime.md`](runtime.md). External-effect delivery
+receipts are canonical in the runtime inbox, while this JSONL stream remains evidence; keep
+prompts, raw tool arguments/results, and credentials out of both stores.
 
 ## Local storage
 

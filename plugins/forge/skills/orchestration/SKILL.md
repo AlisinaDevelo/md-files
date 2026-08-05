@@ -60,8 +60,12 @@ its reducer rejects impossible transitions.
 Keep the boundaries distinct: `scripts/forge-receipts.py` is privacy-safe observability,
 `.forge/tasks/` is planning state, and the runtime database is execution state. Do not put
 prompts, raw tool arguments/results, credentials, or tokens in runtime payloads; persist
-references and digests instead. External effects still require a policy-approved outbox or
-inbox adapter, so durable history does not claim exactly-once provider execution.
+references and digests instead. Append an effect descriptor with the event that schedules an
+external operation when possible: the local runtime commits the event and outbox intent
+atomically, derives stable effect/provider idempotency identifiers, and records leases,
+attempts, retries, dead letters, and deduplicated inbox receipts. Delivery is at-least-once;
+the adapter must make the provider operation idempotent, and durable history never claims
+exactly-once provider execution.
 
 ## How to delegate well (this makes or breaks it)
 

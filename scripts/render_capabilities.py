@@ -276,6 +276,8 @@ def render_release_surface(repo: Path, graph: dict[str, Any], output: Path) -> d
         "data/host-adapter.schema.json",
         "data/runtime-events.schema.json",
         "data/runtime-state.schema.json",
+        "data/runtime-outbox.schema.json",
+        "data/runtime-inbox.schema.json",
     )
     common_manifest = {
         "schema_version": 1,

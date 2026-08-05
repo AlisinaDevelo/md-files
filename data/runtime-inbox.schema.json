@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/inbox/v1",
+  "title": "Forge Runtime Inbox Receipt",
+  "description": "A deduplicated, reference-only receipt for an external effect.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "idempotency_key", "effect_id", "run_id", "receipt", "received_at"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "idempotency_key": {"type": "string", "minLength": 1},
+    "effect_id": {"type": "string", "format": "uuid"},
+    "run_id": {"type": "string", "minLength": 1},
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {"enum": ["accepted", "succeeded"]},
+        "provider_request_id": {"type": "string", "minLength": 1},
+        "resource_ref": {"type": "string", "minLength": 1},
+        "result_ref": {"type": "string", "minLength": 1},
+        "result_digest": {"type": "string", "minLength": 1},
+        "error_ref": {"type": "string", "minLength": 1}
+      }
+    },
+    "received_at": {"type": "string", "format": "date-time"}
+  }
+}
