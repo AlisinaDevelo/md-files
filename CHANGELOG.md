@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- **Transactional runtime effects** - added a local SQLite/WAL outbox and inbox boundary
+  with deterministic effect identities, worker leases, retries, dead letters, reference-only
+  receipts, payload privacy checks, and explicit at-least-once delivery semantics.
+
 ## [3.6.0] — 2026-08-03
 
 ### Added

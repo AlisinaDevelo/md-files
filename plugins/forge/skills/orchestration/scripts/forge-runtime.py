@@ -12,7 +12,7 @@ import sqlite3
 import sys
 import uuid
 from collections.abc import Iterator, Mapping
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
@@ -23,6 +23,7 @@ except ImportError:  # pragma: no cover - Python 3.10 and earlier
     Self = Any
 
 SCHEMA_VERSION = 1
+EFFECT_SCHEMA_VERSION = 1
 GENESIS_HASH = "0" * 64
 IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/_-]{0,127}$")
 HASH_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -44,6 +45,7 @@ RUN_TERMINAL = {"completed", "failed", "cancelled"}
 TASK_TERMINAL = {"completed", "failed", "cancelled"}
 FORBIDDEN_PAYLOAD_KEYS = {
     "arguments",
+    "body",
     "content",
     "output",
     "password",
@@ -57,8 +59,15 @@ FORBIDDEN_PAYLOAD_KEYS = {
     "tool_input",
     "tool_output",
     "tool_result",
+    "provider_response",
+    "provider_response_body",
+    "response",
+    "response_body",
 }
 SENSITIVE_PAYLOAD_PARTS = {"authorization", "credential", "password", "prompt", "secret", "token"}
+EFFECT_STATUSES = {"pending", "leased", "retry", "succeeded", "dead_letter"}
+RECEIPT_STATUSES = {"accepted", "succeeded"}
+ATTEMPT_OUTCOMES = {"leased", "reclaimed", "succeeded", "retry", "dead_letter"}
 
 
 class RuntimeStoreError(ValueError):
@@ -97,12 +106,103 @@ def _timestamp(value: Any) -> str:
     return value
 
 
+def _utc_timestamp(value: Any) -> str:
+    parsed = datetime.fromisoformat(_timestamp(value).replace("Z", "+00:00"))
+    return parsed.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _after_seconds(value: str, seconds: int) -> str:
+    parsed = datetime.fromisoformat(_utc_timestamp(value).replace("Z", "+00:00"))
+    return (parsed + timedelta(seconds=seconds)).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _positive_int(value: Any, field: str, *, maximum: int | None = None) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise RuntimeStoreError(f"{field} must be a positive integer")
+    if maximum is not None and value > maximum:
+        raise RuntimeStoreError(f"{field} must be at most {maximum}")
+    return value
+
+
 def _payload(value: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(value, Mapping):
         raise RuntimeStoreError("payload must be a JSON object")
     normalized = json.loads(canonical_json(dict(value)))
     _validate_payload_keys(normalized)
     return normalized
+
+
+def _receipt(value: Mapping[str, Any]) -> dict[str, Any]:
+    normalized = _payload(value)
+    status = normalized.get("status")
+    if status not in RECEIPT_STATUSES:
+        expected = ", ".join(sorted(RECEIPT_STATUSES))
+        raise RuntimeStoreError(f"receipt.status must be one of: {expected}")
+    return normalized
+
+
+def _normalize_effect(run_id: str, value: Mapping[str, Any]) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise RuntimeStoreError("effect must be a JSON object")
+    allowed = {
+        "activity_id",
+        "attempt",
+        "effect_definition_revision",
+        "effect_type",
+        "payload",
+        "task_id",
+    }
+    unknown = sorted(str(key) for key in value if key not in allowed)
+    if unknown:
+        raise RuntimeStoreError("effect contains unsupported fields: " + ", ".join(unknown))
+    task_id = _identifier(value.get("task_id"), "effect.task_id")
+    activity_id = _identifier(value.get("activity_id"), "effect.activity_id")
+    effect_type = _identifier(value.get("effect_type"), "effect.effect_type")
+    effect_definition_revision = _text(
+        value.get("effect_definition_revision"), "effect.effect_definition_revision"
+    )
+    attempt = _positive_int(value.get("attempt"), "effect.attempt")
+    payload = _payload(value.get("payload", {}))
+    material = canonical_json(
+        {
+            "run_id": run_id,
+            "task_id": task_id,
+            "activity_id": activity_id,
+            "attempt": attempt,
+            "effect_definition_revision": effect_definition_revision,
+            "effect_type": effect_type,
+        }
+    )
+    effect_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"forge-effect:{material}"))
+    return {
+        "schema_version": EFFECT_SCHEMA_VERSION,
+        "run_id": run_id,
+        "effect_id": effect_id,
+        "idempotency_key": f"forge-effect:{effect_id}",
+        "effect_type": effect_type,
+        "task_id": task_id,
+        "activity_id": activity_id,
+        "activity_attempt": attempt,
+        "effect_definition_revision": effect_definition_revision,
+        "payload": payload,
+    }
+
+
+def _hash_outbox(effect: Mapping[str, Any], source_event_id: str) -> str:
+    material = {
+        "schema_version": effect["schema_version"],
+        "effect_id": effect["effect_id"],
+        "run_id": effect["run_id"],
+        "source_event_id": source_event_id,
+        "effect_type": effect["effect_type"],
+        "task_id": effect["task_id"],
+        "activity_id": effect["activity_id"],
+        "activity_attempt": effect["activity_attempt"],
+        "effect_definition_revision": effect["effect_definition_revision"],
+        "idempotency_key": effect["idempotency_key"],
+        "payload": effect["payload"],
+    }
+    return sha256(canonical_json(material).encode("utf-8")).hexdigest()
 
 
 def _validate_payload_keys(value: Any, path: str = "payload") -> None:
@@ -365,6 +465,55 @@ CREATE TABLE IF NOT EXISTS runtime_events (
 );
 CREATE INDEX IF NOT EXISTS runtime_events_run_sequence
     ON runtime_events(run_id, sequence);
+CREATE TABLE IF NOT EXISTS runtime_outbox (
+    effect_id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL REFERENCES runtime_runs(run_id),
+    source_event_id TEXT NOT NULL UNIQUE REFERENCES runtime_events(event_id),
+    schema_version INTEGER NOT NULL CHECK (schema_version = 1),
+    effect_type TEXT NOT NULL,
+    task_id TEXT NOT NULL,
+    activity_id TEXT NOT NULL,
+    activity_attempt INTEGER NOT NULL CHECK (activity_attempt > 0),
+    effect_definition_revision TEXT NOT NULL,
+    idempotency_key TEXT NOT NULL UNIQUE,
+    effect_hash TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending', 'leased', 'retry', 'succeeded', 'dead_letter')),
+    available_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    delivery_attempts INTEGER NOT NULL DEFAULT 0 CHECK (delivery_attempts >= 0),
+    last_attempt_at TEXT,
+    lease_owner TEXT,
+    lease_expires_at TEXT,
+    last_error_ref TEXT
+);
+CREATE INDEX IF NOT EXISTS runtime_outbox_ready
+    ON runtime_outbox(status, available_at, effect_id);
+CREATE INDEX IF NOT EXISTS runtime_outbox_run
+    ON runtime_outbox(run_id, created_at, effect_id);
+CREATE TABLE IF NOT EXISTS runtime_outbox_attempts (
+    effect_id TEXT NOT NULL REFERENCES runtime_outbox(effect_id),
+    attempt INTEGER NOT NULL CHECK (attempt > 0),
+    schema_version INTEGER NOT NULL CHECK (schema_version = 1),
+    worker_id TEXT NOT NULL,
+    claimed_at TEXT NOT NULL,
+    finished_at TEXT,
+    outcome TEXT NOT NULL CHECK (outcome IN ('leased', 'reclaimed', 'succeeded', 'retry', 'dead_letter')),
+    error_ref TEXT,
+    PRIMARY KEY (effect_id, attempt)
+);
+CREATE INDEX IF NOT EXISTS runtime_outbox_attempts_effect
+    ON runtime_outbox_attempts(effect_id, attempt);
+CREATE TABLE IF NOT EXISTS runtime_inbox (
+    idempotency_key TEXT PRIMARY KEY,
+    effect_id TEXT NOT NULL UNIQUE REFERENCES runtime_outbox(effect_id),
+    schema_version INTEGER NOT NULL CHECK (schema_version = 1),
+    receipt_json TEXT NOT NULL,
+    received_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS runtime_inbox_effect
+    ON runtime_inbox(effect_id);
 """
 
 
@@ -393,6 +542,17 @@ class RuntimeStore:
         elif row["value"] != str(SCHEMA_VERSION):
             self.close()
             raise RuntimeStoreError(f"unsupported runtime database schema: {row['value']}")
+        effect_row = self.connection.execute(
+            "SELECT value FROM runtime_meta WHERE key = 'effects_schema_version'"
+        ).fetchone()
+        if effect_row is None:
+            self.connection.execute(
+                "INSERT INTO runtime_meta(key, value) VALUES ('effects_schema_version', ?)",
+                (str(EFFECT_SCHEMA_VERSION),),
+            )
+        elif effect_row["value"] != str(EFFECT_SCHEMA_VERSION):
+            self.close()
+            raise RuntimeStoreError(f"unsupported runtime effects schema: {effect_row['value']}")
 
     def close(self) -> None:
         self.connection.close()
@@ -443,18 +603,26 @@ class RuntimeStore:
         payload: Mapping[str, Any],
         idempotency_key: str,
         occurred_at: str,
+        effect: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
+        normalized_payload = _payload(payload)
         existing_row = self.connection.execute(
             "SELECT run_id, sequence, event_id, event_type, idempotency_key, occurred_at, "
             "payload_json, previous_hash, event_hash FROM runtime_events "
             "WHERE run_id = ? AND idempotency_key = ?",
             (run_id, idempotency_key),
         ).fetchone()
-        normalized_payload = _payload(payload)
         if existing_row is not None:
             existing = self._row_event(existing_row)
             if existing["event_type"] != event_type or existing["payload"] != normalized_payload:
                 raise RuntimeStoreError(f"idempotency key was reused with different event data: {idempotency_key}")
+            if effect is not None:
+                effect_row = self.connection.execute(
+                    "SELECT * FROM runtime_outbox WHERE source_event_id = ?",
+                    (existing["event_id"],),
+                ).fetchone()
+                if effect_row is None or not self._effect_matches(effect_row, effect):
+                    raise RuntimeStoreError(f"effect intent is missing or conflicting: {effect['effect_id']}")
             replay(self._run(run_id), self._events(run_id))
             return existing
 
@@ -465,6 +633,8 @@ class RuntimeStore:
             raise RuntimeStoreError(f"unsupported event type: {event_type}")
         if event_type == "run.started" and events:
             raise RuntimeStoreError("run.started is only valid when creating a run")
+        if effect is not None and event_type.startswith("task.") and normalized_payload.get("task_id") != effect["task_id"]:
+            raise RuntimeStoreError("effect.task_id must match payload.task_id")
         sequence = len(events) + 1
         event: dict[str, Any] = {
             "schema_version": SCHEMA_VERSION,
@@ -495,6 +665,8 @@ class RuntimeStore:
                 event["event_hash"],
             ),
         )
+        if effect is not None:
+            self._insert_outbox_locked(event, effect)
         return event
 
     @staticmethod
@@ -511,6 +683,151 @@ class RuntimeStore:
             "previous_hash": row["previous_hash"],
             "event_hash": row["event_hash"],
         }
+
+    @staticmethod
+    def _row_outbox(row: sqlite3.Row) -> dict[str, Any]:
+        RuntimeStore._validate_outbox_row(row)
+        return {
+            "schema_version": row["schema_version"],
+            "effect_id": row["effect_id"],
+            "run_id": row["run_id"],
+            "source_event_id": row["source_event_id"],
+            "effect_type": row["effect_type"],
+            "task_id": row["task_id"],
+            "activity_id": row["activity_id"],
+            "activity_attempt": row["activity_attempt"],
+            "effect_definition_revision": row["effect_definition_revision"],
+            "idempotency_key": row["idempotency_key"],
+            "effect_hash": row["effect_hash"],
+            "payload": json.loads(row["payload_json"]),
+            "status": row["status"],
+            "available_at": row["available_at"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+            "delivery_attempts": row["delivery_attempts"],
+            "last_attempt_at": row["last_attempt_at"],
+            "lease_owner": row["lease_owner"],
+            "lease_expires_at": row["lease_expires_at"],
+            "last_error_ref": row["last_error_ref"],
+        }
+
+    @staticmethod
+    def _validate_outbox_row(row: sqlite3.Row) -> None:
+        if row["schema_version"] != EFFECT_SCHEMA_VERSION:
+            raise RuntimeStoreError(f"unsupported runtime effects schema: {row['schema_version']}")
+        effect = {
+            "schema_version": row["schema_version"],
+            "effect_id": row["effect_id"],
+            "run_id": row["run_id"],
+            "effect_type": row["effect_type"],
+            "task_id": row["task_id"],
+            "activity_id": row["activity_id"],
+            "activity_attempt": row["activity_attempt"],
+            "effect_definition_revision": row["effect_definition_revision"],
+            "idempotency_key": row["idempotency_key"],
+            "payload": json.loads(row["payload_json"]),
+        }
+        expected_hash = _hash_outbox(effect, row["source_event_id"])
+        if row["effect_hash"] != expected_hash:
+            raise RuntimeStoreError(f"outbox effect hash mismatch: {row['effect_id']}")
+
+    @staticmethod
+    def _row_attempt(row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "effect_id": row["effect_id"],
+            "attempt": row["attempt"],
+            "schema_version": row["schema_version"],
+            "worker_id": row["worker_id"],
+            "claimed_at": row["claimed_at"],
+            "finished_at": row["finished_at"],
+            "outcome": row["outcome"],
+            "error_ref": row["error_ref"],
+        }
+
+    @staticmethod
+    def _row_inbox(row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "schema_version": row["schema_version"],
+            "idempotency_key": row["idempotency_key"],
+            "effect_id": row["effect_id"],
+            "run_id": row["run_id"],
+            "receipt": json.loads(row["receipt_json"]),
+            "received_at": row["received_at"],
+        }
+
+    def _outbox_locked(self, effect_id: str) -> sqlite3.Row:
+        row = self.connection.execute(
+            "SELECT * FROM runtime_outbox WHERE effect_id = ?",
+            (effect_id,),
+        ).fetchone()
+        if row is None:
+            raise RuntimeStoreError(f"unknown effect: {effect_id}")
+        self._validate_outbox_row(row)
+        return row
+
+    def _inbox_for_effect_locked(self, effect_id: str) -> sqlite3.Row | None:
+        return self.connection.execute(
+            "SELECT i.*, o.run_id FROM runtime_inbox AS i "
+            "JOIN runtime_outbox AS o ON o.effect_id = i.effect_id "
+            "WHERE i.effect_id = ?",
+            (effect_id,),
+        ).fetchone()
+
+    @staticmethod
+    def _effect_matches(row: sqlite3.Row, effect: Mapping[str, Any]) -> bool:
+        for field in (
+            "effect_id",
+            "run_id",
+            "idempotency_key",
+            "effect_type",
+            "task_id",
+            "activity_id",
+            "effect_definition_revision",
+        ):
+            if row[field] != effect[field]:
+                return False
+        return row["activity_attempt"] == effect["activity_attempt"] and json.loads(
+            row["payload_json"]
+        ) == effect["payload"]
+
+    def _insert_outbox_locked(self, event: Mapping[str, Any], effect: Mapping[str, Any]) -> None:
+        existing = self.connection.execute(
+            "SELECT * FROM runtime_outbox WHERE effect_id = ? OR idempotency_key = ? "
+            "OR source_event_id = ?",
+            (effect["effect_id"], effect["idempotency_key"], event["event_id"]),
+        ).fetchone()
+        if existing is not None:
+            self._validate_outbox_row(existing)
+            if existing["source_event_id"] == event["event_id"] and self._effect_matches(existing, effect):
+                return
+            raise RuntimeStoreError(f"effect identity already exists: {effect['effect_id']}")
+        created_at = _utc_timestamp(event["occurred_at"])
+        try:
+            self.connection.execute(
+                "INSERT INTO runtime_outbox(effect_id, run_id, source_event_id, schema_version, "
+                "effect_type, task_id, activity_id, activity_attempt, effect_definition_revision, "
+                "idempotency_key, effect_hash, payload_json, status, available_at, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)",
+                (
+                    effect["effect_id"],
+                    effect["run_id"],
+                    event["event_id"],
+                    EFFECT_SCHEMA_VERSION,
+                    effect["effect_type"],
+                    effect["task_id"],
+                    effect["activity_id"],
+                    effect["activity_attempt"],
+                    effect["effect_definition_revision"],
+                    effect["idempotency_key"],
+                    _hash_outbox(effect, event["event_id"]),
+                    canonical_json(effect["payload"]),
+                    created_at,
+                    created_at,
+                    created_at,
+                ),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise RuntimeStoreError(f"effect identity already exists: {effect['effect_id']}") from exc
 
     def start_run(
         self,
@@ -572,10 +889,12 @@ class RuntimeStore:
         *,
         idempotency_key: str,
         occurred_at: str | None = None,
+        effect: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         run_id = _identifier(run_id, "run_id")
         if event_type == "run.started":
             raise RuntimeStoreError("use start_run for run.started")
+        normalized_effect = _normalize_effect(run_id, effect) if effect is not None else None
         with self._transaction():
             return self._append_locked(
                 run_id,
@@ -583,6 +902,7 @@ class RuntimeStore:
                 payload or {},
                 idempotency_key,
                 _timestamp(occurred_at or utc_now()),
+                normalized_effect,
             )
 
     def state(self, run_id: str) -> dict[str, Any]:
@@ -596,6 +916,221 @@ class RuntimeStore:
         events = self._events(run_id)
         replay(run, events)
         return events
+
+    def list_outbox(self, run_id: str | None = None, status: str | None = None) -> list[dict[str, Any]]:
+        conditions = []
+        parameters: list[Any] = []
+        if run_id is not None:
+            conditions.append("run_id = ?")
+            parameters.append(_identifier(run_id, "run_id"))
+        if status is not None:
+            if status not in EFFECT_STATUSES:
+                expected = ", ".join(sorted(EFFECT_STATUSES))
+                raise RuntimeStoreError(f"status must be one of: {expected}")
+            conditions.append("status = ?")
+            parameters.append(status)
+        where = " WHERE " + " AND ".join(conditions) if conditions else ""
+        rows = self.connection.execute(
+            f"SELECT * FROM runtime_outbox{where} ORDER BY created_at, effect_id",
+            parameters,
+        ).fetchall()
+        return [self._row_outbox(row) for row in rows]
+
+    def list_inbox(self, run_id: str | None = None) -> list[dict[str, Any]]:
+        parameters: list[Any] = []
+        where = ""
+        if run_id is not None:
+            where = " WHERE o.run_id = ?"
+            parameters.append(_identifier(run_id, "run_id"))
+        rows = self.connection.execute(
+            "SELECT i.*, o.run_id FROM runtime_inbox AS i "
+            "JOIN runtime_outbox AS o ON o.effect_id = i.effect_id"
+            f"{where} ORDER BY i.received_at, i.idempotency_key",
+            parameters,
+        ).fetchall()
+        results = []
+        for row in rows:
+            self._outbox_locked(row["effect_id"])
+            results.append(self._row_inbox(row))
+        return results
+
+    def outbox_attempts(self, effect_id: str) -> list[dict[str, Any]]:
+        effect_id = _text(effect_id, "effect_id")
+        self._outbox_locked(effect_id)
+        rows = self.connection.execute(
+            "SELECT * FROM runtime_outbox_attempts WHERE effect_id = ? ORDER BY attempt",
+            (effect_id,),
+        ).fetchall()
+        return [self._row_attempt(row) for row in rows]
+
+    def claim_outbox(
+        self,
+        worker_id: str,
+        *,
+        limit: int = 1,
+        lease_seconds: int = 60,
+        now: str | None = None,
+    ) -> list[dict[str, Any]]:
+        worker_id = _identifier(worker_id, "worker_id")
+        limit = _positive_int(limit, "limit", maximum=100)
+        lease_seconds = _positive_int(lease_seconds, "lease_seconds", maximum=86_400)
+        now = _utc_timestamp(now or utc_now())
+        lease_expires_at = _after_seconds(now, lease_seconds)
+        claimed: list[dict[str, Any]] = []
+        with self._transaction():
+            rows = self.connection.execute(
+                "SELECT * FROM runtime_outbox WHERE "
+                "(status IN ('pending', 'retry') AND available_at <= ?) OR "
+                "(status = 'leased' AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?) "
+                "ORDER BY available_at, effect_id LIMIT ?",
+                (now, now, limit),
+            ).fetchall()
+            for row in rows:
+                if row["status"] == "leased":
+                    closed = self.connection.execute(
+                        "UPDATE runtime_outbox_attempts SET finished_at = ?, outcome = 'reclaimed' "
+                        "WHERE effect_id = ? AND attempt = ? AND outcome = 'leased'",
+                        (now, row["effect_id"], row["delivery_attempts"]),
+                    )
+                    if closed.rowcount != 1:
+                        raise RuntimeStoreError(f"leased effect attempt is missing: {row['effect_id']}")
+                attempt = row["delivery_attempts"] + 1
+                self.connection.execute(
+                    "UPDATE runtime_outbox SET status = 'leased', lease_owner = ?, "
+                    "lease_expires_at = ?, delivery_attempts = ?, last_attempt_at = ?, updated_at = ? "
+                    "WHERE effect_id = ?",
+                    (worker_id, lease_expires_at, attempt, now, now, row["effect_id"]),
+                )
+                self.connection.execute(
+                    "INSERT INTO runtime_outbox_attempts(effect_id, attempt, schema_version, worker_id, "
+                    "claimed_at, outcome) VALUES (?, ?, ?, ?, ?, 'leased')",
+                    (row["effect_id"], attempt, EFFECT_SCHEMA_VERSION, worker_id, now),
+                )
+                claimed.append(self._row_outbox(self._outbox_locked(row["effect_id"])))
+        return claimed
+
+    def _mark_outbox_succeeded_locked(self, row: sqlite3.Row, received_at: str) -> None:
+        if row["status"] == "leased":
+            updated_attempt = self.connection.execute(
+                "UPDATE runtime_outbox_attempts SET finished_at = ?, outcome = 'succeeded' "
+                "WHERE effect_id = ? AND attempt = ? AND outcome = 'leased'",
+                (received_at, row["effect_id"], row["delivery_attempts"]),
+            )
+            if updated_attempt.rowcount != 1:
+                raise RuntimeStoreError(f"leased effect attempt is missing: {row['effect_id']}")
+        self.connection.execute(
+            "UPDATE runtime_outbox SET status = 'succeeded', lease_owner = NULL, "
+            "lease_expires_at = NULL, updated_at = ? WHERE effect_id = ?",
+            (received_at, row["effect_id"]),
+        )
+
+    def _record_inbox_locked(
+        self, row: sqlite3.Row, receipt: Mapping[str, Any], received_at: str
+    ) -> dict[str, Any]:
+        existing = self.connection.execute(
+            "SELECT i.*, o.run_id FROM runtime_inbox AS i "
+            "JOIN runtime_outbox AS o ON o.effect_id = i.effect_id "
+            "WHERE i.idempotency_key = ?",
+            (row["idempotency_key"],),
+        ).fetchone()
+        if existing is not None:
+            stored = self._row_inbox(existing)
+            if stored["effect_id"] != row["effect_id"] or stored["receipt"] != receipt:
+                raise RuntimeStoreError(f"conflicting inbox receipt: {row['idempotency_key']}")
+            if row["status"] != "succeeded":
+                self._mark_outbox_succeeded_locked(row, received_at)
+            return stored["receipt"]
+        if row["status"] == "succeeded":
+            raise RuntimeStoreError(f"succeeded effect is missing its inbox receipt: {row['effect_id']}")
+        try:
+            self.connection.execute(
+                "INSERT INTO runtime_inbox(idempotency_key, effect_id, schema_version, receipt_json, received_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (
+                    row["idempotency_key"],
+                    row["effect_id"],
+                    EFFECT_SCHEMA_VERSION,
+                    canonical_json(receipt),
+                    received_at,
+                ),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise RuntimeStoreError(f"conflicting inbox receipt: {row['idempotency_key']}") from exc
+        self._mark_outbox_succeeded_locked(row, received_at)
+        return dict(receipt)
+
+    def acknowledge_outbox(
+        self,
+        effect_id: str,
+        worker_id: str,
+        receipt: Mapping[str, Any],
+        *,
+        received_at: str | None = None,
+    ) -> dict[str, Any]:
+        effect_id = _text(effect_id, "effect_id")
+        worker_id = _identifier(worker_id, "worker_id")
+        receipt = _receipt(receipt)
+        received_at = _utc_timestamp(received_at or utc_now())
+        with self._transaction():
+            row = self._outbox_locked(effect_id)
+            if row["status"] == "succeeded":
+                existing = self._inbox_for_effect_locked(effect_id)
+                if existing is None or self._row_inbox(existing)["receipt"] != receipt:
+                    raise RuntimeStoreError(f"conflicting inbox receipt: {row['idempotency_key']}")
+                return dict(receipt)
+            if row["status"] != "leased" or row["lease_owner"] != worker_id:
+                raise RuntimeStoreError(f"effect is not leased to worker: {effect_id}")
+            return self._record_inbox_locked(row, receipt, received_at)
+
+    def record_inbox(
+        self,
+        effect_id: str,
+        receipt: Mapping[str, Any],
+        *,
+        received_at: str | None = None,
+    ) -> dict[str, Any]:
+        effect_id = _text(effect_id, "effect_id")
+        receipt = _receipt(receipt)
+        received_at = _utc_timestamp(received_at or utc_now())
+        with self._transaction():
+            return self._record_inbox_locked(self._outbox_locked(effect_id), receipt, received_at)
+
+    def fail_outbox(
+        self,
+        effect_id: str,
+        worker_id: str,
+        *,
+        error_ref: str,
+        retryable: bool,
+        next_attempt_at: str | None = None,
+        now: str | None = None,
+    ) -> dict[str, Any]:
+        effect_id = _text(effect_id, "effect_id")
+        worker_id = _identifier(worker_id, "worker_id")
+        error_ref = _text(error_ref, "error_ref")
+        if not isinstance(retryable, bool):
+            raise RuntimeStoreError("retryable must be a boolean")
+        now = _utc_timestamp(now or utc_now())
+        with self._transaction():
+            row = self._outbox_locked(effect_id)
+            if row["status"] != "leased" or row["lease_owner"] != worker_id:
+                raise RuntimeStoreError(f"effect is not leased to worker: {effect_id}")
+            status = "retry" if retryable else "dead_letter"
+            available_at = _utc_timestamp(next_attempt_at) if retryable and next_attempt_at else now
+            outcome = "retry" if retryable else "dead_letter"
+            updated_attempt = self.connection.execute(
+                "UPDATE runtime_outbox_attempts SET finished_at = ?, outcome = ?, error_ref = ? "
+                "WHERE effect_id = ? AND attempt = ? AND outcome = 'leased'",
+                (now, outcome, error_ref, effect_id, row["delivery_attempts"]),
+            )
+            if updated_attempt.rowcount != 1:
+                raise RuntimeStoreError(f"leased effect attempt is missing: {effect_id}")
+            self.connection.execute(
+                "UPDATE runtime_outbox SET status = ?, available_at = ?, lease_owner = NULL, "
+                "lease_expires_at = NULL, last_error_ref = ?, updated_at = ? WHERE effect_id = ?",
+                (status, available_at, error_ref, now, effect_id),
+            )
+            return self._row_outbox(self._outbox_locked(effect_id))
 
     def list_runs(self) -> list[dict[str, Any]]:
         rows = self.connection.execute(
@@ -637,11 +1172,19 @@ def _parser() -> argparse.ArgumentParser:
     append.add_argument("--event-type", choices=[item for item in EVENT_TYPES if item != "run.started"], required=True)
     append.add_argument("--idempotency-key", required=True)
     append.add_argument("--payload-json", default="{}")
+    append.add_argument("--effect-json", help="durable outbox effect descriptor as a JSON object")
     append.add_argument("--occurred-at")
 
     for name in ("state", "history", "verify"):
         command = sub.add_parser(name, help=f"{name} a run")
         command.add_argument("--run-id", required=True)
+    outbox = sub.add_parser("outbox", help="list durable external-effect intents")
+    outbox.add_argument("--run-id")
+    outbox.add_argument("--status", choices=sorted(EFFECT_STATUSES))
+    inbox = sub.add_parser("inbox", help="list durable external-effect receipts")
+    inbox.add_argument("--run-id")
+    attempts = sub.add_parser("attempts", help="list delivery attempts for an effect")
+    attempts.add_argument("--effect-id", required=True)
     sub.add_parser("list", help="list runs")
     return parser
 
@@ -667,6 +1210,7 @@ def main(argv: list[str] | None = None) -> int:
                 _parse_payload(args.payload_json),
                 idempotency_key=args.idempotency_key,
                 occurred_at=args.occurred_at,
+                effect=_parse_payload(args.effect_json) if args.effect_json else None,
             )
         elif args.command == "state":
             result = store.state(args.run_id)
@@ -674,6 +1218,12 @@ def main(argv: list[str] | None = None) -> int:
             result = store.history(args.run_id)
         elif args.command == "verify":
             result = {"run_id": args.run_id, "state": store.state(args.run_id), "verified": True}
+        elif args.command == "outbox":
+            result = store.list_outbox(args.run_id, args.status)
+        elif args.command == "inbox":
+            result = store.list_inbox(args.run_id)
+        elif args.command == "attempts":
+            result = store.outbox_attempts(args.effect_id)
         else:
             result = store.list_runs()
         print(canonical_json(result))
