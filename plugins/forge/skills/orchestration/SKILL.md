@@ -72,7 +72,13 @@ command when diagnosing stale workers or reclaim races. At verified workflow bou
 persist a checkpoint and use `restore` to validate it and replay only the verified event
 suffix. Treat unknown runtime, workflow, definition, policy, or checkpoint revisions as
 migration errors; inspect with `migrations --dry-run` and preserve a verified backup before
-applying a reviewed migration.
+applying a reviewed migration. To pause for human input, use the runtime `wait` command: it
+checkpoints before `wait.created`, binds the input schema and authorization context by digest,
+and persists TTL, polling, expiry policy, and a bounded resume contract. Accept only one
+matching `submit-input`; use `signal` for ordered reference-only notifications. Cancellation
+is a three-event request/acknowledgement/terminal protocol, and the MCP Tasks view in
+`scripts/forge-mcp-tasks.py` maps task IDs, status, TTL, polling, result references, and
+cancellation back to Forge history without becoming a second source of truth.
 
 ## How to delegate well (this makes or breaks it)
 

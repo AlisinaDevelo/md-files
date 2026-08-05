@@ -41,6 +41,20 @@ python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 inbox --run-id run-
 python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 lease-events \
   --effect-id EFFECT_ID
 
+python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 wait \
+  --run-id run-demo --task-id approval --wait-id approval-1 \
+  --input-schema-digest sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+  --authorization-context-digest sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
+  --resume-contract workflow-v1 --ttl-seconds 3600 --poll-interval-ms 1000
+python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 waits --run-id run-demo
+python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 submit-input \
+  --run-id run-demo --wait-id approval-1 --submission-id response-1 \
+  --input-digest sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc \
+  --input-schema-digest sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+  --authorization-context-digest sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+python3 scripts/forge-mcp-tasks.py --db .forge/runtime.sqlite3 get \
+  --run-id run-demo --wait-id approval-1
+
 python3 scripts/forge-lineage.py export \
   --db .forge/runtime.sqlite3 --output .forge/lineage.json
 python3 scripts/forge-lineage.py verify --manifest .forge/lineage.json
@@ -53,7 +67,8 @@ The database schemas are versioned in [`data/runtime-events.schema.json`](../dat
 [`data/runtime-lease-events.schema.json`](../data/runtime-lease-events.schema.json),
 [`data/runtime-checkpoints.schema.json`](../data/runtime-checkpoints.schema.json),
 [`data/runtime-restore.schema.json`](../data/runtime-restore.schema.json), and
-[`data/runtime-migrations.schema.json`](../data/runtime-migrations.schema.json). A store
+[`data/runtime-migrations.schema.json`](../data/runtime-migrations.schema.json), and
+[`data/runtime-waits.schema.json`](../data/runtime-waits.schema.json). A store
 uses only the reviewed migration registry for an older database and refuses an unknown
 schema version rather than guessing at a transformation.
 
@@ -77,7 +92,27 @@ artifact attestations.
   requiring a hosted service.
 
 The lifecycle supports start, pause, resume, cancellation request, cancellation, completion,
-failure, and bounded task scheduling/start/completion/failure/cancellation.
+failure, bounded task scheduling/start/completion/failure/cancellation, and durable
+human-input waits with signals.
+
+## Human interaction
+
+`create_wait` captures a verified checkpoint before appending `wait.created`. The wait stores
+only an input-schema digest, authorization-context digest, policy revision, absolute expiry,
+polling hint, expiration outcome, and bounded resume contract. `submit_input` accepts one
+schema- and authorization-matched digest; duplicate delivery with the same idempotency key
+returns the original event, while a conflicting or late response fails closed.
+
+Signals are reference-only, ordered events. A signal targeted at a wait must use the wait's
+authorization-context digest, and each run is bounded to a finite signal count. Expiry is
+serialized in the event history and applies the wait's persisted `fail_run` or `cancel_run`
+policy; no wall-clock read can silently change the outcome.
+
+Cancellation records request, acknowledgement, and terminal cancellation evidence. A
+terminal cancellation is sticky: late task completion, input, expiry, or provider callbacks
+cannot resurrect the run. The MCP Tasks adapter in `scripts/forge-mcp-tasks.py` is a view over
+this state. Its task IDs, TTL, polling hints, result references, and cancellation operations
+map to Forge identifiers; notifications are best-effort and never canonical.
 
 ## Checkpointed recovery
 
@@ -96,8 +131,10 @@ Database upgrades are explicit and append migration evidence with source and tar
 preconditions, result digest, status, and restore guidance. Use `migrations --dry-run` to
 inspect a legacy database and `migrate` only after preserving a verified backup. Interrupted
 migrations remain resumable; canonical event rows are not rewritten by the checkpoint schema
-upgrade. Checkpoints are retained as evidence and no compaction command deletes history needed
-to verify active runs or external effects.
+upgrade. The v2-to-v3 wait migration retains v2 checkpoints as legacy evidence, excludes them
+from v3 restore, and allows a fresh v3 checkpoint at the same event boundary. Checkpoints are
+retained as evidence and no compaction command deletes history needed to verify active runs or
+external effects.
 
 ## External effect protocol
 
@@ -128,8 +165,9 @@ and provider request IDs. Prompts, raw content, tool arguments/results, credenti
 and provider response bodies are rejected at the persistence boundary. The effect hash also
 makes direct outbox tampering detectable before inspection or delivery.
 
-Human-input waits, adaptive routing, and distributed backends remain follow-up work under
-[#19](https://github.com/AlisinaDevelo/md-files/issues/19).
+Adaptive routing and distributed backends remain follow-up work under
+[#22](https://github.com/AlisinaDevelo/md-files/issues/22) and
+[#58](https://github.com/AlisinaDevelo/md-files/issues/58).
 
 ## Boundary
 

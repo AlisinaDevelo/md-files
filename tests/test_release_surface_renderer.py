@@ -46,6 +46,8 @@ def test_release_surface_derives_metadata_and_install_inputs(tmp_path):
     assert (tmp_path / "codex/data/runtime-checkpoints.schema.json").is_file()
     assert (tmp_path / "claude/data/runtime-restore.schema.json").is_file()
     assert (tmp_path / "codex/data/runtime-migrations.schema.json").is_file()
+    assert (tmp_path / "claude/data/runtime-waits.schema.json").is_file()
+    assert (tmp_path / "codex/plugins/forge/skills/orchestration/scripts/forge-mcp-tasks.py").is_file()
     assert (tmp_path / "claude/data/runtime-receipts.schema.json").is_file()
     assert (tmp_path / "codex/data/runtime-lineage.schema.json").is_file()
     assert (tmp_path / "claude/plugins/forge/skills/observability/scripts/forge-lineage.py").is_file()

@@ -6,6 +6,7 @@ import importlib.util
 import json
 import sqlite3
 import sys
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -45,6 +46,35 @@ def make_effect(*, task_id="build", activity_id="github-issue", attempt=1, paylo
         "effect_definition_revision": "effect-v1",
         "payload": payload or {"target_ref": "github:issues/1", "request_digest": "sha256:request"},
     }
+
+
+def make_wait(store, module, *, wait_id="wait-1", ttl_seconds=60, expiration_outcome="fail_run"):
+    store.append_event(
+        "run-1",
+        "task.scheduled",
+        {"task_id": "build", "depends_on": []},
+        idempotency_key="task-build-scheduled",
+        occurred_at="2026-08-04T08:01:00Z",
+    )
+    store.append_event(
+        "run-1",
+        "task.started",
+        {"task_id": "build", "attempt": 1},
+        idempotency_key="task-build-started-1",
+        occurred_at="2026-08-04T08:02:00Z",
+    )
+    return store.create_wait(
+        "run-1",
+        "build",
+        "sha256:" + "a" * 64,
+        "sha256:" + "b" * 64,
+        wait_id=wait_id,
+        resume_contract="workflow-v1",
+        ttl_seconds=ttl_seconds,
+        poll_interval_ms=1000,
+        expiration_outcome=expiration_outcome,
+        occurred_at="2026-08-04T08:03:00Z",
+    )
 
 
 def test_lifecycle_and_task_state_replay_after_reopen(tmp_path):
@@ -293,6 +323,271 @@ def test_invalid_transitions_and_raw_payloads_are_rejected(tmp_path):
             {"task_id": "unsafe", "api_token": "raw secret"},
             idempotency_key="unsafe-task",
         )
+
+
+def test_wait_checkpoints_before_input_and_resumes_after_restart(tmp_path):
+    module = load_module()
+    database = tmp_path / "runtime.sqlite3"
+    store = start(module, database)
+    created = make_wait(store, module)
+
+    assert store.state("run-1")["status"] == "input_required"
+    wait = store.list_waits("run-1")[0]
+    assert wait["checkpoint_sequence"] == 3
+    assert wait["status"] == "input_required"
+    assert store.list_checkpoints("run-1")[0]["event_sequence"] == 3
+    assert store.create_wait(
+        "run-1",
+        "build",
+        "sha256:" + "a" * 64,
+        "sha256:" + "b" * 64,
+        wait_id="wait-1",
+        resume_contract="workflow-v1",
+        ttl_seconds=60,
+        poll_interval_ms=1000,
+        occurred_at="2026-08-04T08:04:00Z",
+    ) == created
+
+    store.submit_input(
+        "run-1",
+        "wait-1",
+        "submission-1",
+        "sha256:" + "c" * 64,
+        "sha256:" + "b" * 64,
+        input_schema_digest="sha256:" + "a" * 64,
+        occurred_at="2026-08-04T08:04:00Z",
+    )
+    expected = store.state("run-1")
+    assert expected["status"] == "running"
+    assert expected["waits"]["wait-1"]["status"] == "submitted"
+    store.close()
+
+    with module.RuntimeStore(database) as reopened:
+        assert reopened.state("run-1") == expected
+        assert reopened.restore_state("run-1")["state"] == expected
+
+
+def test_wait_input_auth_conflict_and_signal_delivery_fail_closed(tmp_path):
+    module = load_module()
+    store = start(module, tmp_path / "runtime.sqlite3")
+    make_wait(store, module)
+    with pytest.raises(module.RuntimeStoreError, match="authorization context mismatch"):
+        store.submit_input(
+            "run-1",
+            "wait-1",
+            "submission-1",
+            "sha256:" + "c" * 64,
+            "sha256:" + "d" * 64,
+            input_schema_digest="sha256:" + "a" * 64,
+            occurred_at="2026-08-04T08:04:00Z",
+        )
+    with pytest.raises(module.RuntimeStoreError, match="signal authorization context mismatch"):
+        store.receive_signal(
+            "run-1",
+            "signal-unauthorized",
+            "notify",
+            "sha256:" + "e" * 64,
+            "sha256:" + "d" * 64,
+            wait_id="wait-1",
+            occurred_at="2026-08-04T08:04:01Z",
+        )
+    signal = store.receive_signal(
+        "run-1",
+        "signal-1",
+        "notify",
+        "sha256:" + "e" * 64,
+        "sha256:" + "b" * 64,
+        wait_id="wait-1",
+        occurred_at="2026-08-04T08:04:01Z",
+    )
+    assert signal["event_type"] == "signal.received"
+    assert store.state("run-1")["signals"]["signal-1"]["wait_id"] == "wait-1"
+    store.submit_input(
+        "run-1",
+        "wait-1",
+        "submission-1",
+        "sha256:" + "c" * 64,
+        "sha256:" + "b" * 64,
+        input_schema_digest="sha256:" + "a" * 64,
+        occurred_at="2026-08-04T08:04:02Z",
+    )
+    with pytest.raises(module.RuntimeStoreError, match="different event data|not accepting input|invalid while run"):
+        store.submit_input(
+            "run-1",
+            "wait-1",
+            "submission-2",
+            "sha256:" + "f" * 64,
+            "sha256:" + "b" * 64,
+            input_schema_digest="sha256:" + "a" * 64,
+            idempotency_key="wait.input_submitted:conflict",
+            occurred_at="2026-08-04T08:04:03Z",
+        )
+
+
+def test_wait_expiry_has_explicit_outcome_and_cancellation_is_sticky(tmp_path):
+    module = load_module()
+    store = start(module, tmp_path / "runtime.sqlite3")
+    make_wait(store, module, ttl_seconds=1)
+    with pytest.raises(module.RuntimeStoreError, match="has not expired"):
+        store.expire_wait("run-1", "wait-1", occurred_at="2026-08-04T08:03:00Z")
+    store.expire_wait("run-1", "wait-1", occurred_at="2026-08-04T08:04:00Z")
+    assert store.state("run-1")["status"] == "failed"
+    with pytest.raises(module.RuntimeStoreError, match="after run status failed"):
+        store.submit_input(
+            "run-1",
+            "wait-1",
+            "submission-late",
+            "sha256:" + "c" * 64,
+            "sha256:" + "b" * 64,
+            input_schema_digest="sha256:" + "a" * 64,
+            occurred_at="2026-08-04T08:05:00Z",
+        )
+
+    store.close()
+    database = tmp_path / "cancel.sqlite3"
+    store = start(module, database)
+    make_wait(store, module, wait_id="wait-cancel", expiration_outcome="cancel_run")
+    store.request_cancel("run-1", occurred_at="2026-08-04T08:04:00Z")
+    store.acknowledge_cancel(
+        "run-1",
+        ack_ref="sha256:" + "a" * 64,
+        occurred_at="2026-08-04T08:04:01Z",
+    )
+    store.cancel_run("run-1", occurred_at="2026-08-04T08:04:02Z")
+    state = store.state("run-1")
+    assert state["status"] == "cancelled"
+    assert state["waits"]["wait-cancel"]["status"] == "cancelled"
+    assert state["tasks"]["build"]["status"] == "cancelled"
+    with pytest.raises(module.RuntimeStoreError, match="after run status cancelled"):
+        store.append_event(
+            "run-1",
+            "task.completed",
+            {"task_id": "build"},
+            idempotency_key="late-completion",
+            occurred_at="2026-08-04T08:05:00Z",
+        )
+
+
+def test_wait_checkpoint_binding_and_cancel_acknowledgement_fail_closed(tmp_path):
+    module = load_module()
+    store = start(module, tmp_path / "runtime.sqlite3")
+    store.append_event(
+        "run-1",
+        "task.scheduled",
+        {"task_id": "build", "depends_on": []},
+        idempotency_key="task-build-scheduled",
+    )
+    store.append_event(
+        "run-1",
+        "task.started",
+        {"task_id": "build", "attempt": 1},
+        idempotency_key="task-build-started",
+    )
+    checkpoint = store.checkpoint_run("run-1")
+    payload = {
+        "wait_id": "forged-wait",
+        "task_id": "build",
+        "checkpoint_id": checkpoint["checkpoint_id"],
+        "checkpoint_sequence": checkpoint["event_sequence"],
+        "checkpoint_event_hash": "f" * 64,
+        "input_schema_digest": "sha256:" + "a" * 64,
+        "policy_revision": "policy-v1",
+        "authorization_context_digest": "sha256:" + "b" * 64,
+        "expires_at": "2026-08-05T09:00:00Z",
+        "ttl_seconds": 3600,
+        "poll_interval_ms": 1000,
+        "expiration_outcome": "fail_run",
+        "resume_contract": "workflow-v1",
+    }
+    with pytest.raises(module.RuntimeStoreError, match="checkpoint hash"):
+        store.append_event("run-1", "wait.created", payload, idempotency_key="forged-wait")
+
+    store.create_wait(
+        "run-1",
+        "build",
+        "sha256:" + "a" * 64,
+        "sha256:" + "b" * 64,
+        wait_id="wait-1",
+        resume_contract="workflow-v1",
+        ttl_seconds=60,
+        poll_interval_ms=1000,
+        occurred_at="2026-08-05T08:03:00Z",
+    )
+    with pytest.raises(module.RuntimeStoreError, match="different wait data"):
+        store.create_wait(
+            "run-1",
+            "build",
+            "sha256:" + "a" * 64,
+            "sha256:" + "b" * 64,
+            wait_id="wait-1",
+            resume_contract="workflow-v1",
+            ttl_seconds=61,
+            poll_interval_ms=1000,
+            occurred_at="2026-08-05T08:03:00Z",
+        )
+
+    store.request_cancel("run-1", occurred_at="2026-08-05T08:04:00Z")
+    with pytest.raises(module.RuntimeStoreError, match="requires cancel.acknowledged"):
+        store.cancel_run("run-1", occurred_at="2026-08-05T08:04:01Z")
+
+
+def test_v2_checkpoint_migrates_as_legacy_and_allows_v3_replacement(tmp_path):
+    module = load_module()
+    database = tmp_path / "runtime.sqlite3"
+    store = start(module, database)
+    store.append_event(
+        "run-1",
+        "task.scheduled",
+        {"task_id": "build", "depends_on": []},
+        idempotency_key="task-build-scheduled",
+    )
+    store.append_event(
+        "run-1",
+        "task.started",
+        {"task_id": "build", "attempt": 1},
+        idempotency_key="task-build-started",
+    )
+    checkpoint = store.checkpoint_run("run-1")
+    store.close()
+
+    connection = sqlite3.connect(database)
+    old_state = json.loads(connection.execute(
+        "SELECT state_json FROM runtime_checkpoints WHERE checkpoint_id = ?",
+        (checkpoint["checkpoint_id"],),
+    ).fetchone()[0])
+    old_state.pop("waits")
+    old_state.pop("signals")
+    old_state.pop("cancel_acknowledged")
+    old_digest = module._digest(old_state)
+    old_checkpoint_id = str(uuid.uuid5(
+        uuid.NAMESPACE_URL,
+        "forge-checkpoint:" + module.canonical_json({
+            "run_id": "run-1",
+            "event_sequence": checkpoint["event_sequence"],
+            "event_hash": checkpoint["event_hash"],
+            "state_digest": old_digest,
+            "definition_version": "definition-v1",
+            "policy_revision": "policy-v1",
+        }),
+    ))
+    connection.execute("UPDATE runtime_meta SET value = '2' WHERE key = 'schema_version'")
+    connection.execute(
+        "UPDATE runtime_checkpoints SET checkpoint_id = ?, runtime_schema_version = 2, state_json = ?, "
+        "state_digest = ? WHERE checkpoint_id = ?",
+        (old_checkpoint_id, module.canonical_json(old_state), old_digest, checkpoint["checkpoint_id"]),
+    )
+    connection.commit()
+    connection.close()
+
+    with module.RuntimeStore(database) as migrated:
+        result = migrated.migrate()
+        assert result["current_version"] == 3
+        restored = migrated.restore_state("run-1")
+        assert restored["state"] == migrated.state("run-1")
+        assert restored["recovered"] is True
+        replacement = migrated.checkpoint_run("run-1")
+        assert replacement["runtime_schema_version"] == 3
+        assert len(migrated.list_checkpoints("run-1")) == 2
 
 
 def test_event_and_outbox_intent_commit_atomically(tmp_path):

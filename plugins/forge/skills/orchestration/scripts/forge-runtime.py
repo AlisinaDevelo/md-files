@@ -25,7 +25,7 @@ except ImportError:  # pragma: no cover - Python 3.10 and earlier
 SCHEMA_VERSION = 1
 EFFECT_SCHEMA_VERSION = 1
 LEASE_SCHEMA_VERSION = 1
-DATABASE_SCHEMA_VERSION = 2
+DATABASE_SCHEMA_VERSION = 3
 CHECKPOINT_SCHEMA_VERSION = 1
 MIGRATION_SCHEMA_VERSION = 1
 GENESIS_HASH = "0" * 64
@@ -39,6 +39,11 @@ EVENT_TYPES = (
     "run.cancelled",
     "run.completed",
     "run.failed",
+    "wait.created",
+    "wait.input_submitted",
+    "wait.expired",
+    "signal.received",
+    "cancel.acknowledged",
     "task.scheduled",
     "task.started",
     "task.completed",
@@ -47,6 +52,11 @@ EVENT_TYPES = (
 )
 RUN_TERMINAL = {"completed", "failed", "cancelled"}
 TASK_TERMINAL = {"completed", "failed", "cancelled"}
+WAIT_STATUSES = {"input_required", "submitted", "expired", "cancel_requested", "cancelled"}
+EXPIRATION_OUTCOMES = {"fail_run", "cancel_run"}
+SIGNAL_TYPES = {"resume", "notify", "cancel"}
+MAX_ACTIVE_WAITS = 1
+MAX_SIGNALS_PER_RUN = 256
 FORBIDDEN_PAYLOAD_KEYS = {
     "arguments",
     "body",
@@ -69,6 +79,12 @@ FORBIDDEN_PAYLOAD_KEYS = {
     "response_body",
 }
 SENSITIVE_PAYLOAD_PARTS = {"authorization", "credential", "password", "prompt", "secret", "token"}
+REFERENCE_PAYLOAD_KEYS = {
+    "authorization_context_digest",
+    "input_schema_digest",
+    "input_digest",
+    "payload_digest",
+}
 EFFECT_STATUSES = {"pending", "leased", "retry", "succeeded", "dead_letter"}
 RECEIPT_STATUSES = {"accepted", "succeeded"}
 ATTEMPT_OUTCOMES = {"leased", "reclaimed", "succeeded", "retry", "dead_letter"}
@@ -96,7 +112,22 @@ MIGRATION_REGISTRY = {
             "Restore a verified SQLite backup and rerun the migration. The migration is additive; "
             "canonical event rows are never rewritten."
         ),
-    }
+    },
+    2: {
+        "migration_id": "runtime-db-2-to-3-human-waits",
+        "source_version": 2,
+        "target_version": 3,
+        "preconditions": [
+            "every run has a contiguous, hash-valid event prefix",
+            "every event reducer transition is valid under the wait-aware reducer",
+            "legacy checkpoints are retained as evidence and excluded from v3 restore",
+            "canonical event rows remain unchanged",
+        ],
+        "rollback_instructions": (
+            "Restore a verified SQLite backup and rerun the migration. The migration changes only the "
+            "runtime metadata version; canonical events and legacy checkpoints remain unchanged."
+        ),
+    },
 }
 
 
@@ -114,6 +145,13 @@ def canonical_json(value: Any) -> str:
 
 def _digest(value: Any) -> str:
     return sha256(canonical_json(value).encode("utf-8")).hexdigest()
+
+
+def _digest_reference(value: Any, field: str) -> str:
+    value = _text(value, field)
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", value):
+        raise RuntimeStoreError(f"{field} must be a sha256 reference")
+    return value
 
 
 def _error_ref(error: BaseException | str) -> str:
@@ -275,6 +313,10 @@ def _validate_payload_keys(value: Any, path: str = "payload") -> None:
     if isinstance(value, Mapping):
         for key, child in value.items():
             normalized = str(key).lower().replace("-", "_")
+            if normalized in REFERENCE_PAYLOAD_KEYS:
+                if not isinstance(child, str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", child):
+                    raise RuntimeStoreError(f"{path}.{key} must be a sha256 reference")
+                continue
             if normalized in FORBIDDEN_PAYLOAD_KEYS or any(
                 part in SENSITIVE_PAYLOAD_PARTS for part in normalized.split("_")
             ):
@@ -289,6 +331,11 @@ def _validate_payload_keys(value: Any, path: str = "payload") -> None:
 
 def _event_id(run_id: str, idempotency_key: str) -> str:
     return str(uuid.uuid5(uuid.NAMESPACE_URL, f"forge-runtime:{run_id}:{idempotency_key}"))
+
+
+def _derived_idempotency_key(prefix: str, value: str) -> str:
+    candidate = f"{prefix}:{value}"
+    return candidate if len(candidate) <= 128 else f"{prefix}:{_digest(value)}"
 
 
 def _hash_event(event: Mapping[str, Any]) -> str:
@@ -349,6 +396,9 @@ def _run_state(run: Mapping[str, Any]) -> dict[str, Any]:
         "status": "created",
         "sequence": 0,
         "tasks": {},
+        "waits": {},
+        "signals": {},
+        "cancel_acknowledged": False,
     }
 
 
@@ -363,6 +413,103 @@ def _task_payload(event: Mapping[str, Any]) -> tuple[dict[str, Any], str]:
     payload = event["payload"]
     task_id = payload.get("task_id")
     return payload, _identifier(task_id, "payload.task_id")
+
+
+def _wait_descriptor(payload: Mapping[str, Any]) -> dict[str, Any]:
+    allowed = {
+        "wait_id",
+        "task_id",
+        "checkpoint_id",
+        "checkpoint_sequence",
+        "checkpoint_event_hash",
+        "input_schema_digest",
+        "policy_revision",
+        "authorization_context_digest",
+        "expires_at",
+        "ttl_seconds",
+        "poll_interval_ms",
+        "expiration_outcome",
+        "resume_contract",
+    }
+    unknown = sorted(str(key) for key in payload if key not in allowed)
+    if unknown:
+        raise RuntimeStoreError("wait payload contains unsupported fields: " + ", ".join(unknown))
+    expiration_outcome = payload.get("expiration_outcome")
+    if expiration_outcome not in EXPIRATION_OUTCOMES:
+        expected = ", ".join(sorted(EXPIRATION_OUTCOMES))
+        raise RuntimeStoreError(f"payload.expiration_outcome must be one of: {expected}")
+    poll_interval_ms = payload.get("poll_interval_ms")
+    _positive_int(poll_interval_ms, "payload.poll_interval_ms", maximum=3_600_000)
+    return {
+        "wait_id": _identifier(payload.get("wait_id"), "payload.wait_id"),
+        "task_id": _identifier(payload.get("task_id"), "payload.task_id"),
+        "checkpoint_id": _text(payload.get("checkpoint_id"), "payload.checkpoint_id"),
+        "checkpoint_sequence": _positive_int(payload.get("checkpoint_sequence"), "payload.checkpoint_sequence"),
+        "checkpoint_event_hash": _hash_reference(payload.get("checkpoint_event_hash"), "payload.checkpoint_event_hash"),
+        "input_schema_digest": _digest_reference(payload.get("input_schema_digest"), "payload.input_schema_digest"),
+        "policy_revision": _text(payload.get("policy_revision"), "payload.policy_revision"),
+        "authorization_context_digest": _digest_reference(
+            payload.get("authorization_context_digest"), "payload.authorization_context_digest"
+        ),
+        "expires_at": _utc_timestamp(payload.get("expires_at")),
+        "ttl_seconds": _positive_int(payload.get("ttl_seconds"), "payload.ttl_seconds", maximum=2_592_000),
+        "poll_interval_ms": poll_interval_ms,
+        "expiration_outcome": expiration_outcome,
+        "resume_contract": _text(payload.get("resume_contract"), "payload.resume_contract"),
+    }
+
+
+def _hash_reference(value: Any, field: str) -> str:
+    value = _text(value, field)
+    if not HASH_RE.fullmatch(value):
+        raise RuntimeStoreError(f"{field} must be a lowercase SHA-256 digest")
+    return value
+
+
+def _input_submission(payload: Mapping[str, Any]) -> dict[str, Any]:
+    allowed = {"wait_id", "submission_id", "input_digest", "input_schema_digest", "authorization_context_digest"}
+    unknown = sorted(str(key) for key in payload if key not in allowed)
+    if unknown:
+        raise RuntimeStoreError("input payload contains unsupported fields: " + ", ".join(unknown))
+    submission = {
+        "wait_id": _identifier(payload.get("wait_id"), "payload.wait_id"),
+        "submission_id": _identifier(payload.get("submission_id"), "payload.submission_id"),
+        "input_digest": _digest_reference(payload.get("input_digest"), "payload.input_digest"),
+        "authorization_context_digest": _digest_reference(
+            payload.get("authorization_context_digest"), "payload.authorization_context_digest"
+        ),
+    }
+    if payload.get("input_schema_digest") is not None:
+        submission["input_schema_digest"] = _digest_reference(
+            payload["input_schema_digest"], "payload.input_schema_digest"
+        )
+    return submission
+
+
+def _signal_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
+    allowed = {"signal_id", "signal_type", "payload_digest", "authorization_context_digest", "wait_id"}
+    unknown = sorted(str(key) for key in payload if key not in allowed)
+    if unknown:
+        raise RuntimeStoreError("signal payload contains unsupported fields: " + ", ".join(unknown))
+    signal_type = payload.get("signal_type")
+    if signal_type not in SIGNAL_TYPES:
+        expected = ", ".join(sorted(SIGNAL_TYPES))
+        raise RuntimeStoreError(f"payload.signal_type must be one of: {expected}")
+    result = {
+        "signal_id": _identifier(payload.get("signal_id"), "payload.signal_id"),
+        "signal_type": signal_type,
+        "payload_digest": _digest_reference(payload.get("payload_digest"), "payload.payload_digest"),
+        "authorization_context_digest": _digest_reference(
+            payload.get("authorization_context_digest"), "payload.authorization_context_digest"
+        ),
+    }
+    if payload.get("wait_id") is not None:
+        result["wait_id"] = _identifier(payload["wait_id"], "payload.wait_id")
+    return result
+
+
+def _before_or_equal(left: str, right: str) -> bool:
+    return datetime.fromisoformat(left.replace("Z", "+00:00")) <= datetime.fromisoformat(right.replace("Z", "+00:00"))
 
 
 def apply_event(state: Mapping[str, Any], event: Mapping[str, Any]) -> dict[str, Any]:
@@ -398,16 +545,61 @@ def apply_event(state: Mapping[str, Any], event: Mapping[str, Any]) -> dict[str,
         _require_status(state, {"paused"}, event_type)
         next_state["status"] = "running"
     elif event_type == "run.cancel_requested":
-        _require_status(state, {"running", "paused"}, event_type)
+        _require_status(state, {"running", "paused", "input_required"}, event_type)
+        allowed = {"reason_ref", "authorization_context_digest"}
+        unknown = sorted(str(key) for key in payload if key not in allowed)
+        if unknown:
+            raise RuntimeStoreError("cancellation request contains unsupported fields: " + ", ".join(unknown))
         next_state["status"] = "cancelling"
+        next_state["cancel_requested_at"] = event["occurred_at"]
+        if "reason_ref" in payload:
+            next_state["cancel_reason_ref"] = _text(payload["reason_ref"], "payload.reason_ref")
+        if "authorization_context_digest" in payload:
+            next_state["cancel_authorization_context_digest"] = _digest_reference(
+                payload["authorization_context_digest"], "payload.authorization_context_digest"
+            )
+        for wait in next_state["waits"].values():
+            if wait["status"] == "input_required":
+                wait["status"] = "cancel_requested"
+    elif event_type == "cancel.acknowledged":
+        _require_status(state, {"cancelling"}, event_type)
+        allowed = {"ack_ref", "authorization_context_digest"}
+        unknown = sorted(str(key) for key in payload if key not in allowed)
+        if unknown:
+            raise RuntimeStoreError("cancellation acknowledgement contains unsupported fields: " + ", ".join(unknown))
+        if "ack_ref" in payload:
+            next_state["cancel_ack_ref"] = _digest_reference(payload["ack_ref"], "payload.ack_ref")
+        if "authorization_context_digest" in payload:
+            authorization_context_digest = _digest_reference(
+                payload["authorization_context_digest"], "payload.authorization_context_digest"
+            )
+            requested_digest = state.get("cancel_authorization_context_digest")
+            if requested_digest is not None and requested_digest != authorization_context_digest:
+                raise RuntimeStoreError("cancellation acknowledgement authorization context mismatch")
+            next_state["cancel_authorization_context_digest"] = authorization_context_digest
+        next_state["cancel_acknowledged"] = True
+        next_state["cancel_acknowledged_at"] = event["occurred_at"]
     elif event_type == "run.cancelled":
         _require_status(state, {"cancelling"}, event_type)
+        if not state["cancel_acknowledged"]:
+            raise RuntimeStoreError("run.cancelled requires cancel.acknowledged evidence")
         next_state["status"] = "cancelled"
+        for wait in next_state["waits"].values():
+            if wait["status"] in {"input_required", "cancel_requested", "expired"}:
+                wait["status"] = "cancelled"
+                wait["cancelled_at"] = event["occurred_at"]
+        for task in next_state["tasks"].values():
+            if task["status"] not in TASK_TERMINAL:
+                task["status"] = "cancelled"
+                task.pop("retryable", None)
     elif event_type == "run.failed":
-        _require_status(state, {"running", "paused", "cancelling"}, event_type)
+        _require_status(state, {"running", "paused", "input_required", "cancelling"}, event_type)
         next_state["status"] = "failed"
         if "error_ref" in payload:
             next_state["error_ref"] = _text(payload["error_ref"], "payload.error_ref")
+        for wait in next_state["waits"].values():
+            if wait["status"] in {"input_required", "cancel_requested"}:
+                wait["status"] = "cancelled"
     elif event_type == "run.completed":
         _require_status(state, {"running"}, event_type)
         unfinished = [
@@ -418,6 +610,103 @@ def apply_event(state: Mapping[str, Any], event: Mapping[str, Any]) -> dict[str,
         if unfinished:
             raise RuntimeStoreError("run.completed requires all tasks to be terminal: " + ", ".join(unfinished))
         next_state["status"] = "completed"
+    elif event_type == "wait.created":
+        _require_status(state, {"running"}, event_type)
+        wait = _wait_descriptor(payload)
+        if wait["policy_revision"] != state["policy_revision"]:
+            raise RuntimeStoreError("wait policy revision does not match run policy revision")
+        if wait["checkpoint_sequence"] != state["sequence"]:
+            raise RuntimeStoreError("wait checkpoint must bind the current verified event boundary")
+        if _before_or_equal(wait["expires_at"], event["occurred_at"]):
+            raise RuntimeStoreError("wait expiry must be after wait creation")
+        current_task = state["tasks"].get(wait["task_id"])
+        if current_task is None or current_task["status"] != "started":
+            raise RuntimeStoreError(f"wait task must be started: {wait['task_id']}")
+        if wait["wait_id"] in state["waits"]:
+            raise RuntimeStoreError(f"wait already exists: {wait['wait_id']}")
+        active_waits = [item for item in state["waits"].values() if item["status"] == "input_required"]
+        if len(active_waits) >= MAX_ACTIVE_WAITS:
+            raise RuntimeStoreError("run already has the maximum number of active waits")
+        next_state["status"] = "input_required"
+        next_state["waits"][wait["wait_id"]] = {
+            **wait,
+            "status": "input_required",
+            "created_at": event["occurred_at"],
+            "created_sequence": event["sequence"],
+        }
+    elif event_type == "wait.input_submitted":
+        _require_status(state, {"input_required"}, event_type)
+        submission = _input_submission(payload)
+        wait = next_state["waits"].get(submission["wait_id"])
+        if wait is None:
+            raise RuntimeStoreError(f"unknown wait: {submission['wait_id']}")
+        if wait["status"] != "input_required":
+            raise RuntimeStoreError(f"wait is not accepting input: {submission['wait_id']}")
+        if submission.get("input_schema_digest") != wait["input_schema_digest"]:
+            raise RuntimeStoreError(f"wait input schema mismatch: {submission['wait_id']}")
+        if submission["authorization_context_digest"] != wait["authorization_context_digest"]:
+            raise RuntimeStoreError(f"wait authorization context mismatch: {submission['wait_id']}")
+        wait.update(
+            {
+                "status": "submitted",
+                "submission_id": submission["submission_id"],
+                "input_digest": submission["input_digest"],
+                "submitted_at": event["occurred_at"],
+            }
+        )
+        next_state["status"] = "running"
+    elif event_type == "wait.expired":
+        _require_status(state, {"input_required"}, event_type)
+        allowed = {"wait_id", "expiration_outcome", "error_ref"}
+        unknown = sorted(str(key) for key in payload if key not in allowed)
+        if unknown:
+            raise RuntimeStoreError("expiration payload contains unsupported fields: " + ", ".join(unknown))
+        wait_id = _identifier(payload.get("wait_id"), "payload.wait_id")
+        wait = next_state["waits"].get(wait_id)
+        if wait is None:
+            raise RuntimeStoreError(f"unknown wait: {wait_id}")
+        if wait["status"] != "input_required":
+            raise RuntimeStoreError(f"wait is not expirable: {wait_id}")
+        if not _before_or_equal(wait["expires_at"], event["occurred_at"]):
+            raise RuntimeStoreError(f"wait has not expired: {wait_id}")
+        if payload.get("expiration_outcome") != wait["expiration_outcome"]:
+            raise RuntimeStoreError(f"wait expiration policy mismatch: {wait_id}")
+        wait["status"] = "expired"
+        wait["expired_at"] = event["occurred_at"]
+        if wait["expiration_outcome"] == "fail_run":
+            next_state["status"] = "failed"
+            next_state["error_ref"] = _text(
+                payload.get("error_ref", _error_ref(f"wait-expired:{wait_id}")), "payload.error_ref"
+            )
+            task = next_state["tasks"].get(wait["task_id"])
+            if task is not None and task["status"] not in TASK_TERMINAL:
+                task["status"] = "failed"
+                task["retryable"] = False
+                task["error_ref"] = next_state["error_ref"]
+        else:
+            next_state["status"] = "cancelling"
+            next_state["cancel_requested_at"] = event["occurred_at"]
+            wait["status"] = "expired"
+    elif event_type == "signal.received":
+        _require_status(state, {"running", "paused", "input_required", "cancelling"}, event_type)
+        signal = _signal_payload(payload)
+        if signal["signal_id"] in state["signals"]:
+            raise RuntimeStoreError(f"signal already exists: {signal['signal_id']}")
+        if len(state["signals"]) >= MAX_SIGNALS_PER_RUN:
+            raise RuntimeStoreError("run has reached the maximum number of signals")
+        if "wait_id" in signal:
+            wait = state["waits"].get(signal["wait_id"])
+            if wait is None:
+                raise RuntimeStoreError(f"unknown wait: {signal['wait_id']}")
+            if wait["status"] not in {"input_required", "cancel_requested"}:
+                raise RuntimeStoreError(f"signal target wait is no longer active: {signal['wait_id']}")
+            if signal["authorization_context_digest"] != wait["authorization_context_digest"]:
+                raise RuntimeStoreError(f"signal authorization context mismatch: {signal['wait_id']}")
+        next_state["signals"][signal["signal_id"]] = {
+            **signal,
+            "received_at": event["occurred_at"],
+            "received_sequence": event["sequence"],
+        }
     elif event_type.startswith("task."):
         _require_status(state, {"running"}, event_type)
         payload, task_id = _task_payload(event)
@@ -619,7 +908,7 @@ CREATE TABLE IF NOT EXISTS runtime_checkpoints (
     run_id TEXT NOT NULL REFERENCES runtime_runs(run_id),
     checkpoint_id TEXT NOT NULL,
     schema_version INTEGER NOT NULL CHECK (schema_version = 1),
-    runtime_schema_version INTEGER NOT NULL CHECK (runtime_schema_version = 2),
+    runtime_schema_version INTEGER NOT NULL CHECK (runtime_schema_version IN (2, 3)),
     event_sequence INTEGER NOT NULL CHECK (event_sequence > 0),
     event_hash TEXT NOT NULL,
     workflow_id TEXT NOT NULL,
@@ -629,7 +918,7 @@ CREATE TABLE IF NOT EXISTS runtime_checkpoints (
     state_digest TEXT NOT NULL,
     created_at TEXT NOT NULL,
     PRIMARY KEY (run_id, checkpoint_id),
-    UNIQUE (run_id, event_sequence, event_hash)
+    UNIQUE (run_id, event_sequence, event_hash, runtime_schema_version)
 );
 CREATE INDEX IF NOT EXISTS runtime_checkpoints_run_sequence
     ON runtime_checkpoints(run_id, event_sequence DESC, checkpoint_id);
@@ -800,6 +1089,49 @@ class RuntimeStore:
             )
         return _digest(materials)
 
+    def _upgrade_checkpoint_table_locked(self) -> None:
+        """Make legacy checkpoint rows coexist with v3 checkpoints during migration."""
+
+        row = self.connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'runtime_checkpoints'"
+        ).fetchone()
+        definition = str(row["sql"] or "") if row is not None else ""
+        if re.search(r"IN\s*\(\s*2\s*,\s*3\s*\)", definition, re.IGNORECASE) and re.search(
+            r"UNIQUE\s*\(\s*run_id\s*,\s*event_sequence\s*,\s*event_hash\s*,\s*runtime_schema_version\s*\)",
+            definition,
+            re.IGNORECASE,
+        ):
+            return
+        self.connection.execute(
+            """CREATE TABLE runtime_checkpoints_v3 (
+                run_id TEXT NOT NULL REFERENCES runtime_runs(run_id),
+                checkpoint_id TEXT NOT NULL,
+                schema_version INTEGER NOT NULL CHECK (schema_version = 1),
+                runtime_schema_version INTEGER NOT NULL CHECK (runtime_schema_version IN (2, 3)),
+                event_sequence INTEGER NOT NULL CHECK (event_sequence > 0),
+                event_hash TEXT NOT NULL,
+                workflow_id TEXT NOT NULL,
+                definition_version TEXT NOT NULL,
+                policy_revision TEXT NOT NULL,
+                state_json TEXT NOT NULL,
+                state_digest TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (run_id, checkpoint_id),
+                UNIQUE (run_id, event_sequence, event_hash, runtime_schema_version)
+            )"""
+        )
+        self.connection.execute(
+            "INSERT INTO runtime_checkpoints_v3 SELECT run_id, checkpoint_id, schema_version, "
+            "runtime_schema_version, event_sequence, event_hash, workflow_id, definition_version, "
+            "policy_revision, state_json, state_digest, created_at FROM runtime_checkpoints"
+        )
+        self.connection.execute("DROP TABLE runtime_checkpoints")
+        self.connection.execute("ALTER TABLE runtime_checkpoints_v3 RENAME TO runtime_checkpoints")
+        self.connection.execute(
+            "CREATE INDEX runtime_checkpoints_run_sequence "
+            "ON runtime_checkpoints(run_id, event_sequence DESC, checkpoint_id)"
+        )
+
     def _migration_plan(self, source_version: int) -> dict[str, Any]:
         plan = MIGRATION_REGISTRY.get(source_version)
         if plan is None:
@@ -907,6 +1239,8 @@ class RuntimeStore:
                             f"runtime schema changed during migration {plan['migration_id']}; "
                             "retry from a fresh connection"
                         )
+                    if plan["source_version"] == 2:
+                        self._upgrade_checkpoint_table_locked()
                     completed_at = utc_now()
                     self.connection.execute(
                         "UPDATE runtime_meta SET value = ? WHERE key = 'schema_version'",
@@ -1005,6 +1339,31 @@ class RuntimeStore:
                 )
         return events
 
+    def _validate_wait_checkpoint_locked(
+        self,
+        run_id: str,
+        state: Mapping[str, Any],
+        payload: Mapping[str, Any],
+    ) -> None:
+        """Require a wait to reference the exact verified checkpoint it pauses on."""
+
+        wait = _wait_descriptor(payload)
+        row = self.connection.execute(
+            "SELECT * FROM runtime_checkpoints WHERE run_id = ? AND checkpoint_id = ?",
+            (run_id, wait["checkpoint_id"]),
+        ).fetchone()
+        if row is None:
+            raise RuntimeStoreError(f"wait checkpoint does not exist: {wait['checkpoint_id']}")
+        checkpoint = self._row_checkpoint(row)
+        if checkpoint["event_sequence"] != wait["checkpoint_sequence"]:
+            raise RuntimeStoreError("wait checkpoint sequence does not match checkpoint metadata")
+        if checkpoint["event_hash"] != wait["checkpoint_event_hash"]:
+            raise RuntimeStoreError("wait checkpoint hash does not match checkpoint metadata")
+        if checkpoint["event_sequence"] != state["sequence"]:
+            raise RuntimeStoreError("wait checkpoint is not the current verified event boundary")
+        if checkpoint["state"] != state or checkpoint["state_digest"] != _digest(state):
+            raise RuntimeStoreError("wait checkpoint state does not match the current verified state")
+
     def _append_locked(
         self,
         run_id: str,
@@ -1058,6 +1417,8 @@ class RuntimeStore:
             "event_hash": "",
         }
         event["event_hash"] = _hash_event(event)
+        if event_type == "wait.created":
+            self._validate_wait_checkpoint_locked(run_id, state, normalized_payload)
         apply_event(state, event)
         self.connection.execute(
             "INSERT INTO runtime_events(run_id, sequence, event_id, event_type, idempotency_key, "
@@ -1204,7 +1565,7 @@ class RuntimeStore:
     def _row_checkpoint(row: sqlite3.Row) -> dict[str, Any]:
         if row["schema_version"] != CHECKPOINT_SCHEMA_VERSION:
             raise RuntimeStoreError(f"unsupported checkpoint schema: {row['schema_version']}")
-        if row["runtime_schema_version"] != DATABASE_SCHEMA_VERSION:
+        if row["runtime_schema_version"] not in {2, DATABASE_SCHEMA_VERSION}:
             raise RuntimeStoreError(
                 f"checkpoint {row['checkpoint_id']} targets unsupported runtime schema "
                 f"{row['runtime_schema_version']}"
@@ -1467,6 +1828,308 @@ class RuntimeStore:
                 normalized_effect,
             )
 
+    def create_wait(
+        self,
+        run_id: str,
+        task_id: str,
+        input_schema_digest: str,
+        authorization_context_digest: str,
+        *,
+        wait_id: str,
+        resume_contract: str,
+        ttl_seconds: int,
+        poll_interval_ms: int,
+        expiration_outcome: str = "fail_run",
+        policy_revision: str | None = None,
+        idempotency_key: str | None = None,
+        occurred_at: str | None = None,
+    ) -> dict[str, Any]:
+        """Checkpoint a run and atomically create one durable input wait."""
+
+        run_id = _identifier(run_id, "run_id")
+        task_id = _identifier(task_id, "task_id")
+        wait_id = _identifier(wait_id, "wait_id")
+        input_schema_digest = _digest_reference(input_schema_digest, "input_schema_digest")
+        authorization_context_digest = _digest_reference(
+            authorization_context_digest, "authorization_context_digest"
+        )
+        resume_contract = _text(resume_contract, "resume_contract")
+        ttl_seconds = _positive_int(ttl_seconds, "ttl_seconds", maximum=2_592_000)
+        poll_interval_ms = _positive_int(poll_interval_ms, "poll_interval_ms", maximum=3_600_000)
+        if expiration_outcome not in EXPIRATION_OUTCOMES:
+            expected = ", ".join(sorted(EXPIRATION_OUTCOMES))
+            raise RuntimeStoreError(f"expiration_outcome must be one of: {expected}")
+        occurred_at = _utc_timestamp(occurred_at or utc_now())
+        idempotency_key = _text(
+            idempotency_key or _derived_idempotency_key("wait.created", wait_id), "idempotency_key"
+        )
+        with self._transaction():
+            run = self._run(run_id)
+            expected_policy_revision = policy_revision or run["policy_revision"]
+            expected_expires_at = _after_seconds(occurred_at, ttl_seconds)
+            existing_row = self.connection.execute(
+                "SELECT run_id, sequence, event_id, event_type, idempotency_key, occurred_at, "
+                "payload_json, previous_hash, event_hash FROM runtime_events "
+                "WHERE run_id = ? AND idempotency_key = ?",
+                (run_id, idempotency_key),
+            ).fetchone()
+            if existing_row is not None:
+                existing = self._row_event(existing_row)
+                expected = {
+                    "wait_id": wait_id,
+                    "task_id": task_id,
+                    "input_schema_digest": input_schema_digest,
+                    "authorization_context_digest": authorization_context_digest,
+                    "policy_revision": expected_policy_revision,
+                    "expiration_outcome": expiration_outcome,
+                    "resume_contract": resume_contract,
+                    "ttl_seconds": ttl_seconds,
+                    "poll_interval_ms": poll_interval_ms,
+                }
+                if existing["event_type"] != "wait.created" or any(
+                    existing["payload"].get(key) != value for key, value in expected.items()
+                ):
+                    raise RuntimeStoreError(f"idempotency key was reused with different wait data: {idempotency_key}")
+                replay(self._run(run_id), self._events(run_id))
+                return existing
+            state = replay(run, self._events(run_id))
+            if state["status"] != "running":
+                raise RuntimeStoreError(f"wait.created is invalid while run is {state['status']}")
+            if policy_revision is None:
+                policy_revision = state["policy_revision"]
+            policy_revision = _text(policy_revision, "policy_revision")
+            if policy_revision != state["policy_revision"]:
+                raise RuntimeStoreError("wait policy revision does not match run policy revision")
+            current_task = state["tasks"].get(task_id)
+            if current_task is None or current_task["status"] != "started":
+                raise RuntimeStoreError(f"wait task must be started: {task_id}")
+            if any(item["status"] == "input_required" for item in state["waits"].values()):
+                raise RuntimeStoreError("run already has an active input wait")
+            checkpoint = self._checkpoint_locked(run_id, created_at=occurred_at)
+            payload = {
+                "wait_id": wait_id,
+                "task_id": task_id,
+                "checkpoint_id": checkpoint["checkpoint_id"],
+                "checkpoint_sequence": checkpoint["event_sequence"],
+                "checkpoint_event_hash": checkpoint["event_hash"],
+                "input_schema_digest": input_schema_digest,
+                "policy_revision": policy_revision,
+                "authorization_context_digest": authorization_context_digest,
+                "expires_at": expected_expires_at,
+                "ttl_seconds": ttl_seconds,
+                "poll_interval_ms": poll_interval_ms,
+                "expiration_outcome": expiration_outcome,
+                "resume_contract": resume_contract,
+            }
+            return self._append_locked(run_id, "wait.created", payload, idempotency_key, occurred_at)
+
+    def submit_input(
+        self,
+        run_id: str,
+        wait_id: str,
+        submission_id: str,
+        input_digest: str,
+        authorization_context_digest: str,
+        *,
+        input_schema_digest: str,
+        idempotency_key: str | None = None,
+        occurred_at: str | None = None,
+    ) -> dict[str, Any]:
+        wait_id = _identifier(wait_id, "wait_id")
+        return self.append_event(
+            run_id,
+            "wait.input_submitted",
+            {
+                "wait_id": wait_id,
+                "submission_id": _identifier(submission_id, "submission_id"),
+                "input_digest": _digest_reference(input_digest, "input_digest"),
+                "input_schema_digest": _digest_reference(input_schema_digest, "input_schema_digest"),
+                "authorization_context_digest": _digest_reference(
+                    authorization_context_digest, "authorization_context_digest"
+                ),
+            },
+            idempotency_key=idempotency_key or _derived_idempotency_key("wait.input_submitted", wait_id),
+            occurred_at=occurred_at,
+        )
+
+    def receive_signal(
+        self,
+        run_id: str,
+        signal_id: str,
+        signal_type: str,
+        payload_digest: str,
+        authorization_context_digest: str,
+        *,
+        wait_id: str | None = None,
+        idempotency_key: str | None = None,
+        occurred_at: str | None = None,
+    ) -> dict[str, Any]:
+        signal_id = _identifier(signal_id, "signal_id")
+        if signal_type not in SIGNAL_TYPES:
+            expected = ", ".join(sorted(SIGNAL_TYPES))
+            raise RuntimeStoreError(f"signal_type must be one of: {expected}")
+        payload = {
+            "signal_id": signal_id,
+            "signal_type": signal_type,
+            "payload_digest": _digest_reference(payload_digest, "payload_digest"),
+            "authorization_context_digest": _digest_reference(
+                authorization_context_digest, "authorization_context_digest"
+            ),
+        }
+        if wait_id is not None:
+            payload["wait_id"] = _identifier(wait_id, "wait_id")
+        return self.append_event(
+            run_id,
+            "signal.received",
+            payload,
+            idempotency_key=idempotency_key or _derived_idempotency_key("signal.received", signal_id),
+            occurred_at=occurred_at,
+        )
+
+    def expire_wait(
+        self,
+        run_id: str,
+        wait_id: str,
+        *,
+        error_ref: str | None = None,
+        idempotency_key: str | None = None,
+        occurred_at: str | None = None,
+    ) -> dict[str, Any]:
+        run_id = _identifier(run_id, "run_id")
+        wait_id = _identifier(wait_id, "wait_id")
+        wait = self.state(run_id)["waits"].get(wait_id)
+        if wait is None:
+            raise RuntimeStoreError(f"unknown wait: {wait_id}")
+        payload: dict[str, Any] = {
+            "wait_id": wait_id,
+            "expiration_outcome": wait["expiration_outcome"],
+        }
+        if error_ref is not None:
+            payload["error_ref"] = _text(error_ref, "error_ref")
+        return self.append_event(
+            run_id,
+            "wait.expired",
+            payload,
+            idempotency_key=idempotency_key or _derived_idempotency_key("wait.expired", wait_id),
+            occurred_at=occurred_at,
+        )
+
+    def request_cancel(
+        self,
+        run_id: str,
+        *,
+        reason_ref: str | None = None,
+        authorization_context_digest: str | None = None,
+        idempotency_key: str = "run.cancel_requested",
+        occurred_at: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if reason_ref is not None:
+            payload["reason_ref"] = _text(reason_ref, "reason_ref")
+        if authorization_context_digest is not None:
+            payload["authorization_context_digest"] = _digest_reference(
+                authorization_context_digest, "authorization_context_digest"
+            )
+        return self.append_event(
+            run_id, "run.cancel_requested", payload, idempotency_key=idempotency_key, occurred_at=occurred_at
+        )
+
+    def acknowledge_cancel(
+        self,
+        run_id: str,
+        *,
+        ack_ref: str | None = None,
+        authorization_context_digest: str | None = None,
+        idempotency_key: str = "cancel.acknowledged",
+        occurred_at: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if ack_ref is not None:
+            payload["ack_ref"] = _digest_reference(ack_ref, "ack_ref")
+        if authorization_context_digest is not None:
+            payload["authorization_context_digest"] = _digest_reference(
+                authorization_context_digest, "authorization_context_digest"
+            )
+        return self.append_event(
+            run_id, "cancel.acknowledged", payload, idempotency_key=idempotency_key, occurred_at=occurred_at
+        )
+
+    def cancel_run(
+        self,
+        run_id: str,
+        *,
+        idempotency_key: str = "run.cancelled",
+        occurred_at: str | None = None,
+    ) -> dict[str, Any]:
+        return self.append_event(run_id, "run.cancelled", idempotency_key=idempotency_key, occurred_at=occurred_at)
+
+    def cancel_confirmed(
+        self,
+        run_id: str,
+        wait_id: str,
+        authorization_context_digest: str,
+        *,
+        idempotency_prefix: str | None = None,
+        occurred_at: str | None = None,
+    ) -> dict[str, Any]:
+        """Atomically record MCP-style request, acknowledgement, and cancellation evidence."""
+
+        run_id = _identifier(run_id, "run_id")
+        wait_id = _identifier(wait_id, "wait_id")
+        authorization_context_digest = _digest_reference(
+            authorization_context_digest, "authorization_context_digest"
+        )
+        occurred_at = _utc_timestamp(occurred_at or utc_now())
+        prefix = _text(
+            idempotency_prefix
+            or _derived_idempotency_key("mcp.cancel", _digest({"run_id": run_id, "wait_id": wait_id})),
+            "idempotency_prefix",
+        )
+        with self._transaction():
+            run = self._run(run_id)
+            state = replay(run, self._events(run_id))
+            wait = state["waits"].get(wait_id)
+            if wait is None:
+                raise RuntimeStoreError(f"unknown wait: {wait_id}")
+            if wait["status"] not in {"input_required", "cancel_requested"}:
+                raise RuntimeStoreError(f"wait is not cancellable: {wait_id}")
+            if wait["authorization_context_digest"] != authorization_context_digest:
+                raise RuntimeStoreError(f"wait authorization context mismatch: {wait_id}")
+            if state["status"] != "cancelling":
+                self._append_locked(
+                    run_id,
+                    "run.cancel_requested",
+                    {"authorization_context_digest": authorization_context_digest},
+                    f"{prefix}:requested",
+                    occurred_at,
+                )
+                state = replay(run, self._events(run_id))
+            if not state["cancel_acknowledged"]:
+                self._append_locked(
+                    run_id,
+                    "cancel.acknowledged",
+                    {
+                        "ack_ref": _error_ref(f"{prefix}:ack"),
+                        "authorization_context_digest": authorization_context_digest,
+                    },
+                    f"{prefix}:acknowledged",
+                    occurred_at,
+                )
+            return self._append_locked(
+                run_id,
+                "run.cancelled",
+                {},
+                f"{prefix}:cancelled",
+                occurred_at,
+            )
+
+    def list_waits(self, run_id: str) -> list[dict[str, Any]]:
+        state = self.state(run_id)
+        return [
+            {"wait_id": wait_id, **wait}
+            for wait_id, wait in sorted(state["waits"].items())
+        ]
+
     def state(self, run_id: str) -> dict[str, Any]:
         run_id = _identifier(run_id, "run_id")
         run = self._run(run_id)
@@ -1478,6 +2141,77 @@ class RuntimeStore:
         events = self._events(run_id)
         replay(run, events)
         return events
+
+    def _checkpoint_locked(
+        self,
+        run_id: str,
+        *,
+        upto_sequence: int | None = None,
+        created_at: str,
+    ) -> dict[str, Any]:
+        run = self._run(run_id)
+        events = self._events(run_id)
+        replay(run, events)
+        sequence = len(events) if upto_sequence is None else upto_sequence
+        if sequence < 1:
+            raise RuntimeStoreError("cannot checkpoint an empty run history")
+        if sequence > len(events):
+            raise RuntimeStoreError(f"checkpoint sequence {sequence} is beyond verified history head {len(events)}")
+        checkpoint_event = events[sequence - 1]
+        state = _payload(replay(run, events[:sequence]), "checkpoint.state")
+        state_digest = _digest(state)
+        checkpoint_id = str(
+            uuid.uuid5(
+                uuid.NAMESPACE_URL,
+                "forge-checkpoint:" + canonical_json(
+                    {
+                        "run_id": run_id,
+                        "event_sequence": sequence,
+                        "event_hash": checkpoint_event["event_hash"],
+                        "state_digest": state_digest,
+                        "definition_version": run["definition_version"],
+                        "policy_revision": run["policy_revision"],
+                    }
+                ),
+            )
+        )
+        existing = self.connection.execute(
+            "SELECT * FROM runtime_checkpoints WHERE run_id = ? AND checkpoint_id = ?",
+            (run_id, checkpoint_id),
+        ).fetchone()
+        if existing is not None:
+            checkpoint = self._row_checkpoint(existing)
+            if checkpoint["state_digest"] != state_digest or checkpoint["event_hash"] != checkpoint_event["event_hash"]:
+                raise RuntimeStoreError(f"conflicting checkpoint identity: {checkpoint_id}")
+            return checkpoint
+        try:
+            self.connection.execute(
+                "INSERT INTO runtime_checkpoints(run_id, checkpoint_id, schema_version, runtime_schema_version, "
+                "event_sequence, event_hash, workflow_id, definition_version, policy_revision, state_json, "
+                "state_digest, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    run_id,
+                    checkpoint_id,
+                    CHECKPOINT_SCHEMA_VERSION,
+                    DATABASE_SCHEMA_VERSION,
+                    sequence,
+                    checkpoint_event["event_hash"],
+                    run["workflow_id"],
+                    run["definition_version"],
+                    run["policy_revision"],
+                    canonical_json(state),
+                    state_digest,
+                    created_at,
+                ),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise RuntimeStoreError(f"checkpoint identity already exists: {checkpoint_id}") from exc
+        return self._row_checkpoint(
+            self.connection.execute(
+                "SELECT * FROM runtime_checkpoints WHERE run_id = ? AND checkpoint_id = ?",
+                (run_id, checkpoint_id),
+            ).fetchone()
+        )
 
     def checkpoint_run(
         self,
@@ -1493,71 +2227,7 @@ class RuntimeStore:
             _positive_int(upto_sequence, "upto_sequence")
         created_at = _utc_timestamp(created_at or utc_now())
         with self._transaction():
-            run = self._run(run_id)
-            events = self._events(run_id)
-            replay(run, events)
-            sequence = len(events) if upto_sequence is None else upto_sequence
-            if sequence < 1:
-                raise RuntimeStoreError("cannot checkpoint an empty run history")
-            if sequence > len(events):
-                raise RuntimeStoreError(
-                    f"checkpoint sequence {sequence} is beyond verified history head {len(events)}"
-                )
-            checkpoint_event = events[sequence - 1]
-            state = _payload(replay(run, events[:sequence]), "checkpoint.state")
-            state_digest = _digest(state)
-            checkpoint_id = str(
-                uuid.uuid5(
-                    uuid.NAMESPACE_URL,
-                    "forge-checkpoint:" + canonical_json(
-                        {
-                            "run_id": run_id,
-                            "event_sequence": sequence,
-                            "event_hash": checkpoint_event["event_hash"],
-                            "state_digest": state_digest,
-                            "definition_version": run["definition_version"],
-                            "policy_revision": run["policy_revision"],
-                        }
-                    ),
-                )
-            )
-            existing = self.connection.execute(
-                "SELECT * FROM runtime_checkpoints WHERE run_id = ? AND checkpoint_id = ?",
-                (run_id, checkpoint_id),
-            ).fetchone()
-            if existing is not None:
-                checkpoint = self._row_checkpoint(existing)
-                if checkpoint["state_digest"] != state_digest or checkpoint["event_hash"] != checkpoint_event["event_hash"]:
-                    raise RuntimeStoreError(f"conflicting checkpoint identity: {checkpoint_id}")
-                return checkpoint
-            try:
-                self.connection.execute(
-                    "INSERT INTO runtime_checkpoints(run_id, checkpoint_id, schema_version, runtime_schema_version, "
-                    "event_sequence, event_hash, workflow_id, definition_version, policy_revision, state_json, "
-                    "state_digest, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    (
-                        run_id,
-                        checkpoint_id,
-                        CHECKPOINT_SCHEMA_VERSION,
-                        DATABASE_SCHEMA_VERSION,
-                        sequence,
-                        checkpoint_event["event_hash"],
-                        run["workflow_id"],
-                        run["definition_version"],
-                        run["policy_revision"],
-                        canonical_json(state),
-                        state_digest,
-                        created_at,
-                    ),
-                )
-            except sqlite3.IntegrityError as exc:
-                raise RuntimeStoreError(f"checkpoint identity already exists: {checkpoint_id}") from exc
-            return self._row_checkpoint(
-                self.connection.execute(
-                    "SELECT * FROM runtime_checkpoints WHERE run_id = ? AND checkpoint_id = ?",
-                    (run_id, checkpoint_id),
-                ).fetchone()
-            )
+            return self._checkpoint_locked(run_id, upto_sequence=upto_sequence, created_at=created_at)
 
     def list_checkpoints(self, run_id: str) -> list[dict[str, Any]]:
         run_id = _identifier(run_id, "run_id")
@@ -1576,6 +2246,11 @@ class RuntimeStore:
         valid_sequence: int,
     ) -> dict[str, Any]:
         checkpoint = self._row_checkpoint(row)
+        if checkpoint["runtime_schema_version"] != DATABASE_SCHEMA_VERSION:
+            raise RuntimeStoreError(
+                f"checkpoint {checkpoint['checkpoint_id']} targets legacy runtime schema "
+                f"{checkpoint['runtime_schema_version']}; create a v{DATABASE_SCHEMA_VERSION} checkpoint"
+            )
         if checkpoint["run_id"] != run["run_id"]:
             raise RuntimeStoreError("checkpoint run_id does not match its stream")
         if any(
@@ -2098,6 +2773,63 @@ def _parser() -> argparse.ArgumentParser:
     append.add_argument("--effect-json", help="durable outbox effect descriptor as a JSON object")
     append.add_argument("--occurred-at")
 
+    wait = sub.add_parser("wait", help="checkpoint a run and wait for one authorized input")
+    wait.add_argument("--run-id", required=True)
+    wait.add_argument("--task-id", required=True)
+    wait.add_argument("--wait-id", required=True)
+    wait.add_argument("--input-schema-digest", required=True)
+    wait.add_argument("--authorization-context-digest", required=True)
+    wait.add_argument("--resume-contract", required=True)
+    wait.add_argument("--ttl-seconds", type=int, required=True)
+    wait.add_argument("--poll-interval-ms", type=int, required=True)
+    wait.add_argument("--expiration-outcome", choices=sorted(EXPIRATION_OUTCOMES), default="fail_run")
+    wait.add_argument("--policy-revision")
+    wait.add_argument("--idempotency-key")
+    wait.add_argument("--occurred-at")
+
+    waits = sub.add_parser("waits", help="list durable waits for a run")
+    waits.add_argument("--run-id", required=True)
+    submit = sub.add_parser("submit-input", help="submit one reference-only input response")
+    submit.add_argument("--run-id", required=True)
+    submit.add_argument("--wait-id", required=True)
+    submit.add_argument("--submission-id", required=True)
+    submit.add_argument("--input-digest", required=True)
+    submit.add_argument("--input-schema-digest", required=True)
+    submit.add_argument("--authorization-context-digest", required=True)
+    submit.add_argument("--idempotency-key")
+    submit.add_argument("--occurred-at")
+    signal = sub.add_parser("signal", help="record one reference-only external signal")
+    signal.add_argument("--run-id", required=True)
+    signal.add_argument("--signal-id", required=True)
+    signal.add_argument("--signal-type", choices=sorted(SIGNAL_TYPES), required=True)
+    signal.add_argument("--payload-digest", required=True)
+    signal.add_argument("--authorization-context-digest", required=True)
+    signal.add_argument("--wait-id")
+    signal.add_argument("--idempotency-key")
+    signal.add_argument("--occurred-at")
+    expire = sub.add_parser("expire-wait", help="record an expired wait after its persisted deadline")
+    expire.add_argument("--run-id", required=True)
+    expire.add_argument("--wait-id", required=True)
+    expire.add_argument("--error-ref")
+    expire.add_argument("--idempotency-key")
+    expire.add_argument("--occurred-at")
+    cancel_request = sub.add_parser("cancel-request", help="request durable run cancellation")
+    cancel_request.add_argument("--run-id", required=True)
+    cancel_request.add_argument("--reason-ref")
+    cancel_request.add_argument("--authorization-context-digest")
+    cancel_request.add_argument("--idempotency-key", default="run.cancel_requested")
+    cancel_request.add_argument("--occurred-at")
+    cancel_ack = sub.add_parser("cancel-ack", help="acknowledge cancellation handling")
+    cancel_ack.add_argument("--run-id", required=True)
+    cancel_ack.add_argument("--ack-ref")
+    cancel_ack.add_argument("--authorization-context-digest")
+    cancel_ack.add_argument("--idempotency-key", default="cancel.acknowledged")
+    cancel_ack.add_argument("--occurred-at")
+    cancel = sub.add_parser("cancel", help="record terminal run cancellation")
+    cancel.add_argument("--run-id", required=True)
+    cancel.add_argument("--idempotency-key", default="run.cancelled")
+    cancel.add_argument("--occurred-at")
+
     for name in ("state", "history", "verify"):
         command = sub.add_parser(name, help=f"{name} a run")
         command.add_argument("--run-id", required=True)
@@ -2150,6 +2882,75 @@ def main(argv: list[str] | None = None) -> int:
                 idempotency_key=args.idempotency_key,
                 occurred_at=args.occurred_at,
                 effect=_parse_payload(args.effect_json) if args.effect_json else None,
+            )
+        elif args.command == "wait":
+            result = store.create_wait(
+                args.run_id,
+                args.task_id,
+                args.input_schema_digest,
+                args.authorization_context_digest,
+                wait_id=args.wait_id,
+                resume_contract=args.resume_contract,
+                ttl_seconds=args.ttl_seconds,
+                poll_interval_ms=args.poll_interval_ms,
+                expiration_outcome=args.expiration_outcome,
+                policy_revision=args.policy_revision,
+                idempotency_key=args.idempotency_key,
+                occurred_at=args.occurred_at,
+            )
+        elif args.command == "waits":
+            result = store.list_waits(args.run_id)
+        elif args.command == "submit-input":
+            result = store.submit_input(
+                args.run_id,
+                args.wait_id,
+                args.submission_id,
+                args.input_digest,
+                args.authorization_context_digest,
+                input_schema_digest=args.input_schema_digest,
+                idempotency_key=args.idempotency_key,
+                occurred_at=args.occurred_at,
+            )
+        elif args.command == "signal":
+            result = store.receive_signal(
+                args.run_id,
+                args.signal_id,
+                args.signal_type,
+                args.payload_digest,
+                args.authorization_context_digest,
+                wait_id=args.wait_id,
+                idempotency_key=args.idempotency_key,
+                occurred_at=args.occurred_at,
+            )
+        elif args.command == "expire-wait":
+            result = store.expire_wait(
+                args.run_id,
+                args.wait_id,
+                error_ref=args.error_ref,
+                idempotency_key=args.idempotency_key,
+                occurred_at=args.occurred_at,
+            )
+        elif args.command == "cancel-request":
+            result = store.request_cancel(
+                args.run_id,
+                reason_ref=args.reason_ref,
+                authorization_context_digest=args.authorization_context_digest,
+                idempotency_key=args.idempotency_key,
+                occurred_at=args.occurred_at,
+            )
+        elif args.command == "cancel-ack":
+            result = store.acknowledge_cancel(
+                args.run_id,
+                ack_ref=args.ack_ref,
+                authorization_context_digest=args.authorization_context_digest,
+                idempotency_key=args.idempotency_key,
+                occurred_at=args.occurred_at,
+            )
+        elif args.command == "cancel":
+            result = store.cancel_run(
+                args.run_id,
+                idempotency_key=args.idempotency_key,
+                occurred_at=args.occurred_at,
             )
         elif args.command == "state":
             result = store.state(args.run_id)

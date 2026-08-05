@@ -13,8 +13,10 @@ workflows, and telemetry remain adapters or evidence surfaces.
 - The local SQLite/WAL runtime has hash-chained events, deterministic replay, bounded
   lifecycle transitions, an atomic event-plus-outbox write, leases, retries, dead letters,
   inbox dedupe, and reference-only payload checks.
-- The verifiable lineage and receipt-integrity slice in #56 is now in progress; it will add
+- The verifiable lineage and receipt-integrity slice in #56 is implemented and merged; it adds
   offline evidence verification without making telemetry the source of truth.
+- The wait-aware runtime uses database schema v3; v2 checkpoints remain readable evidence but
+  are excluded from restore until a v3 checkpoint is created after migration.
 - The current release remains 3.6.0. The transactional effect boundary is documented under
   `Unreleased`; no new tag should claim it until release validation is repeated.
 - The current stack delivery path already records head/base SHAs, guards mutations, handles
@@ -45,19 +47,22 @@ workflows, and telemetry remain adapters or evidence surfaces.
    recovers from corrupt prefixes with privacy-safe references, and applies reviewed additive
    migrations with resumable evidence.
 
+3. [#56 Verifiable execution lineage and receipt integrity](https://github.com/AlisinaDevelo/md-files/issues/56)
+   This slice derives deterministic, privacy-safe evidence from canonical history and optional
+   policy/receipt stores. Offline verification binds event parents, effect attempts, lease
+   generations, adapter revisions, provider references, and receipt digests.
+
 ### In progress
 
-1. [#56 Verifiable execution lineage and receipt integrity](https://github.com/AlisinaDevelo/md-files/issues/56)
+1. [#57 Human-input waits, signals, and cancellation](https://github.com/AlisinaDevelo/md-files/issues/57)
 
-This slice derives a deterministic, privacy-safe manifest from canonical runtime history and
-optional policy/receipt evidence. It verifies parent identity, event heads, effect attempts,
-lease generations, adapter revisions, provider references, and receipt digests without network
-access.
+This slice will make human interruption and cancellation durable, authorization-bound, and
+replayable across process restart. Research is focused on MCP Tasks mapping, checkpoint-before-
+interrupt semantics, deterministic expiry, and late-response races.
 
 ### Next runtime slices
 
-1. [#57 Human-input waits, signals, and cancellation](https://github.com/AlisinaDevelo/md-files/issues/57)
-2. [#58 Portable backend adapter and conformance](https://github.com/AlisinaDevelo/md-files/issues/58)
+1. [#58 Portable backend adapter and conformance](https://github.com/AlisinaDevelo/md-files/issues/58)
 
 These issues are the minimum credible v4 runtime contract. They are intentionally separate:
 recovery, evidence, interaction, and backend portability have different failure modes and

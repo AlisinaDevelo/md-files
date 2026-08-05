@@ -23,7 +23,7 @@
     "schema_version": {"const": 1},
     "run_id": {"type": "string", "minLength": 1},
     "checkpoint_id": {"type": "string", "format": "uuid"},
-    "runtime_schema_version": {"const": 2},
+    "runtime_schema_version": {"enum": [2, 3]},
     "event_sequence": {"type": "integer", "minimum": 1},
     "event_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "workflow_id": {"type": "string", "minLength": 1},
