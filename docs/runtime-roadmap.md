@@ -33,6 +33,9 @@ workflows, and telemetry remain adapters or evidence surfaces.
 | Human interaction | MCP Tasks defines `input_required`, TTL, polling hints, cancellation, authorization binding, limits, and audit expectations; provider task state is not enough. | Model waits and signals in Forge history, then expose MCP Tasks as an adapter. |
 | Evidence | OpenTelemetry provides versioned agent/workflow/tool vocabulary; W3C Trace Context carries portable correlation; SLSA and in-toto bind evidence to immutable subjects and resolved inputs. | Add a privacy-safe, digest-bound episode lineage and receipt verifier with pinned mappings, without replacing canonical history or GitHub release attestations. |
 | GitHub delivery | GitHub Merge Queue validates checks on the latest target plus queued changes and requires `merge_group` reporting. | Preserve SHA-bound stack plans, queue-event correlation, explicit approval, and indeterminate stop states. |
+| Definition rollout | AWS durable execution pins qualified versions and requires deterministic replay; Temporal uses worker-version compatibility and reachability signals. | Pin every run to an immutable definition/build digest; aliases affect new runs only, and incompatible replay fails closed or crosses an explicit continue-as-new boundary. |
+| Distributed recovery | etcd separates strict-serializable transactions from watch delivery, revisions, and compaction behavior. | Treat remote revisions as adapter evidence, persist cursors, recover from verified snapshots plus replay, and fail closed on cursor loss or ambiguous boundaries. |
+| Reliability testing | Durable systems expose correctness through idempotency and event history, but race failures depend on interleaving. | Add deterministic schedules, minimized counterexamples, invariant checks, and a bounded seed corpus before claiming backend portability at scale. |
 
 ## Release sequence
 
@@ -56,19 +59,22 @@ workflows, and telemetry remain adapters or evidence surfaces.
    This slice adds checkpoint-before-input waits, digest-bound submissions and signals, explicit
    expiry outcomes, sticky cancellation evidence, and an MCP Tasks projection over Forge state.
 
-### In progress
-
-1. [#58 Portable backend adapter and conformance](https://github.com/AlisinaDevelo/md-files/issues/58)
-
-This slice will make backend portability a negotiated semantic contract rather than a shared CRUD
-interface. Research is focused on consistency levels, revision/cursor mapping, ambiguous commit
-classification, deterministic fault injection, and cross-backend conformance fixtures.
+5. [#58 Portable backend adapter and conformance](https://github.com/AlisinaDevelo/md-files/issues/58)
+   This slice makes backend portability a negotiated semantic contract rather than a shared CRUD
+   interface. Both the SQLite/WAL reference backend and deterministic in-memory fault backend pass
+   the same 12-case matrix, including ambiguous commits, adapter evidence, restore, migration,
+   and privacy boundaries.
 
 ### Next runtime slices
 
 These issues are the minimum credible v4 runtime contract. They are intentionally separate:
 recovery, evidence, interaction, and backend portability have different failure modes and
 must remain independently reviewable.
+
+- [#68 Workflow definition versioning and replay compatibility](https://github.com/AlisinaDevelo/md-files/issues/68)
+- [#67 Distributed revision/watch recovery](https://github.com/AlisinaDevelo/md-files/issues/67)
+- [#66 Deterministic chaos and schedule shrinking](https://github.com/AlisinaDevelo/md-files/issues/66)
+- [#65 Signed trace-context and provenance bridge](https://github.com/AlisinaDevelo/md-files/issues/65)
 
 ### Later integrations
 

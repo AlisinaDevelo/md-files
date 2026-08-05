@@ -1,7 +1,7 @@
 ---
 id: 0020
 title: Define portable backend adapter and conformance contract
-status: in-progress
+status: done
 agent: architect
 model: opus
 depends_on: [0019]
@@ -30,7 +30,7 @@ privacy, or offline evidence.
       cases and are reproducible offline.
 - [x] No adapter claims exactly-once provider execution without an idempotent provider contract.
 - [x] Schemas, CLI inspection, docs, fixtures, and release projections pass locally.
-- [ ] Hosted checks pass on the PR and the merged release surface.
+- [x] Hosted checks pass on the PR and the merged release surface.
 
 ## Research decisions
 
@@ -53,7 +53,8 @@ so results remain reproducible across SQLite page metadata changes.
 
 ## Verification
 
-Research is recorded on GitHub issue #58. Implementation and the cross-backend fixture matrix
-pass locally: both adapters report 12/12 passed, focused backend/release tests pass, capability
-compilation/rendering is current, and `bash scripts/validate.sh` plus Ruff pass. Hosted workflow
-verification and the merge gate remain in progress.
+Research is recorded on GitHub issue #58. PR #64 merged as `a9d2cfb003b6a1f313c22b133a127cc961ec188a`.
+Both adapters report 12/12 conformance cases, the full suite passes with 217 tests, and the
+evaluation suite reports 312/313 with one pre-existing situational-description warning. Ruff,
+validation, capability compilation/rendering, release projections, and the post-merge workflow
+run `30974614529` all pass.
