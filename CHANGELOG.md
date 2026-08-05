@@ -20,6 +20,9 @@ All notable changes to this project are documented here. The format is based on
 - **Verifiable runtime lineage** - added deterministic, privacy-safe offline manifests for event
   parentage, effect attempts, lease generations, provider references, policy evidence, and
   receipt integrity with pinned OpenTelemetry mappings.
+- **Durable human waits and cancellation** - added checkpoint-before-input waits, digest-bound
+  submissions and signals, explicit expiry outcomes, sticky cancellation evidence, an MCP Tasks
+  projection, and a reviewed runtime database migration for the wait-aware state contract.
 
 ## [3.6.0] — 2026-08-03
 

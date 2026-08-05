@@ -13,7 +13,10 @@
     "policy_revision",
     "status",
     "sequence",
-    "tasks"
+    "tasks",
+    "waits",
+    "signals",
+    "cancel_acknowledged"
   ],
   "properties": {
     "schema_version": {"const": 1},
@@ -21,10 +24,16 @@
     "workflow_id": {"type": "string", "minLength": 1},
     "definition_version": {"type": "string", "minLength": 1},
     "policy_revision": {"type": "string", "minLength": 1},
-    "status": {"enum": ["created", "running", "paused", "cancelling", "cancelled", "completed", "failed"]},
+    "status": {"enum": ["created", "running", "paused", "input_required", "cancelling", "cancelled", "completed", "failed"]},
     "sequence": {"type": "integer", "minimum": 0},
     "started_at": {"type": "string", "format": "date-time"},
     "error_ref": {"type": "string", "minLength": 1},
+    "cancel_requested_at": {"type": "string", "format": "date-time"},
+    "cancel_reason_ref": {"type": "string", "minLength": 1},
+    "cancel_authorization_context_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "cancel_acknowledged": {"type": "boolean"},
+    "cancel_acknowledged_at": {"type": "string", "format": "date-time"},
+    "cancel_ack_ref": {"type": "string", "minLength": 1},
     "tasks": {
       "type": "object",
       "additionalProperties": {
@@ -39,6 +48,71 @@
           "retryable": {"type": "boolean"},
           "output_ref": {"type": "string", "minLength": 1},
           "error_ref": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "waits": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "wait_id",
+          "task_id",
+          "checkpoint_id",
+          "checkpoint_sequence",
+          "checkpoint_event_hash",
+          "input_schema_digest",
+          "policy_revision",
+          "authorization_context_digest",
+          "expires_at",
+          "ttl_seconds",
+          "poll_interval_ms",
+          "expiration_outcome",
+          "resume_contract",
+          "status",
+          "created_at",
+          "created_sequence"
+        ],
+        "properties": {
+          "wait_id": {"type": "string", "minLength": 1},
+          "task_id": {"type": "string", "minLength": 1},
+          "checkpoint_id": {"type": "string", "minLength": 1},
+          "checkpoint_sequence": {"type": "integer", "minimum": 1},
+          "checkpoint_event_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "input_schema_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "policy_revision": {"type": "string", "minLength": 1},
+          "authorization_context_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "expires_at": {"type": "string", "format": "date-time"},
+          "ttl_seconds": {"type": "integer", "minimum": 1},
+          "poll_interval_ms": {"type": "integer", "minimum": 1},
+          "expiration_outcome": {"enum": ["fail_run", "cancel_run"]},
+          "resume_contract": {"type": "string", "minLength": 1},
+          "status": {"enum": ["input_required", "submitted", "expired", "cancel_requested", "cancelled"]},
+          "created_at": {"type": "string", "format": "date-time"},
+          "created_sequence": {"type": "integer", "minimum": 1},
+          "submission_id": {"type": "string", "minLength": 1},
+          "input_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "submitted_at": {"type": "string", "format": "date-time"},
+          "expired_at": {"type": "string", "format": "date-time"},
+          "cancelled_at": {"type": "string", "format": "date-time"}
+        }
+      }
+    },
+    "signals": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["signal_id", "signal_type", "payload_digest", "authorization_context_digest", "received_at", "received_sequence"],
+        "properties": {
+          "signal_id": {"type": "string", "minLength": 1},
+          "signal_type": {"enum": ["resume", "notify", "cancel"]},
+          "payload_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "authorization_context_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "wait_id": {"type": "string", "minLength": 1},
+          "received_at": {"type": "string", "format": "date-time"},
+          "received_sequence": {"type": "integer", "minimum": 1}
         }
       }
     }

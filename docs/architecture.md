@@ -61,9 +61,11 @@ per-run hash chain. Events that schedule external work can atomically create a h
 outbox intent; leased workers deliver it at least once with generation-fenced ownership and
 reference-only lease evidence, while a deduplicated inbox stores provider receipts. Verified
 checkpoints bind reducer state to an event head and allow suffix recovery; reviewed database
-migrations fail closed before incompatible history is used. Receipts remain privacy-safe
-evidence, task ledgers remain planning state, and provider sessions/MCP Tasks remain optional
-adapters. The runtime never claims exactly-once execution across SQLite and a provider API.
+migrations fail closed before incompatible history is used. Human waits checkpoint before input,
+bind responses and signals to authorization/schema digests, and make expiry/cancellation
+replayable. The MCP Tasks adapter is a reference-only view; receipts remain privacy-safe
+evidence, task ledgers remain planning state, and provider sessions remain optional adapters.
+The runtime never claims exactly-once execution across SQLite and a provider API.
 
 ## The four component types
 

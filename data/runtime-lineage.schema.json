@@ -18,7 +18,7 @@
   ],
   "properties": {
     "schema_version": {"const": 1},
-    "runtime_schema_version": {"const": 2},
+    "runtime_schema_version": {"const": 3},
     "mapping": {
       "type": "object",
       "additionalProperties": false,
