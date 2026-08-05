@@ -14,7 +14,6 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
-
 LINEAGE_SCHEMA_VERSION = 1
 RECEIPT_SCHEMA_VERSION = 1
 RUNTIME_SCHEMA_VERSION = 2
@@ -220,7 +219,7 @@ def _safe_value(value: Any, key: str = "") -> Any:
         return value
     if any(part in normalized.split("_") for part in FORBIDDEN_PARTS):
         return {"redacted": True, "sha256": digest_ref(value)}
-    if isinstance(value, Mapping) or isinstance(value, (list, tuple)):
+    if isinstance(value, (Mapping, list, tuple)):
         return {"redacted": True, "sha256": digest_ref(value)}
     if isinstance(value, str) and len(value) > 512:
         return {"redacted": True, "sha256": digest_ref(value)}
@@ -237,9 +236,10 @@ def _assert_private(value: Any, path: str = "evidence") -> None:
                 if child is not None and (not isinstance(child, str) or not child or len(child) > 512):
                     raise LineageError(f"{path}.{key} must be a bounded reference")
                 continue
-            if any(part in normalized.split("_") for part in FORBIDDEN_PARTS):
-                if not (isinstance(child, Mapping) and child.get("redacted") is True):
-                    raise LineageError(f"{path}.{key} contains forbidden raw content")
+            if any(part in normalized.split("_") for part in FORBIDDEN_PARTS) and not (
+                isinstance(child, Mapping) and child.get("redacted") is True
+            ):
+                raise LineageError(f"{path}.{key} contains forbidden raw content")
             _assert_private(child, f"{path}.{key}")
     elif isinstance(value, list):
         for index, child in enumerate(value):
@@ -801,9 +801,10 @@ def verify_manifest(manifest: Mapping[str, Any]) -> dict[str, Any]:
         if effect_id is None:
             if receipt["receipt_type"] == "effect.receipt" or receipt["receipt_type"] == "effect.outcome":
                 raise LineageError(f"effect receipt is missing effect parent: {receipt_id}")
-            if receipt["receipt_type"] == "policy.decision":
-                if "action_digest" not in receipt["payload"] or "policy_revision" not in receipt["payload"]:
-                    raise LineageError(f"policy receipt is missing identity: {receipt_id}")
+            if receipt["receipt_type"] == "policy.decision" and (
+                "action_digest" not in receipt["payload"] or "policy_revision" not in receipt["payload"]
+            ):
+                raise LineageError(f"policy receipt is missing identity: {receipt_id}")
             continue
         effect = effect_by_id.get(effect_id)
         if effect is None or effect["run_id"] != run_id:
