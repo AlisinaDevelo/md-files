@@ -112,6 +112,36 @@ python3 scripts/forge-backends.py negotiate --backend memory \
 python3 scripts/forge-backends.py conformance --backend all
 ```
 
+For a distributed revision and watch contract, negotiate every guarantee before starting a
+run and execute the deterministic etcd-first matrix:
+
+```bash
+python3 scripts/forge-backends.py describe --backend etcd
+python3 scripts/forge-backends.py negotiate --backend etcd \
+  --requirements-json '{"required_capabilities":["remote_revisions","watch_delivery","snapshot_recovery","compaction_recovery","fenced_leases"],"consistency_level":"strict_serializable"}'
+python3 scripts/forge-backends.py watch-conformance --backend etcd
+```
+
+The etcd facade keeps canonical Forge transitions in strict-serializable runtime storage and
+models remote revisions, watch delivery, reconnects, and compaction as provider-neutral evidence.
+It is a deterministic offline contract test, not a claim that a live etcd cluster is available.
+Normalize notifications into `forge-distributed.py` before observation: sort and deduplicate by
+remote revision and canonical event reference, reject gaps, stale cursors, foreign watch IDs,
+tampered cursors, and raw CloudEvent data. Observation may advance only its verified cursor
+evidence; it must not mutate canonical Forge history. After compaction or cursor loss, restore a
+digest-verified snapshot and replay the contiguous suffix, or fail closed.
+
+The offline matrix models a dedicated Forge event stream. A live etcd watch must define its key
+range and use progress/revision evidence because etcd revisions are cluster-wide; unrelated writes
+can create numeric gaps in a filtered watch. Never treat an unexplained gap as harmless.
+
+Treat remote revision numbers, transaction IDs, watch cursors, compaction markers, and
+CloudEvents as reference-only metadata. CloudEvents use `source` plus `id` for identity and keep
+payloads behind `data_ref`; see the [CloudEvents specification](https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md).
+The [etcd API guarantees](https://etcd.io/docs/v3.7/learning/api_guarantees/) and
+[watch/compaction guidance](https://etcd.io/docs/v3.7/dev-guide/interacting_v3/) are provider
+semantics that the adapter must verify, not silently assume.
+
 Remote revisions, transaction IDs, watch cursors, compaction markers, and CloudEvents belong
 in the reference-only envelope returned by `adapter_evidence`; its schema is
 `data/runtime-backend-evidence.schema.json`. Forge event IDs, sequence numbers, hash-chain

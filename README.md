@@ -61,7 +61,9 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   compatibility gates for replay, migration, restore, and effect retry, checkpointed recovery,
   offline lineage verification, and a strict
   separation between execution state, task planning, and privacy-safe receipts give long-running
-  orchestration a recoverable foundation.
+  orchestration a recoverable foundation. The portable backend facade also models etcd-first
+  distributed revisions, watch delivery, verified snapshots, and compaction recovery without
+  treating provider metadata as canonical history.
 - **Stacked delivery, now native.** Design and verify dependent PRs with a portable stack
   manifest, default to GitHub's first-party `gh stack`, or adapt the same safety protocol
   to vanilla GitHub, Graphite, Aviator, Sapling, and classic ghstack.
@@ -86,7 +88,7 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   deterministically, without relying on the model to remember.
 - **Proven, not asserted.** A real eval harness scores prompts and high-risk behavior
   contracts (312 deterministic checks plus cross-host scenarios and an opt-in LLM judge);
-  228 tests cover safety hooks, task sync, receipts, durable runtime replay, external effect
+  230 tests cover safety hooks, task sync, receipts, durable runtime replay, external effect
   delivery, doctor, policy,
   stacks, marketplace readiness, capability graph, rendering, semantic evidence, and conformance. Run
   them yourself — `just check`.

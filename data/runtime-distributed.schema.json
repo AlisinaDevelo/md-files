@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/distributed/v1",
+  "title": "Forge Distributed Watch Conformance Result",
+  "description": "Digest-only evidence for revision, watch, compaction, and reconnect recovery.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "contract_revision", "status", "backend", "base", "distributed", "result_digest"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "contract_revision": {"type": "string", "minLength": 1},
+    "status": {"enum": ["passed", "failed"]},
+    "backend": {"$ref": "runtime-backend.schema.json"},
+    "base": {"$ref": "runtime-conformance.schema.json"},
+    "distributed": {"$ref": "runtime-conformance.schema.json"},
+    "result_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}
