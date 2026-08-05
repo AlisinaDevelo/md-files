@@ -35,8 +35,8 @@ workflows, and telemetry remain adapters or evidence surfaces.
 | Evidence | OpenTelemetry provides versioned agent/workflow/tool vocabulary; W3C Trace Context carries portable correlation; SLSA and in-toto bind evidence to immutable subjects and resolved inputs. | Add a privacy-safe, digest-bound episode lineage and receipt verifier with pinned mappings, without replacing canonical history or GitHub release attestations. |
 | GitHub delivery | GitHub Merge Queue validates checks on the latest target plus queued changes and requires `merge_group` reporting. | Preserve SHA-bound stack plans, queue-event correlation, explicit approval, and indeterminate stop states. |
 | Definition rollout | AWS durable execution pins qualified versions and requires deterministic replay; Temporal uses worker-version compatibility and reachability signals. | Pin every run to an immutable definition/build digest; aliases affect new runs only, and incompatible replay fails closed or crosses an explicit continue-as-new boundary. |
-| Distributed recovery | etcd separates strict-serializable transactions from watch delivery, revisions, and compaction behavior. | Treat remote revisions as adapter evidence, persist cursors, recover from verified snapshots plus replay, and fail closed on cursor loss or ambiguous boundaries. |
-| Reliability testing | Durable systems expose correctness through idempotency and event history, but race failures depend on interleaving. | Add deterministic schedules, minimized counterexamples, invariant checks, and a bounded seed corpus before claiming backend portability at scale. |
+| Distributed recovery | etcd separates strict-serializable transactions from watch delivery, revisions, and compaction behavior; revisions are cluster-wide and watches may be range-scoped. | Treat remote revisions as adapter evidence, define the watched Forge stream, persist cursors, recover from verified snapshots plus replay, and fail closed on unexplained gaps, cursor loss, or ambiguous boundaries. |
+| Reliability testing | [FoundationDB simulation](https://apple.github.io/foundationdb/testing.html) makes entropy and faults replayable; [Jepsen linearizability](https://jepsen.io/consistency/models/linearizable) provides a correctness oracle for concurrent histories. | Add deterministic schedules, minimized counterexamples, invariant checks, and a bounded seed corpus before claiming backend portability at scale. |
 
 ## Release sequence
 
@@ -72,13 +72,19 @@ workflows, and telemetry remain adapters or evidence surfaces.
    candidate declares compatibility; aliases affect new runs only, with offline canary, redirect,
    rollback, retirement, and continue-as-new evidence.
 
+7. [#67 Distributed revision/watch recovery](https://github.com/AlisinaDevelo/md-files/issues/67)
+   This slice adds an etcd-first backend facade with explicit remote revision, watch, snapshot,
+   and compaction capabilities. It verifies watch identity and CloudEvent metadata, rejects gaps,
+   stale cursors, conflicting duplicates, raw payloads, and compaction ambiguity, and recovers
+   from digest-verified snapshots plus contiguous replay. The shared backend matrix remains
+   `12/12`, and the distributed matrix adds `6/6` deterministic cases.
+
 ### Next runtime slices
 
 These issues are the minimum credible v4 runtime contract. They are intentionally separate:
 recovery, evidence, interaction, and backend portability have different failure modes and
 must remain independently reviewable.
 
-- [#67 Distributed revision/watch recovery](https://github.com/AlisinaDevelo/md-files/issues/67)
 - [#66 Deterministic chaos and schedule shrinking](https://github.com/AlisinaDevelo/md-files/issues/66)
 - [#65 Signed trace-context and provenance bridge](https://github.com/AlisinaDevelo/md-files/issues/65)
 
