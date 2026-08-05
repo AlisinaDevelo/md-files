@@ -24,6 +24,7 @@ except ImportError:  # pragma: no cover - Python 3.10 and earlier
 
 SCHEMA_VERSION = 1
 EFFECT_SCHEMA_VERSION = 1
+LEASE_SCHEMA_VERSION = 1
 GENESIS_HASH = "0" * 64
 IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/_-]{0,127}$")
 HASH_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -68,6 +69,15 @@ SENSITIVE_PAYLOAD_PARTS = {"authorization", "credential", "password", "prompt", 
 EFFECT_STATUSES = {"pending", "leased", "retry", "succeeded", "dead_letter"}
 RECEIPT_STATUSES = {"accepted", "succeeded"}
 ATTEMPT_OUTCOMES = {"leased", "reclaimed", "succeeded", "retry", "dead_letter"}
+LEASE_EVENT_TYPES = {"claimed", "heartbeat", "lease_lost"}
+POLICY_REVISION_KEYS = ("lease", "heartbeat", "activity_timeout", "cancellation", "retry")
+DEFAULT_POLICY_REVISIONS = {
+    "lease": "lease-v1",
+    "heartbeat": "heartbeat-v1",
+    "activity_timeout": "activity-timeout-v1",
+    "cancellation": "cancellation-v1",
+    "retry": "retry-v1",
+}
 
 
 class RuntimeStoreError(ValueError):
@@ -122,6 +132,34 @@ def _positive_int(value: Any, field: str, *, maximum: int | None = None) -> int:
     if maximum is not None and value > maximum:
         raise RuntimeStoreError(f"{field} must be at most {maximum}")
     return value
+
+
+def _policy_revisions(value: Mapping[str, Any] | None) -> dict[str, str]:
+    if value is None:
+        return dict(DEFAULT_POLICY_REVISIONS)
+    if not isinstance(value, Mapping):
+        raise RuntimeStoreError("policy_revisions must be a JSON object")
+    unknown = sorted(str(key) for key in value if key not in POLICY_REVISION_KEYS)
+    if unknown:
+        raise RuntimeStoreError("policy_revisions contains unsupported fields: " + ", ".join(unknown))
+    revisions = dict(DEFAULT_POLICY_REVISIONS)
+    for key in POLICY_REVISION_KEYS:
+        if key in value:
+            revisions[key] = _text(value[key], f"policy_revisions.{key}")
+    return revisions
+
+
+def _lease_policy(value: Mapping[str, Any] | None) -> dict[str, Any]:
+    if value is None or value == {}:
+        return {"schema_version": LEASE_SCHEMA_VERSION, "policy_revisions": dict(DEFAULT_POLICY_REVISIONS)}
+    if not isinstance(value, Mapping):
+        raise RuntimeStoreError("lease policy must be a JSON object")
+    if value.get("schema_version", LEASE_SCHEMA_VERSION) != LEASE_SCHEMA_VERSION:
+        raise RuntimeStoreError(f"unsupported lease policy schema: {value.get('schema_version')}")
+    return {
+        "schema_version": LEASE_SCHEMA_VERSION,
+        "policy_revisions": _policy_revisions(value.get("policy_revisions")),
+    }
 
 
 def _payload(value: Mapping[str, Any]) -> dict[str, Any]:
@@ -486,6 +524,15 @@ CREATE TABLE IF NOT EXISTS runtime_outbox (
     last_attempt_at TEXT,
     lease_owner TEXT,
     lease_expires_at TEXT,
+    lease_generation INTEGER NOT NULL DEFAULT 0 CHECK (lease_generation >= 0),
+    lease_started_at TEXT,
+    lease_deadline_at TEXT,
+    lease_seconds INTEGER CHECK (lease_seconds IS NULL OR lease_seconds > 0),
+    max_lease_seconds INTEGER CHECK (max_lease_seconds IS NULL OR max_lease_seconds > 0),
+    heartbeat_seconds INTEGER CHECK (heartbeat_seconds IS NULL OR heartbeat_seconds > 0),
+    last_heartbeat_at TEXT,
+    heartbeat_count INTEGER NOT NULL DEFAULT 0 CHECK (heartbeat_count >= 0),
+    lease_policy_json TEXT NOT NULL DEFAULT '{}',
     last_error_ref TEXT
 );
 CREATE INDEX IF NOT EXISTS runtime_outbox_ready
@@ -497,6 +544,7 @@ CREATE TABLE IF NOT EXISTS runtime_outbox_attempts (
     attempt INTEGER NOT NULL CHECK (attempt > 0),
     schema_version INTEGER NOT NULL CHECK (schema_version = 1),
     worker_id TEXT NOT NULL,
+    lease_generation INTEGER NOT NULL DEFAULT 0 CHECK (lease_generation >= 0),
     claimed_at TEXT NOT NULL,
     finished_at TEXT,
     outcome TEXT NOT NULL CHECK (outcome IN ('leased', 'reclaimed', 'succeeded', 'retry', 'dead_letter')),
@@ -505,6 +553,22 @@ CREATE TABLE IF NOT EXISTS runtime_outbox_attempts (
 );
 CREATE INDEX IF NOT EXISTS runtime_outbox_attempts_effect
     ON runtime_outbox_attempts(effect_id, attempt);
+CREATE TABLE IF NOT EXISTS runtime_outbox_lease_events (
+    effect_id TEXT NOT NULL REFERENCES runtime_outbox(effect_id),
+    event_sequence INTEGER NOT NULL CHECK (event_sequence > 0),
+    event_id TEXT NOT NULL UNIQUE,
+    schema_version INTEGER NOT NULL CHECK (schema_version = 1),
+    event_type TEXT NOT NULL CHECK (event_type IN ('claimed', 'heartbeat', 'lease_lost')),
+    lease_generation INTEGER NOT NULL CHECK (lease_generation > 0),
+    worker_id TEXT NOT NULL,
+    occurred_at TEXT NOT NULL,
+    lease_expires_at TEXT,
+    lease_deadline_at TEXT,
+    details_json TEXT NOT NULL,
+    PRIMARY KEY (effect_id, event_sequence)
+);
+CREATE INDEX IF NOT EXISTS runtime_outbox_lease_events_effect
+    ON runtime_outbox_lease_events(effect_id, event_sequence);
 CREATE TABLE IF NOT EXISTS runtime_inbox (
     idempotency_key TEXT PRIMARY KEY,
     effect_id TEXT NOT NULL UNIQUE REFERENCES runtime_outbox(effect_id),
@@ -533,6 +597,7 @@ class RuntimeStore:
             self.close()
             raise RuntimeStoreError(f"SQLite WAL is unavailable; got journal mode {journal_mode}")
         self.connection.executescript(SCHEMA_SQL)
+        self._ensure_effect_columns()
         row = self.connection.execute("SELECT value FROM runtime_meta WHERE key = 'schema_version'").fetchone()
         if row is None:
             self.connection.execute(
@@ -556,6 +621,45 @@ class RuntimeStore:
 
     def close(self) -> None:
         self.connection.close()
+
+    def _ensure_effect_columns(self) -> None:
+        """Add lease controls to databases created before heartbeat support."""
+
+        additions = {
+            "runtime_outbox": {
+                "lease_generation": "INTEGER NOT NULL DEFAULT 0 CHECK (lease_generation >= 0)",
+                "lease_started_at": "TEXT",
+                "lease_deadline_at": "TEXT",
+                "lease_seconds": "INTEGER CHECK (lease_seconds IS NULL OR lease_seconds > 0)",
+                "max_lease_seconds": "INTEGER CHECK (max_lease_seconds IS NULL OR max_lease_seconds > 0)",
+                "heartbeat_seconds": "INTEGER CHECK (heartbeat_seconds IS NULL OR heartbeat_seconds > 0)",
+                "last_heartbeat_at": "TEXT",
+                "heartbeat_count": "INTEGER NOT NULL DEFAULT 0 CHECK (heartbeat_count >= 0)",
+                "lease_policy_json": "TEXT NOT NULL DEFAULT '{}'",
+            },
+            "runtime_outbox_attempts": {
+                "lease_generation": "INTEGER NOT NULL DEFAULT 0 CHECK (lease_generation >= 0)",
+            },
+        }
+        for table, columns in additions.items():
+            present = {
+                row["name"]
+                for row in self.connection.execute(f"PRAGMA table_info({table})").fetchall()
+            }
+            for name, definition in columns.items():
+                if name not in present:
+                    self.connection.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
+
+        self.connection.execute(
+            "UPDATE runtime_outbox SET lease_generation = delivery_attempts, "
+            "lease_started_at = COALESCE(lease_started_at, last_attempt_at), "
+            "lease_deadline_at = COALESCE(lease_deadline_at, lease_expires_at) "
+            "WHERE status = 'leased' AND lease_generation = 0 AND delivery_attempts > 0",
+        )
+        self.connection.execute(
+            "UPDATE runtime_outbox_attempts SET lease_generation = attempt "
+            "WHERE lease_generation = 0",
+        )
 
     def __enter__(self) -> Self:
         return self
@@ -687,6 +791,7 @@ class RuntimeStore:
     @staticmethod
     def _row_outbox(row: sqlite3.Row) -> dict[str, Any]:
         RuntimeStore._validate_outbox_row(row)
+        lease_policy = _lease_policy(json.loads(row["lease_policy_json"]))
         return {
             "schema_version": row["schema_version"],
             "effect_id": row["effect_id"],
@@ -708,6 +813,21 @@ class RuntimeStore:
             "last_attempt_at": row["last_attempt_at"],
             "lease_owner": row["lease_owner"],
             "lease_expires_at": row["lease_expires_at"],
+            "lease_generation": row["lease_generation"],
+            "lease": {
+                "schema_version": LEASE_SCHEMA_VERSION,
+                "owner": row["lease_owner"],
+                "generation": row["lease_generation"],
+                "started_at": row["lease_started_at"],
+                "expires_at": row["lease_expires_at"],
+                "deadline_at": row["lease_deadline_at"],
+                "lease_seconds": row["lease_seconds"],
+                "max_lease_seconds": row["max_lease_seconds"],
+                "heartbeat_seconds": row["heartbeat_seconds"],
+                "last_heartbeat_at": row["last_heartbeat_at"],
+                "heartbeat_count": row["heartbeat_count"],
+                "policy_revisions": lease_policy["policy_revisions"],
+            },
             "last_error_ref": row["last_error_ref"],
         }
 
@@ -715,6 +835,12 @@ class RuntimeStore:
     def _validate_outbox_row(row: sqlite3.Row) -> None:
         if row["schema_version"] != EFFECT_SCHEMA_VERSION:
             raise RuntimeStoreError(f"unsupported runtime effects schema: {row['schema_version']}")
+        try:
+            _lease_policy(json.loads(row["lease_policy_json"]))
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise RuntimeStoreError(f"invalid lease policy: {row['effect_id']}") from exc
+        if row["lease_generation"] < 0 or row["heartbeat_count"] < 0:
+            raise RuntimeStoreError(f"invalid lease counters: {row['effect_id']}")
         effect = {
             "schema_version": row["schema_version"],
             "effect_id": row["effect_id"],
@@ -738,10 +864,35 @@ class RuntimeStore:
             "attempt": row["attempt"],
             "schema_version": row["schema_version"],
             "worker_id": row["worker_id"],
+            "lease_generation": row["lease_generation"],
             "claimed_at": row["claimed_at"],
             "finished_at": row["finished_at"],
             "outcome": row["outcome"],
             "error_ref": row["error_ref"],
+        }
+
+    @staticmethod
+    def _row_lease_event(row: sqlite3.Row) -> dict[str, Any]:
+        if row["schema_version"] != LEASE_SCHEMA_VERSION:
+            raise RuntimeStoreError(f"unsupported lease event schema: {row['schema_version']}")
+        if row["event_type"] not in LEASE_EVENT_TYPES:
+            raise RuntimeStoreError(f"unsupported lease event type: {row['event_type']}")
+        details = json.loads(row["details_json"])
+        if not isinstance(details, dict):
+            raise RuntimeStoreError(f"lease event details must be an object: {row['event_id']}")
+        _validate_payload_keys(details, "lease_event.details")
+        return {
+            "schema_version": row["schema_version"],
+            "effect_id": row["effect_id"],
+            "sequence": row["event_sequence"],
+            "event_id": row["event_id"],
+            "event_type": row["event_type"],
+            "lease_generation": row["lease_generation"],
+            "worker_id": row["worker_id"],
+            "occurred_at": row["occurred_at"],
+            "lease_expires_at": row["lease_expires_at"],
+            "lease_deadline_at": row["lease_deadline_at"],
+            "details": details,
         }
 
     @staticmethod
@@ -763,6 +914,80 @@ class RuntimeStore:
         if row is None:
             raise RuntimeStoreError(f"unknown effect: {effect_id}")
         self._validate_outbox_row(row)
+        return row
+
+    def _append_lease_event_locked(
+        self,
+        row: sqlite3.Row,
+        event_type: str,
+        *,
+        worker_id: str,
+        occurred_at: str,
+        details: Mapping[str, Any] | None = None,
+        lease_expires_at: str | None = None,
+        lease_deadline_at: str | None = None,
+    ) -> None:
+        if event_type not in LEASE_EVENT_TYPES:
+            raise RuntimeStoreError(f"unsupported lease event type: {event_type}")
+        worker_id = _identifier(worker_id, "worker_id")
+        generation = _positive_int(row["lease_generation"], "lease_generation")
+        normalized_details = _payload(details or {})
+        event_sequence = int(
+            self.connection.execute(
+                "SELECT COALESCE(MAX(event_sequence), 0) + 1 FROM runtime_outbox_lease_events "
+                "WHERE effect_id = ?",
+                (row["effect_id"],),
+            ).fetchone()[0]
+        )
+        event_material = canonical_json(
+            {
+                "effect_id": row["effect_id"],
+                "event_sequence": event_sequence,
+                "event_type": event_type,
+                "lease_generation": generation,
+                "worker_id": worker_id,
+                "occurred_at": occurred_at,
+                "details": normalized_details,
+            }
+        )
+        event_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"forge-lease:{event_material}"))
+        self.connection.execute(
+            "INSERT INTO runtime_outbox_lease_events(effect_id, event_sequence, event_id, schema_version, "
+            "event_type, lease_generation, worker_id, occurred_at, lease_expires_at, lease_deadline_at, details_json) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                row["effect_id"],
+                event_sequence,
+                event_id,
+                LEASE_SCHEMA_VERSION,
+                event_type,
+                generation,
+                worker_id,
+                occurred_at,
+                lease_expires_at,
+                lease_deadline_at,
+                canonical_json(normalized_details),
+            ),
+        )
+
+    def _require_current_lease_locked(
+        self,
+        row: sqlite3.Row,
+        worker_id: str,
+        lease_generation: int,
+        now: str,
+    ) -> sqlite3.Row:
+        if lease_generation != row["lease_generation"]:
+            raise RuntimeStoreError(
+                f"lease generation mismatch for effect {row['effect_id']}: "
+                f"expected {row['lease_generation']}, got {lease_generation}"
+            )
+        if row["status"] != "leased" or row["lease_owner"] != worker_id:
+            raise RuntimeStoreError(f"effect is not leased to worker: {row['effect_id']}")
+        if not row["lease_expires_at"] or _utc_timestamp(now) >= row["lease_expires_at"]:
+            raise RuntimeStoreError(f"lease has expired: {row['effect_id']}")
+        if row["lease_deadline_at"] and _utc_timestamp(now) >= row["lease_deadline_at"]:
+            raise RuntimeStoreError(f"lease deadline has passed: {row['effect_id']}")
         return row
 
     def _inbox_for_effect_locked(self, effect_id: str) -> sqlite3.Row | None:
@@ -963,19 +1188,46 @@ class RuntimeStore:
         ).fetchall()
         return [self._row_attempt(row) for row in rows]
 
+    def lease_events(self, effect_id: str) -> list[dict[str, Any]]:
+        effect_id = _text(effect_id, "effect_id")
+        self._outbox_locked(effect_id)
+        rows = self.connection.execute(
+            "SELECT * FROM runtime_outbox_lease_events WHERE effect_id = ? ORDER BY event_sequence",
+            (effect_id,),
+        ).fetchall()
+        return [self._row_lease_event(row) for row in rows]
+
     def claim_outbox(
         self,
         worker_id: str,
         *,
         limit: int = 1,
         lease_seconds: int = 60,
+        max_lease_seconds: int | None = None,
+        heartbeat_seconds: int | None = None,
+        policy_revisions: Mapping[str, Any] | None = None,
         now: str | None = None,
     ) -> list[dict[str, Any]]:
         worker_id = _identifier(worker_id, "worker_id")
         limit = _positive_int(limit, "limit", maximum=100)
         lease_seconds = _positive_int(lease_seconds, "lease_seconds", maximum=86_400)
+        max_lease_seconds = (
+            lease_seconds
+            if max_lease_seconds is None
+            else _positive_int(max_lease_seconds, "max_lease_seconds", maximum=86_400)
+        )
+        if max_lease_seconds < lease_seconds:
+            raise RuntimeStoreError("max_lease_seconds must be at least lease_seconds")
+        heartbeat_seconds = (
+            lease_seconds
+            if heartbeat_seconds is None
+            else _positive_int(heartbeat_seconds, "heartbeat_seconds", maximum=86_400)
+        )
+        if heartbeat_seconds > max_lease_seconds:
+            raise RuntimeStoreError("heartbeat_seconds must be at most max_lease_seconds")
         now = _utc_timestamp(now or utc_now())
         lease_expires_at = _after_seconds(now, lease_seconds)
+        lease_deadline_at = _after_seconds(now, max_lease_seconds)
         claimed: list[dict[str, Any]] = []
         with self._transaction():
             rows = self.connection.execute(
@@ -989,40 +1241,174 @@ class RuntimeStore:
                 if row["status"] == "leased":
                     closed = self.connection.execute(
                         "UPDATE runtime_outbox_attempts SET finished_at = ?, outcome = 'reclaimed' "
-                        "WHERE effect_id = ? AND attempt = ? AND outcome = 'leased'",
-                        (now, row["effect_id"], row["delivery_attempts"]),
+                        "WHERE effect_id = ? AND attempt = ? AND lease_generation = ? AND outcome = 'leased'",
+                        (now, row["effect_id"], row["delivery_attempts"], row["lease_generation"]),
                     )
                     if closed.rowcount != 1:
                         raise RuntimeStoreError(f"leased effect attempt is missing: {row['effect_id']}")
+                    self._append_lease_event_locked(
+                        row,
+                        "lease_lost",
+                        worker_id=row["lease_owner"],
+                        occurred_at=now,
+                        details={"reason": "lease-expired", "reclaimed_by": worker_id},
+                        lease_expires_at=row["lease_expires_at"],
+                        lease_deadline_at=row["lease_deadline_at"],
+                    )
+                raw_policy = json.loads(row["lease_policy_json"])
+                if raw_policy == {}:
+                    pinned_policy = _lease_policy(
+                        {
+                            "schema_version": LEASE_SCHEMA_VERSION,
+                            "policy_revisions": _policy_revisions(policy_revisions),
+                        }
+                    )
+                else:
+                    pinned_policy = _lease_policy(raw_policy)
+                    if (
+                        policy_revisions is not None
+                        and pinned_policy["policy_revisions"] != _policy_revisions(policy_revisions)
+                    ):
+                        raise RuntimeStoreError(f"lease policy revision conflict: {row['effect_id']}")
                 attempt = row["delivery_attempts"] + 1
+                generation = row["lease_generation"] + 1
+                if generation < 1:
+                    generation = 1
                 self.connection.execute(
                     "UPDATE runtime_outbox SET status = 'leased', lease_owner = ?, "
-                    "lease_expires_at = ?, delivery_attempts = ?, last_attempt_at = ?, updated_at = ? "
+                    "lease_expires_at = ?, delivery_attempts = ?, last_attempt_at = ?, "
+                    "lease_generation = ?, lease_started_at = ?, lease_deadline_at = ?, "
+                    "lease_seconds = ?, max_lease_seconds = ?, heartbeat_seconds = ?, "
+                    "last_heartbeat_at = NULL, heartbeat_count = 0, lease_policy_json = ?, updated_at = ? "
                     "WHERE effect_id = ?",
-                    (worker_id, lease_expires_at, attempt, now, now, row["effect_id"]),
+                    (
+                        worker_id,
+                        lease_expires_at,
+                        attempt,
+                        now,
+                        generation,
+                        now,
+                        lease_deadline_at,
+                        lease_seconds,
+                        max_lease_seconds,
+                        heartbeat_seconds,
+                        canonical_json(pinned_policy),
+                        now,
+                        row["effect_id"],
+                    ),
                 )
                 self.connection.execute(
                     "INSERT INTO runtime_outbox_attempts(effect_id, attempt, schema_version, worker_id, "
-                    "claimed_at, outcome) VALUES (?, ?, ?, ?, ?, 'leased')",
-                    (row["effect_id"], attempt, EFFECT_SCHEMA_VERSION, worker_id, now),
+                    "lease_generation, claimed_at, outcome) VALUES (?, ?, ?, ?, ?, ?, 'leased')",
+                    (row["effect_id"], attempt, EFFECT_SCHEMA_VERSION, worker_id, generation, now),
                 )
-                claimed.append(self._row_outbox(self._outbox_locked(row["effect_id"])))
+                current = self._outbox_locked(row["effect_id"])
+                self._append_lease_event_locked(
+                    current,
+                    "claimed",
+                    worker_id=worker_id,
+                    occurred_at=now,
+                    details={"attempt": attempt},
+                    lease_expires_at=lease_expires_at,
+                    lease_deadline_at=lease_deadline_at,
+                )
+                claimed.append(self._row_outbox(current))
         return claimed
 
     def _mark_outbox_succeeded_locked(self, row: sqlite3.Row, received_at: str) -> None:
         if row["status"] == "leased":
             updated_attempt = self.connection.execute(
                 "UPDATE runtime_outbox_attempts SET finished_at = ?, outcome = 'succeeded' "
-                "WHERE effect_id = ? AND attempt = ? AND outcome = 'leased'",
-                (received_at, row["effect_id"], row["delivery_attempts"]),
+                "WHERE effect_id = ? AND attempt = ? AND lease_generation = ? AND outcome = 'leased'",
+                (received_at, row["effect_id"], row["delivery_attempts"], row["lease_generation"]),
             )
             if updated_attempt.rowcount != 1:
                 raise RuntimeStoreError(f"leased effect attempt is missing: {row['effect_id']}")
         self.connection.execute(
             "UPDATE runtime_outbox SET status = 'succeeded', lease_owner = NULL, "
-            "lease_expires_at = NULL, updated_at = ? WHERE effect_id = ?",
+            "lease_expires_at = NULL, lease_started_at = NULL, lease_deadline_at = NULL, "
+            "lease_seconds = NULL, max_lease_seconds = NULL, heartbeat_seconds = NULL, updated_at = ? "
+            "WHERE effect_id = ?",
             (received_at, row["effect_id"]),
         )
+
+    def heartbeat_outbox(
+        self,
+        effect_id: str,
+        worker_id: str,
+        *,
+        lease_generation: int,
+        now: str | None = None,
+    ) -> dict[str, Any]:
+        effect_id = _text(effect_id, "effect_id")
+        worker_id = _identifier(worker_id, "worker_id")
+        lease_generation = _positive_int(lease_generation, "lease_generation")
+        now = _utc_timestamp(now or utc_now())
+        with self._transaction():
+            row = self._outbox_locked(effect_id)
+            self._require_current_lease_locked(row, worker_id, lease_generation, now)
+            if row["heartbeat_seconds"] is None or row["lease_deadline_at"] is None:
+                raise RuntimeStoreError(f"heartbeat policy is not pinned: {effect_id}")
+            requested_expires_at = _after_seconds(now, row["heartbeat_seconds"])
+            lease_expires_at = min(requested_expires_at, row["lease_deadline_at"])
+            updated = self.connection.execute(
+                "UPDATE runtime_outbox SET lease_expires_at = ?, last_heartbeat_at = ?, "
+                "heartbeat_count = heartbeat_count + 1, updated_at = ? "
+                "WHERE effect_id = ? AND status = 'leased' AND lease_owner = ? "
+                "AND lease_generation = ? AND lease_expires_at > ? AND lease_deadline_at > ?",
+                (
+                    lease_expires_at,
+                    now,
+                    now,
+                    effect_id,
+                    worker_id,
+                    lease_generation,
+                    now,
+                    now,
+                ),
+            )
+            if updated.rowcount != 1:
+                raise RuntimeStoreError(f"lease was lost before heartbeat: {effect_id}")
+            current = self._outbox_locked(effect_id)
+            self._append_lease_event_locked(
+                current,
+                "heartbeat",
+                worker_id=worker_id,
+                occurred_at=now,
+                details={
+                    "extension_seconds": row["heartbeat_seconds"],
+                    "bounded_by_deadline": lease_expires_at == row["lease_deadline_at"],
+                },
+                lease_expires_at=lease_expires_at,
+                lease_deadline_at=row["lease_deadline_at"],
+            )
+            return self._row_outbox(current)
+
+    def authorize_outbox_effect(
+        self,
+        effect_id: str,
+        worker_id: str,
+        *,
+        lease_generation: int,
+        now: str | None = None,
+    ) -> dict[str, Any]:
+        """Validate the lease context immediately before an adapter calls a provider."""
+
+        effect_id = _text(effect_id, "effect_id")
+        worker_id = _identifier(worker_id, "worker_id")
+        lease_generation = _positive_int(lease_generation, "lease_generation")
+        now = _utc_timestamp(now or utc_now())
+        with self._transaction():
+            row = self._outbox_locked(effect_id)
+            self._require_current_lease_locked(row, worker_id, lease_generation, now)
+            return {
+                "effect_id": row["effect_id"],
+                "idempotency_key": row["idempotency_key"],
+                "worker_id": worker_id,
+                "lease_generation": lease_generation,
+                "lease_expires_at": row["lease_expires_at"],
+                "lease_deadline_at": row["lease_deadline_at"],
+            }
 
     def _record_inbox_locked(
         self, row: sqlite3.Row, receipt: Mapping[str, Any], received_at: str
@@ -1065,21 +1451,27 @@ class RuntimeStore:
         worker_id: str,
         receipt: Mapping[str, Any],
         *,
+        lease_generation: int,
         received_at: str | None = None,
     ) -> dict[str, Any]:
         effect_id = _text(effect_id, "effect_id")
         worker_id = _identifier(worker_id, "worker_id")
+        lease_generation = _positive_int(lease_generation, "lease_generation")
         receipt = _receipt(receipt)
         received_at = _utc_timestamp(received_at or utc_now())
         with self._transaction():
             row = self._outbox_locked(effect_id)
+            if lease_generation != row["lease_generation"]:
+                raise RuntimeStoreError(
+                    f"lease generation mismatch for effect {effect_id}: "
+                    f"expected {row['lease_generation']}, got {lease_generation}"
+                )
             if row["status"] == "succeeded":
                 existing = self._inbox_for_effect_locked(effect_id)
                 if existing is None or self._row_inbox(existing)["receipt"] != receipt:
                     raise RuntimeStoreError(f"conflicting inbox receipt: {row['idempotency_key']}")
                 return dict(receipt)
-            if row["status"] != "leased" or row["lease_owner"] != worker_id:
-                raise RuntimeStoreError(f"effect is not leased to worker: {effect_id}")
+            self._require_current_lease_locked(row, worker_id, lease_generation, received_at)
             return self._record_inbox_locked(row, receipt, received_at)
 
     def record_inbox(
@@ -1100,6 +1492,7 @@ class RuntimeStore:
         effect_id: str,
         worker_id: str,
         *,
+        lease_generation: int,
         error_ref: str,
         retryable: bool,
         next_attempt_at: str | None = None,
@@ -1107,27 +1500,34 @@ class RuntimeStore:
     ) -> dict[str, Any]:
         effect_id = _text(effect_id, "effect_id")
         worker_id = _identifier(worker_id, "worker_id")
+        lease_generation = _positive_int(lease_generation, "lease_generation")
         error_ref = _text(error_ref, "error_ref")
         if not isinstance(retryable, bool):
             raise RuntimeStoreError("retryable must be a boolean")
         now = _utc_timestamp(now or utc_now())
         with self._transaction():
             row = self._outbox_locked(effect_id)
-            if row["status"] != "leased" or row["lease_owner"] != worker_id:
-                raise RuntimeStoreError(f"effect is not leased to worker: {effect_id}")
+            if lease_generation != row["lease_generation"]:
+                raise RuntimeStoreError(
+                    f"lease generation mismatch for effect {effect_id}: "
+                    f"expected {row['lease_generation']}, got {lease_generation}"
+                )
+            self._require_current_lease_locked(row, worker_id, lease_generation, now)
             status = "retry" if retryable else "dead_letter"
             available_at = _utc_timestamp(next_attempt_at) if retryable and next_attempt_at else now
             outcome = "retry" if retryable else "dead_letter"
             updated_attempt = self.connection.execute(
                 "UPDATE runtime_outbox_attempts SET finished_at = ?, outcome = ?, error_ref = ? "
-                "WHERE effect_id = ? AND attempt = ? AND outcome = 'leased'",
-                (now, outcome, error_ref, effect_id, row["delivery_attempts"]),
+                "WHERE effect_id = ? AND attempt = ? AND lease_generation = ? AND outcome = 'leased'",
+                (now, outcome, error_ref, effect_id, row["delivery_attempts"], lease_generation),
             )
             if updated_attempt.rowcount != 1:
                 raise RuntimeStoreError(f"leased effect attempt is missing: {effect_id}")
             self.connection.execute(
                 "UPDATE runtime_outbox SET status = ?, available_at = ?, lease_owner = NULL, "
-                "lease_expires_at = NULL, last_error_ref = ?, updated_at = ? WHERE effect_id = ?",
+                "lease_expires_at = NULL, lease_started_at = NULL, lease_deadline_at = NULL, "
+                "lease_seconds = NULL, max_lease_seconds = NULL, heartbeat_seconds = NULL, "
+                "last_error_ref = ?, updated_at = ? WHERE effect_id = ?",
                 (status, available_at, error_ref, now, effect_id),
             )
             return self._row_outbox(self._outbox_locked(effect_id))
@@ -1185,6 +1585,8 @@ def _parser() -> argparse.ArgumentParser:
     inbox.add_argument("--run-id")
     attempts = sub.add_parser("attempts", help="list delivery attempts for an effect")
     attempts.add_argument("--effect-id", required=True)
+    lease_events = sub.add_parser("lease-events", help="list lease and heartbeat evidence for an effect")
+    lease_events.add_argument("--effect-id", required=True)
     sub.add_parser("list", help="list runs")
     return parser
 
@@ -1224,6 +1626,8 @@ def main(argv: list[str] | None = None) -> int:
             result = store.list_inbox(args.run_id)
         elif args.command == "attempts":
             result = store.outbox_attempts(args.effect_id)
+        elif args.command == "lease-events":
+            result = store.lease_events(args.effect_id)
         else:
             result = store.list_runs()
         print(canonical_json(result))

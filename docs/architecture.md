@@ -58,10 +58,11 @@ The local runtime foundation lives beside the methodology rather than inside a p
 session. `scripts/forge-runtime.py` stores version-pinned run metadata and an append-only
 SQLite/WAL event stream; a pure reducer reconstructs execution state and verifies a
 per-run hash chain. Events that schedule external work can atomically create a hash-bound
-outbox intent; leased workers deliver it at least once and a deduplicated inbox stores
-reference-only provider receipts. Receipts remain privacy-safe evidence, task ledgers remain
-planning state, and provider sessions/MCP Tasks remain optional adapters. The runtime never
-claims exactly-once execution across SQLite and a provider API.
+outbox intent; leased workers deliver it at least once with generation-fenced ownership and
+reference-only lease evidence, while a deduplicated inbox stores provider receipts. Receipts
+remain privacy-safe evidence, task ledgers remain planning state, and provider sessions/MCP
+Tasks remain optional adapters. The runtime never claims exactly-once execution across
+SQLite and a provider API.
 
 ## The four component types
 

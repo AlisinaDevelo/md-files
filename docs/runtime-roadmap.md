@@ -8,7 +8,8 @@ workflows, and telemetry remain adapters or evidence surfaces.
 
 ## Baseline
 
-- Main is clean at the merged transactional effect boundary from #53.
+- The merged transactional effect boundary from #53 is the baseline; the generation-fenced
+  heartbeat slice in #54 is now implemented on top of it.
 - The local SQLite/WAL runtime has hash-chained events, deterministic replay, bounded
   lifecycle transitions, an atomic event-plus-outbox write, leases, retries, dead letters,
   inbox dedupe, and reference-only payload checks.
@@ -31,15 +32,14 @@ workflows, and telemetry remain adapters or evidence surfaces.
 
 ## Release sequence
 
-### Next runtime slice
+### Completed runtime slice
 
 1. [#54 Heartbeats and stale-worker fencing](https://github.com/AlisinaDevelo/md-files/issues/54)
 
-The first implementation target. It closes the zombie-worker gap in the existing outbox
-lease protocol. The slice must land with crash and race tests, schemas, CLI inspection, and
-policy-pinned timeout evidence.
+This slice closes the zombie-worker gap in the existing outbox lease protocol with crash and
+race tests, schemas, CLI inspection, generation fencing, and policy-pinned timeout evidence.
 
-### Durable runtime foundation
+### Next runtime slices
 
 1. [#55 Checkpointed recovery and migrations](https://github.com/AlisinaDevelo/md-files/issues/55)
 2. [#56 Verifiable execution lineage and receipt integrity](https://github.com/AlisinaDevelo/md-files/issues/56)

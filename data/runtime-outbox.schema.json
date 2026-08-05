@@ -22,7 +22,9 @@
     "available_at",
     "created_at",
     "updated_at",
-    "delivery_attempts"
+    "delivery_attempts",
+    "lease_generation",
+    "lease"
   ],
   "properties": {
     "schema_version": {"const": 1},
@@ -45,6 +47,50 @@
     "last_attempt_at": {"type": ["string", "null"], "format": "date-time"},
     "lease_owner": {"type": ["string", "null"], "minLength": 1},
     "lease_expires_at": {"type": ["string", "null"], "format": "date-time"},
+    "lease_generation": {"type": "integer", "minimum": 0},
+    "lease": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "owner",
+        "generation",
+        "started_at",
+        "expires_at",
+        "deadline_at",
+        "lease_seconds",
+        "max_lease_seconds",
+        "heartbeat_seconds",
+        "last_heartbeat_at",
+        "heartbeat_count",
+        "policy_revisions"
+      ],
+      "properties": {
+        "schema_version": {"const": 1},
+        "owner": {"type": ["string", "null"], "minLength": 1},
+        "generation": {"type": "integer", "minimum": 0},
+        "started_at": {"type": ["string", "null"], "format": "date-time"},
+        "expires_at": {"type": ["string", "null"], "format": "date-time"},
+        "deadline_at": {"type": ["string", "null"], "format": "date-time"},
+        "lease_seconds": {"type": ["integer", "null"], "minimum": 1},
+        "max_lease_seconds": {"type": ["integer", "null"], "minimum": 1},
+        "heartbeat_seconds": {"type": ["integer", "null"], "minimum": 1},
+        "last_heartbeat_at": {"type": ["string", "null"], "format": "date-time"},
+        "heartbeat_count": {"type": "integer", "minimum": 0},
+        "policy_revisions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["lease", "heartbeat", "activity_timeout", "cancellation", "retry"],
+          "properties": {
+            "lease": {"type": "string", "minLength": 1},
+            "heartbeat": {"type": "string", "minLength": 1},
+            "activity_timeout": {"type": "string", "minLength": 1},
+            "cancellation": {"type": "string", "minLength": 1},
+            "retry": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
     "last_error_ref": {"type": ["string", "null"], "minLength": 1}
   }
 }

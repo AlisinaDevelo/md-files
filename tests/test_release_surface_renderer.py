@@ -42,6 +42,7 @@ def test_release_surface_derives_metadata_and_install_inputs(tmp_path):
     assert (tmp_path / "codex/data/runtime-state.schema.json").is_file()
     assert (tmp_path / "claude/data/runtime-outbox.schema.json").is_file()
     assert (tmp_path / "codex/data/runtime-inbox.schema.json").is_file()
+    assert (tmp_path / "claude/data/runtime-lease-events.schema.json").is_file()
     assert (tmp_path / "agentskills/zed/install.sh").stat().st_mode & 0o111
     manifest = json.loads((tmp_path / "codex/data/projection-manifest.json").read_text(encoding="utf-8"))
     assert manifest["hosts"]["codex"]["components"] == 25

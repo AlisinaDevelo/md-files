@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/lease-events/v1",
+  "title": "Forge Runtime Lease Evidence",
+  "description": "Reference-only lease, heartbeat, and stale-worker evidence for an external effect.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "effect_id",
+    "sequence",
+    "event_id",
+    "event_type",
+    "lease_generation",
+    "worker_id",
+    "occurred_at",
+    "lease_expires_at",
+    "lease_deadline_at",
+    "details"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "effect_id": {"type": "string", "format": "uuid"},
+    "sequence": {"type": "integer", "minimum": 1},
+    "event_id": {"type": "string", "format": "uuid"},
+    "event_type": {"enum": ["claimed", "heartbeat", "lease_lost"]},
+    "lease_generation": {"type": "integer", "minimum": 1},
+    "worker_id": {"type": "string", "minLength": 1},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "lease_expires_at": {"type": ["string", "null"], "format": "date-time"},
+    "lease_deadline_at": {"type": ["string", "null"], "format": "date-time"},
+    "details": {"type": "object"}
+  }
+}

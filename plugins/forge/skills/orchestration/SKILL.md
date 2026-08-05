@@ -63,9 +63,12 @@ prompts, raw tool arguments/results, credentials, or tokens in runtime payloads;
 references and digests instead. Append an effect descriptor with the event that schedules an
 external operation when possible: the local runtime commits the event and outbox intent
 atomically, derives stable effect/provider idempotency identifiers, and records leases,
-attempts, retries, dead letters, and deduplicated inbox receipts. Delivery is at-least-once;
-the adapter must make the provider operation idempotent, and durable history never claims
-exactly-once provider execution.
+attempts, retries, dead letters, and deduplicated inbox receipts. Each lease claim carries a
+monotonic generation; heartbeat, provider submission authorization, acknowledgement, and
+failure must present the current worker plus generation. Delivery is at-least-once; the
+adapter must make the provider operation idempotent, and durable history never claims
+exactly-once provider execution. Inspect lease evidence with the runtime `lease-events`
+command when diagnosing stale workers or reclaim races.
 
 ## How to delegate well (this makes or breaks it)
 

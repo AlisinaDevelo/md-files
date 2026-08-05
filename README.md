@@ -12,7 +12,7 @@ maximize the efficacy of LLMs in software engineering.**
 [![Agents](https://img.shields.io/badge/agents-20-8b5cf6.svg)](plugins/forge/agents/)
 [![Skills](https://img.shields.io/badge/skills-25-06b6d4.svg)](plugins/forge/skills/)
 [![Commands](https://img.shields.io/badge/commands-22-22c55e.svg)](plugins/forge/commands/)
-[![Tests](https://img.shields.io/badge/tests-194%20passing-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-197%20passing-success.svg)](tests/)
 [![Prompt evals](https://img.shields.io/badge/prompt%20evals-312%20checks-success.svg)](evals/)
 
 </div>
@@ -83,7 +83,7 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   deterministically, without relying on the model to remember.
 - **Proven, not asserted.** A real eval harness scores prompts and high-risk behavior
   contracts (312 deterministic checks plus cross-host scenarios and an opt-in LLM judge);
-  194 tests cover safety hooks, task sync, receipts, durable runtime replay, external effect
+  197 tests cover safety hooks, task sync, receipts, durable runtime replay, external effect
   delivery, doctor, policy,
   stacks, marketplace readiness, capability graph, rendering, semantic evidence, and conformance. Run
   them yourself — `just check`.
@@ -343,8 +343,8 @@ scripts/               validation, installation, release, and marketplace checks
 - [Capability IR](docs/capability-ir.md) — body-aware graph, deterministic host renderer,
   adapter contract, migration workflow, and current compiler boundary
 - [Durable runtime](docs/runtime.md) — local SQLite/WAL history, deterministic replay,
-  transactional outbox/inbox effects, leases, idempotency, hash-chain verification, and
-  explicit at-least-once boundaries
+  transactional outbox/inbox effects, generation-fenced heartbeats, lease evidence,
+  idempotency, hash-chain verification, and explicit at-least-once boundaries
 - [Architecture](docs/architecture.md) — how the repo is organized and why
 - [Design rationale](docs/design-rationale.md) — the decisions and trade-offs behind Forge
 - [CI & headless usage](docs/ci-and-headless.md) — run Forge in pipelines and automated review
