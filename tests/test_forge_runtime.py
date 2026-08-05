@@ -238,9 +238,10 @@ def test_tampered_outbox_breaks_delivery(tmp_path):
     )
     connection.commit()
     connection.close()
-    with module.RuntimeStore(database) as reopened:
-        with pytest.raises(module.RuntimeStoreError, match="outbox effect hash mismatch"):
-            reopened.list_outbox("run-1")
+    with module.RuntimeStore(database) as reopened, pytest.raises(
+        module.RuntimeStoreError, match="outbox effect hash mismatch"
+    ):
+        reopened.list_outbox("run-1")
 
 
 def test_outbox_lease_expiry_retry_and_dead_letter(tmp_path):
