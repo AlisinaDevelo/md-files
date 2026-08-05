@@ -1,7 +1,7 @@
 ---
 id: 0021
 title: Add workflow definition versioning and replay compatibility gates
-status: planned
+status: done
 agent: architect
 model: opus
 depends_on: [0017, 0020]
@@ -15,16 +15,16 @@ replay, checkpoint restore, migration, or effect retry is incompatible with that
 
 ## Acceptance criteria
 
-- [ ] Runs persist an immutable definition digest, worker/build revision, policy revision, and
+- [x] Runs persist an immutable definition digest, worker/build revision, policy revision, and
       feature-flag decision digest.
-- [ ] Aliases select new runs only; in-flight runs remain pinned until explicit continue-as-new or
+- [x] Aliases select new runs only; in-flight runs remain pinned until explicit continue-as-new or
       a reviewed migration transition.
-- [ ] Compatibility preflight covers replay, checkpoints, migrations, and effect retries.
-- [ ] Stable step identities and idempotency keys are deterministic and tested against replay.
-- [ ] Golden fixtures cover compatible, incompatible, canary, rollback, and retirement paths.
-- [ ] Offline CLI inspection reports the pinned definition and compatibility decision without raw
+- [x] Compatibility preflight covers replay, checkpoints, migrations, and effect retries.
+- [x] Stable step identities and idempotency keys are deterministic and tested against replay.
+- [x] Golden fixtures cover compatible, incompatible, canary, rollback, and retirement paths.
+- [x] Offline CLI inspection reports the pinned definition and compatibility decision without raw
       prompts, credentials, tool payloads, or provider responses.
-- [ ] Backend conformance, full validation, and release projections pass.
+- [x] Backend conformance, full validation, and release projections pass.
 
 ## Research decisions
 
@@ -35,5 +35,12 @@ replay, checkpoint restore, migration, or effect retry is incompatible with that
 
 ## Verification
 
-Track implementation and release evidence on GitHub issue #68. Promote a failing replay fixture to
-the compatibility corpus before closing the task.
+- PR [#70](https://github.com/AlisinaDevelo/md-files/pull/70) merged as
+  `79a8feb4883f9c79185d1b073c9e1d0dce45c83b` and closed issue #68.
+- `228 passed`; definition/runtime focused coverage is 34 tests.
+- Both portable backends pass 12/12 conformance cases.
+- Ruff, `scripts/validate.sh`, capability compilation/projections, and reproducible release
+  surfaces pass; static eval is 312/313 with the existing one situational-description warning.
+- Hosted main CI run
+  [30976592398](https://github.com/AlisinaDevelo/md-files/actions/runs/30976592398) is green,
+  including host/Codex validation and release packaging.

@@ -15,8 +15,9 @@ workflows, and telemetry remain adapters or evidence surfaces.
   inbox dedupe, and reference-only payload checks.
 - The verifiable lineage and receipt-integrity slice in #56 is implemented and merged; it adds
   offline evidence verification without making telemetry the source of truth.
-- The wait-aware runtime uses database schema v3; v2 checkpoints remain readable evidence but
-  are excluded from restore until a v3 checkpoint is created after migration.
+- The wait-aware runtime now uses database schema v4; v2/v3 checkpoints remain readable evidence
+  but are excluded from restore until a v4 checkpoint is created after migration. v3-to-v4 adds
+  deterministic legacy definition descriptors without rewriting canonical event rows.
 - The current release remains 3.6.0. The transactional effect boundary is documented under
   `Unreleased`; no new tag should claim it until release validation is repeated.
 - The current stack delivery path already records head/base SHAs, guards mutations, handles
@@ -65,13 +66,18 @@ workflows, and telemetry remain adapters or evidence surfaces.
    the same 12-case matrix, including ambiguous commits, adapter evidence, restore, migration,
    and privacy boundaries.
 
+6. [#68 Workflow definition versioning and replay compatibility](https://github.com/AlisinaDevelo/md-files/issues/68)
+   This slice pins workflow code/schema, worker builds, policy and feature-flag decisions to an
+   immutable descriptor. Replay, restore, migration, and effect retry fail closed unless the
+   candidate declares compatibility; aliases affect new runs only, with offline canary, redirect,
+   rollback, retirement, and continue-as-new evidence.
+
 ### Next runtime slices
 
 These issues are the minimum credible v4 runtime contract. They are intentionally separate:
 recovery, evidence, interaction, and backend portability have different failure modes and
 must remain independently reviewable.
 
-- [#68 Workflow definition versioning and replay compatibility](https://github.com/AlisinaDevelo/md-files/issues/68)
 - [#67 Distributed revision/watch recovery](https://github.com/AlisinaDevelo/md-files/issues/67)
 - [#66 Deterministic chaos and schedule shrinking](https://github.com/AlisinaDevelo/md-files/issues/66)
 - [#65 Signed trace-context and provenance bridge](https://github.com/AlisinaDevelo/md-files/issues/65)
