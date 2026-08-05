@@ -27,6 +27,10 @@ All notable changes to this project are documented here. The format is based on
   degraded-mode handling, SQLite/WAL and deterministic in-memory adapters, ambiguous-commit
   recovery fixtures, backup/restore and migration checks, a reference-only adapter evidence
   envelope, and digest-only conformance results.
+- **Definition-pinned replay** - added digest-addressed workflow code/schema and worker descriptors,
+  explicit compatibility decisions for replay, restore, migration, and effect retry, deterministic
+  step/idempotency helpers, canary/redirect/rollback/retirement rollout evidence, continue-as-new
+  boundaries, and a reviewed v3-to-v4 runtime migration for legacy runs.
 
 ## [3.6.0] — 2026-08-03
 

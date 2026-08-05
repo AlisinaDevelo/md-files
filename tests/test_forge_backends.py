@@ -87,6 +87,8 @@ def test_conformance_and_backend_schemas_are_valid_json():
         "runtime-backend.schema.json",
         "runtime-backend-evidence.schema.json",
         "runtime-conformance.schema.json",
+        "runtime-definitions.schema.json",
+        "runtime-compatibility.schema.json",
     ):
         document = json.loads((REPO / "data" / name).read_text(encoding="utf-8"))
         assert document["$schema"].endswith("draft/2020-12/schema")

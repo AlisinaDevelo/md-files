@@ -6,12 +6,13 @@ from __future__ import annotations
 import argparse
 import contextlib
 import copy
+import importlib.util
 import json
 import re
 import sqlite3
 import sys
 import uuid
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 from pathlib import Path
@@ -25,7 +26,7 @@ except ImportError:  # pragma: no cover - Python 3.10 and earlier
 SCHEMA_VERSION = 1
 EFFECT_SCHEMA_VERSION = 1
 LEASE_SCHEMA_VERSION = 1
-DATABASE_SCHEMA_VERSION = 3
+DATABASE_SCHEMA_VERSION = 4
 CHECKPOINT_SCHEMA_VERSION = 1
 MIGRATION_SCHEMA_VERSION = 1
 GENESIS_HASH = "0" * 64
@@ -128,7 +129,47 @@ MIGRATION_REGISTRY = {
             "runtime metadata version; canonical events and legacy checkpoints remain unchanged."
         ),
     },
+    3: {
+        "migration_id": "runtime-db-3-to-4-definition-pinning",
+        "source_version": 3,
+        "target_version": 4,
+        "preconditions": [
+            "every run has a contiguous, hash-valid event prefix",
+            "every event reducer transition is valid under the wait-aware reducer",
+            "legacy runs receive a deterministic compatibility descriptor without rewriting events",
+            "canonical event rows remain unchanged",
+        ],
+        "rollback_instructions": (
+            "Restore a verified SQLite backup and rerun the migration. Definition descriptors are additive; "
+            "canonical event rows are never rewritten."
+        ),
+    },
 }
+
+
+def _load_definition_contract() -> Any:
+    path = Path(__file__).with_name("forge_definitions.py")
+    spec = importlib.util.spec_from_file_location("forge_runtime_definitions", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load definition contract: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+DEFINITION_CONTRACT = _load_definition_contract()
+DEFINITION_SCHEMA_VERSION = DEFINITION_CONTRACT.DEFINITION_SCHEMA_VERSION
+DEFINITION_EXTENSION_FIELDS = (
+    "definition_digest",
+    "workflow_code_digest",
+    "workflow_schema_digest",
+    "worker_build_id",
+    "policy_digest",
+    "feature_flags_digest",
+    "compatibility_revision",
+    "step_identity_revision",
+    "compatible_definition_digests",
+)
 
 
 class RuntimeStoreError(ValueError):
@@ -386,13 +427,45 @@ def _validate_event_shape(event: Mapping[str, Any]) -> None:
         raise RuntimeStoreError("event_hash must be a lowercase SHA-256 digest")
 
 
+def _run_definition(run: Mapping[str, Any]) -> tuple[dict[str, Any], bool]:
+    supplied = run.get("definition")
+    legacy = bool(run.get("definition_legacy", False))
+    if supplied is None:
+        if all(field in run for field in DEFINITION_EXTENSION_FIELDS):
+            supplied = {
+                "workflow_id": run["workflow_id"],
+                "definition_version": run["definition_version"],
+                **{field: run[field] for field in DEFINITION_EXTENSION_FIELDS},
+            }
+        else:
+            supplied = DEFINITION_CONTRACT.legacy_definition(
+                run["workflow_id"], run["definition_version"], run["policy_revision"]
+            )
+            legacy = True
+    try:
+        return DEFINITION_CONTRACT.normalize_definition(supplied), legacy
+    except DEFINITION_CONTRACT.DefinitionError as exc:
+        raise RuntimeStoreError(f"invalid run definition: {exc}") from exc
+
+
 def _run_state(run: Mapping[str, Any]) -> dict[str, Any]:
+    definition, definition_legacy = _run_definition(run)
     return {
         "schema_version": SCHEMA_VERSION,
         "run_id": run["run_id"],
-        "workflow_id": run["workflow_id"],
-        "definition_version": run["definition_version"],
-        "policy_revision": run["policy_revision"],
+        "workflow_id": definition["workflow_id"],
+        "definition_version": definition["definition_version"],
+        "policy_revision": definition["policy_revision"],
+        "definition_digest": definition["definition_digest"],
+        "workflow_code_digest": definition["workflow_code_digest"],
+        "workflow_schema_digest": definition["workflow_schema_digest"],
+        "worker_build_id": definition["worker_build_id"],
+        "policy_digest": definition["policy_digest"],
+        "feature_flags_digest": definition["feature_flags_digest"],
+        "compatibility_revision": definition["compatibility_revision"],
+        "step_identity_revision": definition["step_identity_revision"],
+        "compatible_definition_digests": definition["compatible_definition_digests"],
+        "definition_legacy": definition_legacy,
         "status": "created",
         "sequence": 0,
         "tasks": {},
@@ -531,6 +604,27 @@ def apply_event(state: Mapping[str, Any], event: Mapping[str, Any]) -> dict[str,
         for field in ("workflow_id", "definition_version", "policy_revision"):
             if payload.get(field) != state[field]:
                 raise RuntimeStoreError(f"run.started payload does not match {field}")
+        present = {field for field in DEFINITION_EXTENSION_FIELDS if field in payload}
+        if present:
+            if present != set(DEFINITION_EXTENSION_FIELDS):
+                missing = sorted(set(DEFINITION_EXTENSION_FIELDS) - present)
+                raise RuntimeStoreError("run.started payload is missing definition fields: " + ", ".join(missing))
+            try:
+                descriptor = DEFINITION_CONTRACT.normalize_definition(
+                    {
+                        "workflow_id": payload["workflow_id"],
+                        "definition_version": payload["definition_version"],
+                        "policy_revision": payload["policy_revision"],
+                        **{field: payload[field] for field in DEFINITION_EXTENSION_FIELDS},
+                    }
+                )
+            except DEFINITION_CONTRACT.DefinitionError as exc:
+                raise RuntimeStoreError(f"run.started definition is invalid: {exc}") from exc
+            for field in DEFINITION_EXTENSION_FIELDS:
+                if descriptor[field] != state[field]:
+                    raise RuntimeStoreError(f"run.started payload does not match {field}")
+        elif not state.get("definition_legacy", False):
+            raise RuntimeStoreError("run.started payload is missing definition pinning fields")
         next_state["status"] = "running"
         next_state["started_at"] = event["occurred_at"]
         return next_state
@@ -823,6 +917,15 @@ CREATE TABLE IF NOT EXISTS runtime_runs (
     policy_revision TEXT NOT NULL,
     started_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS runtime_run_definitions (
+    run_id TEXT PRIMARY KEY REFERENCES runtime_runs(run_id),
+    schema_version INTEGER NOT NULL CHECK (schema_version = 1),
+    definition_digest TEXT NOT NULL,
+    descriptor_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS runtime_run_definitions_digest
+    ON runtime_run_definitions(definition_digest);
 CREATE TABLE IF NOT EXISTS runtime_events (
     run_id TEXT NOT NULL REFERENCES runtime_runs(run_id),
     sequence INTEGER NOT NULL CHECK (sequence > 0),
@@ -908,7 +1011,7 @@ CREATE TABLE IF NOT EXISTS runtime_checkpoints (
     run_id TEXT NOT NULL REFERENCES runtime_runs(run_id),
     checkpoint_id TEXT NOT NULL,
     schema_version INTEGER NOT NULL CHECK (schema_version = 1),
-    runtime_schema_version INTEGER NOT NULL CHECK (runtime_schema_version IN (2, 3)),
+    runtime_schema_version INTEGER NOT NULL CHECK (runtime_schema_version IN (2, 3, 4)),
     event_sequence INTEGER NOT NULL CHECK (event_sequence > 0),
     event_hash TEXT NOT NULL,
     workflow_id TEXT NOT NULL,
@@ -1069,6 +1172,73 @@ class RuntimeStore:
             "error_ref": row["error_ref"],
         }
 
+    def _run_from_row(self, row: Mapping[str, Any]) -> dict[str, Any]:
+        base = dict(row)
+        definition_row = self.connection.execute(
+            "SELECT schema_version, definition_digest, descriptor_json, created_at "
+            "FROM runtime_run_definitions WHERE run_id = ?",
+            (base["run_id"],),
+        ).fetchone()
+        definition_legacy = definition_row is None
+        if definition_row is None:
+            descriptor = DEFINITION_CONTRACT.legacy_definition(
+                base["workflow_id"], base["definition_version"], base["policy_revision"]
+            )
+        else:
+            if definition_row["schema_version"] != DEFINITION_SCHEMA_VERSION:
+                raise RuntimeStoreError(
+                    f"unsupported run definition schema: {definition_row['schema_version']}"
+                )
+            try:
+                descriptor = DEFINITION_CONTRACT.normalize_definition(json.loads(definition_row["descriptor_json"]))
+            except (DEFINITION_CONTRACT.DefinitionError, TypeError, json.JSONDecodeError) as exc:
+                raise RuntimeStoreError(f"invalid run definition for {base['run_id']}: {exc}") from exc
+            if descriptor["definition_digest"] != definition_row["definition_digest"]:
+                raise RuntimeStoreError(f"run definition digest mismatch: {base['run_id']}")
+            definition_legacy = descriptor["worker_build_id"] == "legacy"
+        for field in ("workflow_id", "definition_version", "policy_revision"):
+            if descriptor[field] != base[field]:
+                raise RuntimeStoreError(f"run definition does not match runtime_runs.{field}: {base['run_id']}")
+        return {
+            **base,
+            **descriptor,
+            "definition": descriptor,
+            "definition_legacy": definition_legacy,
+        }
+
+    def _insert_definition_locked(
+        self, run_id: str, descriptor: Mapping[str, Any], created_at: str
+    ) -> None:
+        try:
+            self.connection.execute(
+                "INSERT INTO runtime_run_definitions(run_id, schema_version, definition_digest, descriptor_json, created_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (
+                    run_id,
+                    DEFINITION_SCHEMA_VERSION,
+                    descriptor["definition_digest"],
+                    canonical_json(descriptor),
+                    created_at,
+                ),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise RuntimeStoreError(f"run definition identity already exists: {run_id}") from exc
+
+    def _populate_definition_table_locked(self) -> None:
+        rows = self.connection.execute(
+            "SELECT run_id, workflow_id, definition_version, policy_revision, started_at "
+            "FROM runtime_runs ORDER BY run_id"
+        ).fetchall()
+        for row in rows:
+            existing = self.connection.execute(
+                "SELECT 1 FROM runtime_run_definitions WHERE run_id = ?", (row["run_id"],)
+            ).fetchone()
+            if existing is None:
+                descriptor = DEFINITION_CONTRACT.legacy_definition(
+                    row["workflow_id"], row["definition_version"], row["policy_revision"]
+                )
+                self._insert_definition_locked(row["run_id"], descriptor, row["started_at"])
+
     def _history_result_digest(self) -> str:
         materials: list[dict[str, Any]] = []
         rows = self.connection.execute(
@@ -1076,7 +1246,7 @@ class RuntimeStore:
             "FROM runtime_runs ORDER BY run_id"
         ).fetchall()
         for row in rows:
-            run = dict(row)
+            run = self._run_from_row(row)
             events = self._events(run["run_id"], require_ready=False)
             state = replay(run, events)
             materials.append(
@@ -1089,25 +1259,28 @@ class RuntimeStore:
             )
         return _digest(materials)
 
-    def _upgrade_checkpoint_table_locked(self) -> None:
-        """Make legacy checkpoint rows coexist with v3 checkpoints during migration."""
+    def _upgrade_checkpoint_table_locked(self, target_version: int) -> None:
+        """Make legacy checkpoint rows coexist with the target runtime schema."""
 
         row = self.connection.execute(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'runtime_checkpoints'"
         ).fetchone()
         definition = str(row["sql"] or "") if row is not None else ""
-        if re.search(r"IN\s*\(\s*2\s*,\s*3\s*\)", definition, re.IGNORECASE) and re.search(
+        versions = ",".join(str(version) for version in range(2, target_version + 1))
+        version_pattern = r"\s*,\s*".join(str(version) for version in range(2, target_version + 1))
+        if re.search(rf"IN\s*\(\s*{version_pattern}\s*\)", definition, re.IGNORECASE) and re.search(
             r"UNIQUE\s*\(\s*run_id\s*,\s*event_sequence\s*,\s*event_hash\s*,\s*runtime_schema_version\s*\)",
             definition,
             re.IGNORECASE,
         ):
             return
+        table_name = f"runtime_checkpoints_v{target_version}"
         self.connection.execute(
-            """CREATE TABLE runtime_checkpoints_v3 (
+            f"""CREATE TABLE {table_name} (
                 run_id TEXT NOT NULL REFERENCES runtime_runs(run_id),
                 checkpoint_id TEXT NOT NULL,
                 schema_version INTEGER NOT NULL CHECK (schema_version = 1),
-                runtime_schema_version INTEGER NOT NULL CHECK (runtime_schema_version IN (2, 3)),
+                runtime_schema_version INTEGER NOT NULL CHECK (runtime_schema_version IN ({versions})),
                 event_sequence INTEGER NOT NULL CHECK (event_sequence > 0),
                 event_hash TEXT NOT NULL,
                 workflow_id TEXT NOT NULL,
@@ -1121,12 +1294,12 @@ class RuntimeStore:
             )"""
         )
         self.connection.execute(
-            "INSERT INTO runtime_checkpoints_v3 SELECT run_id, checkpoint_id, schema_version, "
+            f"INSERT INTO {table_name} SELECT run_id, checkpoint_id, schema_version, "
             "runtime_schema_version, event_sequence, event_hash, workflow_id, definition_version, "
             "policy_revision, state_json, state_digest, created_at FROM runtime_checkpoints"
         )
         self.connection.execute("DROP TABLE runtime_checkpoints")
-        self.connection.execute("ALTER TABLE runtime_checkpoints_v3 RENAME TO runtime_checkpoints")
+        self.connection.execute(f"ALTER TABLE {table_name} RENAME TO runtime_checkpoints")
         self.connection.execute(
             "CREATE INDEX runtime_checkpoints_run_sequence "
             "ON runtime_checkpoints(run_id, event_sequence DESC, checkpoint_id)"
@@ -1239,8 +1412,10 @@ class RuntimeStore:
                             f"runtime schema changed during migration {plan['migration_id']}; "
                             "retry from a fresh connection"
                         )
-                    if plan["source_version"] == 2:
-                        self._upgrade_checkpoint_table_locked()
+                    if plan["source_version"] in {2, 3}:
+                        self._upgrade_checkpoint_table_locked(plan["target_version"])
+                    if plan["source_version"] == 3:
+                        self._populate_definition_table_locked()
                     completed_at = utc_now()
                     self.connection.execute(
                         "UPDATE runtime_meta SET value = ? WHERE key = 'schema_version'",
@@ -1307,7 +1482,7 @@ class RuntimeStore:
         ).fetchone()
         if row is None:
             raise RuntimeStoreError(f"unknown run: {run_id}")
-        return dict(row)
+        return self._run_from_row(row)
 
     def _events(self, run_id: str, *, require_ready: bool = True) -> list[dict[str, Any]]:
         if require_ready:
@@ -1565,7 +1740,7 @@ class RuntimeStore:
     def _row_checkpoint(row: sqlite3.Row) -> dict[str, Any]:
         if row["schema_version"] != CHECKPOINT_SCHEMA_VERSION:
             raise RuntimeStoreError(f"unsupported checkpoint schema: {row['schema_version']}")
-        if row["runtime_schema_version"] not in {2, DATABASE_SCHEMA_VERSION}:
+        if row["runtime_schema_version"] not in set(range(2, DATABASE_SCHEMA_VERSION + 1)):
             raise RuntimeStoreError(
                 f"checkpoint {row['checkpoint_id']} targets unsupported runtime schema "
                 f"{row['runtime_schema_version']}"
@@ -1761,6 +1936,15 @@ class RuntimeStore:
         *,
         idempotency_key: str = "run.started",
         occurred_at: str | None = None,
+        definition_descriptor: Mapping[str, Any] | None = None,
+        worker_build_id: str = "local",
+        workflow_code_digest: str | None = None,
+        workflow_schema_digest: str | None = None,
+        policy_digest: str | None = None,
+        feature_flags_digest: str | None = None,
+        compatibility_revision: str = DEFINITION_CONTRACT.DEFAULT_COMPATIBILITY_REVISION,
+        step_identity_revision: str = DEFINITION_CONTRACT.DEFAULT_STEP_IDENTITY_REVISION,
+        compatible_definition_digests: Sequence[str] = (),
     ) -> dict[str, Any]:
         run_id = _identifier(run_id, "run_id")
         workflow_id = _identifier(workflow_id, "workflow_id")
@@ -1768,6 +1952,33 @@ class RuntimeStore:
         policy_revision = _text(policy_revision, "policy_revision")
         idempotency_key = _text(idempotency_key, "idempotency_key")
         occurred_at = _timestamp(occurred_at or utc_now())
+        try:
+            descriptor = (
+                DEFINITION_CONTRACT.normalize_definition(definition_descriptor)
+                if definition_descriptor is not None
+                else DEFINITION_CONTRACT.make_definition(
+                    workflow_id=workflow_id,
+                    definition_version=definition_version,
+                    worker_build_id=worker_build_id,
+                    policy_revision=policy_revision,
+                    workflow_code_digest=workflow_code_digest,
+                    workflow_schema_digest=workflow_schema_digest,
+                    policy_digest=policy_digest,
+                    feature_flags_digest=feature_flags_digest,
+                    compatibility_revision=compatibility_revision,
+                    step_identity_revision=step_identity_revision,
+                    compatible_definition_digests=compatible_definition_digests,
+                )
+            )
+        except DEFINITION_CONTRACT.DefinitionError as exc:
+            raise RuntimeStoreError(f"invalid run definition: {exc}") from exc
+        for field, expected in (
+            ("workflow_id", workflow_id),
+            ("definition_version", definition_version),
+            ("policy_revision", policy_revision),
+        ):
+            if descriptor[field] != expected:
+                raise RuntimeStoreError(f"run definition does not match {field}")
         with self._transaction():
             existing = self.connection.execute(
                 "SELECT run_id, workflow_id, definition_version, policy_revision, started_at "
@@ -1780,6 +1991,7 @@ class RuntimeStore:
                     "VALUES (?, ?, ?, ?, ?)",
                     (run_id, workflow_id, definition_version, policy_revision, occurred_at),
                 )
+                self._insert_definition_locked(run_id, descriptor, occurred_at)
             else:
                 if any(
                     existing[field] != expected
@@ -1790,6 +2002,9 @@ class RuntimeStore:
                     )
                 ):
                     raise RuntimeStoreError(f"run already exists with different definition: {run_id}")
+                current = self._run_from_row(existing)
+                if current["definition"] != descriptor:
+                    raise RuntimeStoreError(f"run already exists with different definition pin: {run_id}")
                 if not self._events(run_id):
                     raise RuntimeStoreError(f"run has no start event; refusing to reconstruct history: {run_id}")
             return self._append_locked(
@@ -1799,6 +2014,7 @@ class RuntimeStore:
                     "workflow_id": workflow_id,
                     "definition_version": definition_version,
                     "policy_revision": policy_revision,
+                    **{field: descriptor[field] for field in DEFINITION_EXTENSION_FIELDS},
                 },
                 idempotency_key,
                 occurred_at,
@@ -2258,6 +2474,8 @@ class RuntimeStore:
             for field in ("workflow_id", "definition_version", "policy_revision")
         ):
             raise RuntimeStoreError(f"checkpoint metadata is incompatible with run {run['run_id']}")
+        if checkpoint["state"].get("definition_digest") != run["definition_digest"]:
+            raise RuntimeStoreError(f"checkpoint definition is incompatible with run {run['run_id']}")
         sequence = checkpoint["event_sequence"]
         if sequence < 1 or sequence > valid_sequence or sequence > len(events):
             raise RuntimeStoreError(f"checkpoint sequence is outside the verified history: {sequence}")
@@ -2269,16 +2487,35 @@ class RuntimeStore:
             raise RuntimeStoreError(f"checkpoint state digest mismatch: {checkpoint['checkpoint_id']}")
         return checkpoint
 
-    def restore_state(self, run_id: str, checkpoint_id: str | None = None) -> dict[str, Any]:
+    def restore_state(
+        self,
+        run_id: str,
+        checkpoint_id: str | None = None,
+        *,
+        definition_descriptor: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
         with self._read_transaction():
-            return self._restore_state(run_id, checkpoint_id)
+            return self._restore_state(run_id, checkpoint_id, definition_descriptor=definition_descriptor)
 
-    def _restore_state(self, run_id: str, checkpoint_id: str | None = None) -> dict[str, Any]:
+    def _restore_state(
+        self,
+        run_id: str,
+        checkpoint_id: str | None = None,
+        *,
+        definition_descriptor: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Restore from the newest valid checkpoint and replay only a verified suffix."""
 
         run_id = _identifier(run_id, "run_id")
         checkpoint_id = _text(checkpoint_id, "checkpoint_id") if checkpoint_id is not None else None
         run = self._run(run_id)
+        if definition_descriptor is not None:
+            decision = self.compatibility(run_id, definition_descriptor, operation="checkpoint_restore")
+            if decision["decision"] != "accepted":
+                raise RuntimeStoreError(
+                    f"checkpoint restore definition rejected: {decision['reason_code']} "
+                    f"({decision['decision_digest']})"
+                )
         events = self._events_for_restore(run_id)
         prefix_state, valid_sequence, history_error = _replay_prefix(run, events)
         if checkpoint_id is None:
@@ -2405,6 +2642,8 @@ class RuntimeStore:
         max_lease_seconds: int | None = None,
         heartbeat_seconds: int | None = None,
         policy_revisions: Mapping[str, Any] | None = None,
+        run_id: str | None = None,
+        definition_descriptor: Mapping[str, Any] | None = None,
         now: str | None = None,
     ) -> list[dict[str, Any]]:
         worker_id = _identifier(worker_id, "worker_id")
@@ -2424,19 +2663,34 @@ class RuntimeStore:
         )
         if heartbeat_seconds > max_lease_seconds:
             raise RuntimeStoreError("heartbeat_seconds must be at most max_lease_seconds")
+        run_id = _identifier(run_id, "run_id") if run_id is not None else None
         now = _utc_timestamp(now or utc_now())
         lease_expires_at = _after_seconds(now, lease_seconds)
         lease_deadline_at = _after_seconds(now, max_lease_seconds)
         claimed: list[dict[str, Any]] = []
         with self._transaction():
+            run_condition = " AND run_id = ?" if run_id is not None else ""
+            parameters: list[Any] = [now, now]
+            if run_id is not None:
+                parameters.append(run_id)
+            parameters.append(limit)
             rows = self.connection.execute(
                 "SELECT * FROM runtime_outbox WHERE "
-                "(status IN ('pending', 'retry') AND available_at <= ?) OR "
-                "(status = 'leased' AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?) "
-                "ORDER BY available_at, effect_id LIMIT ?",
-                (now, now, limit),
+                "((status IN ('pending', 'retry') AND available_at <= ?) OR "
+                "(status = 'leased' AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?))"
+                f"{run_condition} ORDER BY available_at, effect_id LIMIT ?",
+                parameters,
             ).fetchall()
             for row in rows:
+                if definition_descriptor is not None:
+                    decision = self.compatibility(
+                        row["run_id"], definition_descriptor, operation="effect_retry"
+                    )
+                    if decision["decision"] != "accepted":
+                        raise RuntimeStoreError(
+                            f"effect retry definition rejected for {row['effect_id']}: "
+                            f"{decision['reason_code']}"
+                        )
                 if row["status"] == "leased":
                     closed = self.connection.execute(
                         "UPDATE runtime_outbox_attempts SET finished_at = ?, outcome = 'reclaimed' "
@@ -2729,6 +2983,25 @@ class RuntimeStore:
             )
             return self._row_outbox(self._outbox_locked(effect_id))
 
+    def definition(self, run_id: str) -> dict[str, Any]:
+        run_id = _identifier(run_id, "run_id")
+        return self._run(run_id)["definition"]
+
+    def compatibility(
+        self,
+        run_id: str,
+        candidate: Mapping[str, Any],
+        *,
+        operation: str = "replay",
+    ) -> dict[str, Any]:
+        run_id = _identifier(run_id, "run_id")
+        try:
+            return DEFINITION_CONTRACT.compare_definitions(
+                self._run(run_id)["definition"], candidate, operation=operation
+            )
+        except DEFINITION_CONTRACT.DefinitionError as exc:
+            raise RuntimeStoreError(f"definition compatibility failed: {exc}") from exc
+
     def list_runs(self) -> list[dict[str, Any]]:
         self._require_database_schema()
         rows = self.connection.execute(
@@ -2737,8 +3010,9 @@ class RuntimeStore:
         ).fetchall()
         results = []
         for row in rows:
+            run = self._run(row["run_id"])
             state = self.state(row["run_id"])
-            results.append({**dict(row), "status": state["status"], "sequence": state["sequence"]})
+            results.append({**run, "status": state["status"], "sequence": state["sequence"]})
         return results
 
 
@@ -2752,6 +3026,38 @@ def _parse_payload(raw: str) -> dict[str, Any]:
     return value
 
 
+def _definition_registry(raw: Mapping[str, Any]) -> Any:
+    if not isinstance(raw, Mapping):
+        raise RuntimeStoreError("--registry-json must contain a JSON object")
+    entries = raw.get("definitions")
+    if not isinstance(entries, list):
+        raise RuntimeStoreError("registry.definitions must be a JSON array")
+    registry = DEFINITION_CONTRACT.DefinitionRegistry()
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            raise RuntimeStoreError("registry definitions must be JSON objects")
+        descriptor = entry.get("definition")
+        if not isinstance(descriptor, Mapping):
+            raise RuntimeStoreError("registry definition entries require a definition object")
+        aliases = entry.get("aliases", [])
+        rollout = entry.get("rollout", "active")
+        try:
+            registry.register(descriptor, aliases=aliases, rollout=rollout)
+        except DEFINITION_CONTRACT.DefinitionError as exc:
+            raise RuntimeStoreError(f"invalid definition registry: {exc}") from exc
+    redirects = raw.get("redirects", [])
+    if not isinstance(redirects, list):
+        raise RuntimeStoreError("registry.redirects must be a JSON array")
+    for redirect in redirects:
+        if not isinstance(redirect, Mapping):
+            raise RuntimeStoreError("registry redirects must be JSON objects")
+        try:
+            registry.redirect(redirect.get("alias"), redirect.get("target"))
+        except DEFINITION_CONTRACT.DefinitionError as exc:
+            raise RuntimeStoreError(f"invalid definition redirect: {exc}") from exc
+    return registry
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Forge local durable run history and deterministic replay")
     parser.add_argument("--db", type=Path, default=Path(".forge/runtime.sqlite3"), help="SQLite database path")
@@ -2762,6 +3068,15 @@ def _parser() -> argparse.ArgumentParser:
     start.add_argument("--workflow-id", required=True)
     start.add_argument("--definition-version", required=True)
     start.add_argument("--policy-revision", required=True)
+    start.add_argument("--worker-build-id", default="local")
+    start.add_argument("--workflow-code-digest")
+    start.add_argument("--workflow-schema-digest")
+    start.add_argument("--policy-digest")
+    start.add_argument("--feature-flags-digest")
+    start.add_argument("--compatibility-revision", default=DEFINITION_CONTRACT.DEFAULT_COMPATIBILITY_REVISION)
+    start.add_argument("--step-identity-revision", default=DEFINITION_CONTRACT.DEFAULT_STEP_IDENTITY_REVISION)
+    start.add_argument("--compatible-definition-digest", action="append", default=[])
+    start.add_argument("--definition-json", help="complete digest-addressed definition descriptor")
     start.add_argument("--idempotency-key", default="run.started")
     start.add_argument("--occurred-at")
 
@@ -2842,6 +3157,20 @@ def _parser() -> argparse.ArgumentParser:
     restore = sub.add_parser("restore", help="restore from the newest valid checkpoint and event suffix")
     restore.add_argument("--run-id", required=True)
     restore.add_argument("--checkpoint-id")
+    restore.add_argument("--definition-json", help="candidate definition to preflight before restore")
+    definition = sub.add_parser("definition", help="show the immutable definition pinned to a run")
+    definition.add_argument("--run-id", required=True)
+    compatibility = sub.add_parser("compatibility", help="compare a run definition with a candidate descriptor")
+    compatibility.add_argument("--run-id", required=True)
+    compatibility.add_argument("--candidate-json", required=True)
+    compatibility.add_argument(
+        "--operation",
+        choices=sorted(DEFINITION_CONTRACT.COMPATIBILITY_OPERATIONS),
+        default="replay",
+    )
+    rollout = sub.add_parser("rollout", help="inspect an offline definition alias rollout")
+    rollout.add_argument("--registry-json", required=True)
+    rollout.add_argument("--reference", required=True)
     migrations = sub.add_parser("migrations", help="show the reviewed database migration registry")
     migrations.add_argument("--dry-run", action="store_true", help="show pending work without applying it")
     migrate = sub.add_parser("migrate", help="apply reviewed database migrations")
@@ -2873,6 +3202,15 @@ def main(argv: list[str] | None = None) -> int:
                 args.policy_revision,
                 idempotency_key=args.idempotency_key,
                 occurred_at=args.occurred_at,
+                definition_descriptor=_parse_payload(args.definition_json) if args.definition_json else None,
+                worker_build_id=args.worker_build_id,
+                workflow_code_digest=args.workflow_code_digest,
+                workflow_schema_digest=args.workflow_schema_digest,
+                policy_digest=args.policy_digest,
+                feature_flags_digest=args.feature_flags_digest,
+                compatibility_revision=args.compatibility_revision,
+                step_identity_revision=args.step_identity_revision,
+                compatible_definition_digests=args.compatible_definition_digest,
             )
         elif args.command == "append":
             result = store.append_event(
@@ -2956,6 +3294,18 @@ def main(argv: list[str] | None = None) -> int:
             result = store.state(args.run_id)
         elif args.command == "history":
             result = store.history(args.run_id)
+        elif args.command == "definition":
+            result = store.definition(args.run_id)
+        elif args.command == "compatibility":
+            result = store.compatibility(
+                args.run_id,
+                _parse_payload(args.candidate_json),
+                operation=args.operation,
+            )
+        elif args.command == "rollout":
+            store.close()
+            store = None
+            result = _definition_registry(_parse_payload(args.registry_json)).select(args.reference)
         elif args.command == "verify":
             result = {"run_id": args.run_id, "state": store.state(args.run_id), "verified": True}
         elif args.command == "checkpoint":
@@ -2967,7 +3317,11 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "checkpoints":
             result = store.list_checkpoints(args.run_id)
         elif args.command == "restore":
-            result = store.restore_state(args.run_id, args.checkpoint_id)
+            result = store.restore_state(
+                args.run_id,
+                args.checkpoint_id,
+                definition_descriptor=_parse_payload(args.definition_json) if args.definition_json else None,
+            )
         elif args.command == "migrations":
             result = store.migration_status()
             result["dry_run"] = args.dry_run

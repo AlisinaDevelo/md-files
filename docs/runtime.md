@@ -14,7 +14,10 @@ python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 start \
   --run-id run-demo \
   --workflow-id feature-flow \
   --definition-version workflow-v1 \
-  --policy-revision policy-v1
+  --policy-revision policy-v1 \
+  --worker-build-id worker-v1 \
+  --workflow-code-digest sha256:1111111111111111111111111111111111111111111111111111111111111111 \
+  --workflow-schema-digest sha256:2222222222222222222222222222222222222222222222222222222222222222
 
 python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 append \
   --run-id run-demo \
@@ -34,6 +37,10 @@ python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 verify --run-id run
 python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 checkpoint --run-id run-demo
 python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 checkpoints --run-id run-demo
 python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 restore --run-id run-demo
+python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 definition --run-id run-demo
+python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 compatibility \
+  --run-id run-demo --operation migration \
+  --candidate-json '{"workflow_id":"feature-flow","definition_version":"workflow-v2","worker_build_id":"worker-v2","policy_revision":"policy-v1","compatible_definition_digests":["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]}'
 python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 migrations --dry-run
 python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 migrate --dry-run
 python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 outbox --run-id run-demo
@@ -76,7 +83,9 @@ The database schemas are versioned in [`data/runtime-events.schema.json`](../dat
 [`data/runtime-waits.schema.json`](../data/runtime-waits.schema.json),
 [`data/runtime-backend.schema.json`](../data/runtime-backend.schema.json), and
 [`data/runtime-backend-evidence.schema.json`](../data/runtime-backend-evidence.schema.json), and
-[`data/runtime-conformance.schema.json`](../data/runtime-conformance.schema.json). A store
+[`data/runtime-conformance.schema.json`](../data/runtime-conformance.schema.json),
+[`data/runtime-definitions.schema.json`](../data/runtime-definitions.schema.json), and
+[`data/runtime-compatibility.schema.json`](../data/runtime-compatibility.schema.json). A store
 uses only the reviewed migration registry for an older database and refuses an unknown
 schema version rather than guessing at a transformation.
 
@@ -87,7 +96,10 @@ artifact attestations.
 
 ## Execution contract
 
-- Every run has a pinned workflow, definition, and policy revision.
+- Every run has a pinned workflow, digest-addressed definition, worker build, policy revision,
+  policy digest, feature-flag digest, compatibility revision, and stable-step identity revision.
+- A definition alias can select only new runs. In-flight runs retain their descriptor digest until
+  an explicit continue-as-new boundary or a reviewed migration.
 - Events receive a monotonic per-run sequence and a deterministic event identifier derived
   from the idempotency key.
 - Each event hashes its canonical JSON plus the previous event hash. Reopening a database
@@ -140,9 +152,31 @@ preconditions, result digest, status, and restore guidance. Use `migrations --dr
 inspect a legacy database and `migrate` only after preserving a verified backup. Interrupted
 migrations remain resumable; canonical event rows are not rewritten by the checkpoint schema
 upgrade. The v2-to-v3 wait migration retains v2 checkpoints as legacy evidence, excludes them
-from v3 restore, and allows a fresh v3 checkpoint at the same event boundary. Checkpoints are
+from v3 restore, and allows a fresh v3 checkpoint at the same event boundary. The v3-to-v4
+definition migration adds deterministic legacy descriptors without rewriting old event payloads;
+legacy checkpoints remain evidence until a fresh v4 checkpoint is created. Checkpoints are
 retained as evidence and no compaction command deletes history needed to verify active runs or
 external effects.
+
+## Definition pinning and rollout
+
+`start_run` records a canonical definition descriptor in the run-definition table and repeats its
+identity in `run.started`, so both metadata and the hash chain must agree. The descriptor digest
+covers workflow identity, definition version, workflow code/schema digests, worker build, policy
+and feature-flag digests,
+compatibility and step-identity revisions, and an explicit list of previously reviewed compatible
+definition digests. Raw workflow code, prompts, credentials, and tool content are never persisted.
+
+Use `definition` to inspect the pinned descriptor and `compatibility` to produce a deterministic,
+digest-bound decision. Exact definitions are accepted; a candidate is accepted for replay, restore,
+migration, or effect retry only when it declares the pinned digest as compatible under the same
+workflow and compatibility revision. `continue_as_new` is the explicit boundary for a new
+definition. Workers claiming effects can pass their candidate descriptor to the runtime so retries
+fail closed before lease ownership changes. The offline `DefinitionRegistry` supports active,
+canary, redirected, rollback, and retired rollout states: redirecting or rolling back an alias
+affects new runs, while resolving a retired digest remains possible for in-flight history. Use the
+`rollout --registry-json REGISTRY --reference stable` command to inspect that alias state without
+connecting to a provider.
 
 ## External effect protocol
 

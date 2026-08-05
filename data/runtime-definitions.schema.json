@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/definitions/v1",
+  "title": "Forge Runtime Definition Descriptor",
+  "description": "Immutable, digest-addressed workflow and worker identity pinned to a durable run.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "workflow_id",
+    "definition_version",
+    "workflow_code_digest",
+    "workflow_schema_digest",
+    "worker_build_id",
+    "policy_revision",
+    "policy_digest",
+    "feature_flags_digest",
+    "compatibility_revision",
+    "step_identity_revision",
+    "compatible_definition_digests",
+    "definition_digest"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "workflow_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/_-]{0,127}$"},
+    "definition_version": {"type": "string", "minLength": 1, "maxLength": 128},
+    "workflow_code_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "workflow_schema_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "worker_build_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "policy_revision": {"type": "string", "minLength": 1, "maxLength": 128},
+    "policy_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "feature_flags_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "compatibility_revision": {"type": "string", "minLength": 1, "maxLength": 128},
+    "step_identity_revision": {"type": "string", "minLength": 1, "maxLength": 128},
+    "compatible_definition_digests": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+    },
+    "definition_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

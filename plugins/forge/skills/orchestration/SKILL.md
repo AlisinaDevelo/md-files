@@ -80,6 +80,24 @@ is a three-event request/acknowledgement/terminal protocol, and the MCP Tasks vi
 `scripts/forge-mcp-tasks.py` maps task IDs, status, TTL, polling, result references, and
 cancellation back to Forge history without becoming a second source of truth.
 
+Pin every run to an immutable definition descriptor before dispatch: workflow and definition
+version, workflow code/schema digests, worker/build identity, policy and feature-flag digests,
+compatibility revision, and stable-step identity revision. `run.started` repeats the descriptor
+identity inside the hash chain. Inspect it with `python3 scripts/forge-runtime.py definition
+--run-id RUN_ID`; preflight a candidate with `compatibility --operation
+replay|checkpoint_restore|migration|effect_retry|continue_as_new`. Workers should pass that same
+candidate descriptor to `claim_outbox(..., definition_descriptor=...)` before a retry lease is
+changed. Inspect an offline alias registry with `rollout --registry-json REGISTRY --reference
+ALIAS`. Aliases may redirect or roll back new runs, but in-flight runs stay pinned. A changed
+descriptor is accepted only when it is exact, explicitly declares the pinned digest compatible,
+or crosses an explicit continue-as-new boundary. The reviewed v3-to-v4 migration synthesizes a
+legacy descriptor for old histories without rewriting their canonical event rows.
+
+Derive stable step and operation identities with the definition contract helpers; do not include
+timestamps, randomness, prompts, credentials, or provider responses in those identities. A
+definition digest is an identity and compatibility gate, not a claim of exactly-once provider
+execution.
+
 When a run needs a different storage implementation, negotiate the backend contract before
 starting it with `scripts/forge-backends.py`. The descriptor is capability- and consistency-
 aware; unsupported guarantees fail closed, while an explicitly allowed degraded result carries
