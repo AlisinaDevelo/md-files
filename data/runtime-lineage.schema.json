@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/lineage/v1",
+  "title": "Forge Runtime Lineage Manifest",
+  "description": "Deterministic, privacy-safe offline evidence graph for a Forge runtime.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "runtime_schema_version",
+    "mapping",
+    "runs",
+    "effects",
+    "receipts",
+    "edges",
+    "extensions",
+    "manifest_digest"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "runtime_schema_version": {"const": 2},
+    "mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "otel_spec_version", "gen_ai_semconv_version"],
+      "properties": {
+        "version": {"type": "string", "minLength": 1},
+        "otel_spec_version": {"type": "string", "minLength": 1},
+        "gen_ai_semconv_version": {"type": "string", "minLength": 1}
+      }
+    },
+    "runs": {"type": "array", "items": {"type": "object"}},
+    "effects": {"type": "array", "items": {"type": "object"}},
+    "receipts": {"type": "array", "items": {"type": "object"}},
+    "edges": {"type": "array", "items": {"type": "object"}},
+    "extensions": {"type": "object"},
+    "manifest_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

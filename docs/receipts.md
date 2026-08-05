@@ -9,6 +9,28 @@ local durable runtime contract in [`docs/runtime.md`](runtime.md). External-effe
 receipts are canonical in the runtime inbox, while this JSONL stream remains evidence; keep
 prompts, raw tool arguments/results, and credentials out of both stores.
 
+## Offline lineage verification
+
+The runtime can project its verified event history and optional receipt evidence into a
+deterministic, privacy-safe lineage manifest. This makes parentage, effect attempts, lease
+generations, adapter revisions, and provider references reviewable without a collector or
+network access:
+
+```bash
+python3 scripts/forge-lineage.py export \
+  --db .forge/runtime.sqlite3 --receipts .forge/receipts.jsonl \
+  --output .forge/lineage.json
+python3 scripts/forge-lineage.py verify --manifest .forge/lineage.json
+```
+
+The manifest is evidence derived from canonical runtime history. Its versioned receipt
+envelopes and schemas are [`data/runtime-receipts.schema.json`](../data/runtime-receipts.schema.json)
+and [`data/runtime-lineage.schema.json`](../data/runtime-lineage.schema.json). The verifier
+rejects tampered digests, missing parents, conflicting provider references, stale lease
+generations, incomplete receipt logs, and raw sensitive content. OTel names and attributes use
+the pinned mapping recorded in the manifest; release artifact provenance remains the existing
+GitHub/SLSA/in-toto attestation path.
+
 ## Local storage
 
 The bundled standard-library CLI writes to `.forge/receipts.jsonl` by default:
@@ -57,8 +79,8 @@ python3 scripts/forge-receipts.py --file .forge/receipts.jsonl export \
 
 Use `--dry-run` to inspect the payload without network access. Forge names its own
 `forge.*` attributes and preserves already-approved `gen_ai.*` and `mcp.*` attributes;
-the adapter version is pinned in the exporter as `2025.05` so convention changes are
-explicit. W3C `traceparent` values become OTLP trace and span identifiers, and
+the GenAI semantic-convention version and Forge mapping are pinned in the exporter so
+convention changes are explicit. W3C `traceparent` values become OTLP trace and span identifiers, and
 `correlation_id`/`causation_id` remain Forge attributes for task-DAG reconstruction.
 
 The exporter sends spans only. It does not export raw prompts, credentials, tool
