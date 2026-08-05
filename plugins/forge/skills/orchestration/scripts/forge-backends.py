@@ -12,7 +12,7 @@ import re
 import sqlite3
 import sys
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -23,7 +23,7 @@ CONTRACT_REVISION = "forge-backend-v1"
 BASE_TIME = "2026-08-05T00:00:00Z"
 FAULT_POINTS = {"append.before_commit", "append.after_commit"}
 CONSISTENCY_LEVELS = {"single_process", "strict_serializable"}
-CAPABILITIES = {
+LOCAL_CAPABILITIES = {
     "append_ordering",
     "atomic_event_effect",
     "compare_and_swap",
@@ -50,6 +50,14 @@ CASE_CAPABILITIES = {
     "privacy-boundary": "privacy_boundary",
     "ambiguous-commit": "atomic_event_effect",
     "adapter-evidence": "offline_lineage",
+}
+DISTRIBUTED_CASE_CAPABILITIES = {
+    "watch-ordering-dedup": "watch_delivery",
+    "cursor-gap": "remote_revisions",
+    "compaction-recovery": "compaction_recovery",
+    "stale-watch": "watch_delivery",
+    "distributed-privacy": "watch_delivery",
+    "reconnect-fencing": "fenced_leases",
 }
 REFERENCE_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
@@ -80,6 +88,22 @@ def _load_runtime():
 runtime = _load_runtime()
 
 
+def _load_distributed():
+    path = Path(__file__).with_name("forge-distributed.py")
+    spec = importlib.util.spec_from_file_location("forge_distributed_backend", path)
+    if spec is None or spec.loader is None:
+        raise BackendContractError(f"cannot load distributed adapter: {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+distributed = _load_distributed()
+DISTRIBUTED_CAPABILITIES = set(distributed.WATCH_CAPABILITIES)
+CAPABILITIES = LOCAL_CAPABILITIES | DISTRIBUTED_CAPABILITIES
+
+
 def _canonical(value: Any) -> str:
     return json.dumps(value, ensure_ascii=True, sort_keys=True, separators=(",", ":"))
 
@@ -107,8 +131,13 @@ def _descriptor(
     *,
     degraded_mode: str,
     durable_storage: bool,
+    extra_capabilities: set[str] | None = None,
 ) -> dict[str, Any]:
-    capabilities = sorted(CAPABILITIES | ({"durable_storage"} if durable_storage else set()))
+    capabilities = sorted(
+        LOCAL_CAPABILITIES
+        | (set(extra_capabilities) if extra_capabilities is not None else set())
+        | ({"durable_storage"} if durable_storage else set())
+    )
     return {
         "schema_version": BACKEND_SCHEMA_VERSION,
         "contract_revision": CONTRACT_REVISION,
@@ -143,6 +172,14 @@ MEMORY_DESCRIPTOR = _descriptor(
     degraded_mode="explicit",
     durable_storage=False,
 )
+ETCD_DESCRIPTOR = _descriptor(
+    "etcd-watch-sim",
+    "forge-runtime-etcd-watch",
+    "strict_serializable",
+    degraded_mode="reject",
+    durable_storage=True,
+    extra_capabilities=DISTRIBUTED_CAPABILITIES,
+)
 
 
 def descriptor_for(kind: str) -> dict[str, Any]:
@@ -150,6 +187,8 @@ def descriptor_for(kind: str) -> dict[str, Any]:
         return copy.deepcopy(SQLITE_DESCRIPTOR)
     if kind in {"memory", "memory-fault"}:
         return copy.deepcopy(MEMORY_DESCRIPTOR)
+    if kind in {"etcd", "etcd-watch", "etcd-watch-sim"}:
+        return copy.deepcopy(ETCD_DESCRIPTOR)
     raise BackendContractError(f"unknown backend: {kind}")
 
 
@@ -445,6 +484,72 @@ class MemoryFaultBackend(BackendAdapter):
         return restored
 
 
+class EtcdWatchBackend(BackendAdapter):
+    """Etcd-first adapter facade with a deterministic local revision/watch model."""
+
+    def __init__(self, path: Path) -> None:
+        super().__init__(runtime.RuntimeStore(Path(path)), ETCD_DESCRIPTOR)
+        self.watch = distributed.RevisionWatchAdapter(provider="etcd")
+
+    def restore_from_backup(self, source: Path) -> EtcdWatchBackend:
+        # Canonical Forge history restores from the verified SQLite backup; watch
+        # cursors and snapshots are recovered separately through recover_watch.
+        return EtcdWatchBackend(Path(source))
+
+    def _publish_event(self, event: dict[str, Any]) -> None:
+        event_ref = "sha256:" + event["event_hash"]
+        self.watch.publish(
+            event_ref=event_ref,
+            transaction_ref=_digest({"event_id": event["event_id"], "sequence": event["sequence"]}),
+            cloud_event={
+                "specversion": "1.0",
+                "source": "urn:forge:runtime",
+                "id": event["event_id"],
+                "type": "com.forge.runtime.event.v1",
+                "subject": event["run_id"],
+                "time": event["occurred_at"],
+                "data_ref": event_ref,
+            },
+        )
+
+    def start_run(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        event = self.runtime.start_run(*args, **kwargs)
+        self._publish_event(event)
+        return event
+
+    def append_event(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        self._fault("append.before_commit")
+        event = self.runtime.append_event(*args, **kwargs)
+        self._publish_event(event)
+        self._fault("append.after_commit")
+        return event
+
+    def watch_notifications(self) -> list[dict[str, Any]]:
+        return self.watch.notifications()
+
+    def watch_cursor(self) -> dict[str, Any]:
+        return self.watch.cursor()
+
+    def watch_snapshot(self, *, state_ref: str) -> dict[str, Any]:
+        return self.watch.snapshot(state_ref=state_ref)
+
+    def compact_watch(self, revision: int) -> dict[str, Any]:
+        return self.watch.compact(revision)
+
+    def observe_watch(
+        self, notifications: list[Mapping[str, Any]], cursor: Mapping[str, Any]
+    ) -> dict[str, Any]:
+        return self.watch.observe(notifications, cursor)
+
+    def recover_watch(
+        self,
+        *,
+        snapshot: Mapping[str, Any],
+        replay_notifications: list[Mapping[str, Any]],
+    ) -> dict[str, Any]:
+        return self.watch.recover(snapshot=snapshot, replay_notifications=replay_notifications)
+
+
 def make_backend(kind: str, path: Path | None = None) -> BackendAdapter:
     if kind in {"sqlite", "sqlite-wal"}:
         if path is None:
@@ -452,6 +557,10 @@ def make_backend(kind: str, path: Path | None = None) -> BackendAdapter:
         return SQLiteWALBackend(path)
     if kind in {"memory", "memory-fault"}:
         return MemoryFaultBackend()
+    if kind in {"etcd", "etcd-watch", "etcd-watch-sim"}:
+        if path is None:
+            raise BackendContractError("etcd backend requires a path")
+        return EtcdWatchBackend(path)
     raise BackendContractError(f"unknown backend: {kind}")
 
 
@@ -731,6 +840,132 @@ def _fixture_adapter_evidence(adapter: BackendAdapter) -> dict[str, Any]:
     return {"evidence": _digest(evidence), "identity": evidence["cloud_event"]["identity_ref"]}
 
 
+def _watch_cursor(adapter: EtcdWatchBackend, revision: int = 0) -> dict[str, Any]:
+    return {
+        "watch_id": adapter.watch.watch_id,
+        "remote_revision": revision,
+        "compaction_revision": 0,
+    }
+
+
+def _watch_reference(char: str) -> str:
+    return "sha256:" + char * 64
+
+
+def _publish_watch_event(
+    adapter: EtcdWatchBackend,
+    number: int,
+    *,
+    remote_revision: int | None = None,
+    raw_data: bool = False,
+) -> dict[str, Any]:
+    cloud_event: dict[str, Any] = {
+        "source": "urn:forge:distributed-fixture",
+        "id": f"fixture-event-{number}",
+        "type": "com.forge.runtime.fixture.v1",
+        "time": BASE_TIME,
+        "data_ref": _watch_reference(str((number + 2) % 10)),
+    }
+    if raw_data:
+        cloud_event["data"] = "must-not-persist"
+    return adapter.watch.publish(
+        event_ref=_watch_reference(str(number % 10)),
+        transaction_ref=_watch_reference(str((number + 1) % 10)),
+        cloud_event=cloud_event,
+        remote_revision=remote_revision,
+    )
+
+
+def _reset_watch(adapter: EtcdWatchBackend) -> None:
+    adapter.watch = distributed.RevisionWatchAdapter(provider="etcd")
+
+
+def _distributed_fixture_watch_ordering(adapter: EtcdWatchBackend) -> dict[str, Any]:
+    _reset_watch(adapter)
+    first = _publish_watch_event(adapter, 1)
+    second = _publish_watch_event(adapter, 2)
+    result = adapter.observe_watch(
+        [second, first, second],
+        _watch_cursor(adapter),
+    )
+    assert result["accepted_revisions"] == [1, 2]
+    assert result["duplicate_count"] == 1
+    return {
+        "accepted_revisions": result["accepted_revisions"],
+        "cursor_ref": result["cursor"]["cursor_ref"],
+        "duplicate_count": result["duplicate_count"],
+    }
+
+
+def _distributed_fixture_cursor_gap(adapter: EtcdWatchBackend) -> dict[str, Any]:
+    _reset_watch(adapter)
+    _publish_watch_event(adapter, 1)
+    third = _publish_watch_event(adapter, 3, remote_revision=3)
+    try:
+        adapter.observe_watch([third], _watch_cursor(adapter))
+    except distributed.DistributedRecoveryError as exc:
+        assert exc.reason_code == "cursor_gap"
+        return {"reason_code": exc.reason_code, "evidence_digest": _digest(exc.evidence)}
+    raise AssertionError("watch cursor gap was accepted")
+
+
+def _distributed_fixture_compaction_recovery(adapter: EtcdWatchBackend) -> dict[str, Any]:
+    _reset_watch(adapter)
+    _publish_watch_event(adapter, 1)
+    snapshot = adapter.watch_snapshot(state_ref=_watch_reference("a"))
+    second = _publish_watch_event(adapter, 2)
+    adapter.compact_watch(1)
+    try:
+        adapter.observe_watch([second], _watch_cursor(adapter))
+    except distributed.DistributedRecoveryError as exc:
+        assert exc.reason_code == "compaction_required"
+    else:
+        raise AssertionError("stale cursor crossed the compaction boundary")
+    recovered = adapter.recover_watch(snapshot=snapshot, replay_notifications=[second])
+    assert recovered["status"] == "recovered"
+    return {
+        "snapshot_ref": recovered["snapshot_ref"],
+        "cursor_ref": recovered["cursor"]["cursor_ref"],
+        "evidence_digest": recovered["evidence_digest"],
+    }
+
+
+def _distributed_fixture_stale_watch(adapter: EtcdWatchBackend) -> dict[str, Any]:
+    _reset_watch(adapter)
+    foreign = distributed.RevisionWatchAdapter(provider="etcd", watch_name="foreign")
+    notification = foreign.publish(
+        event_ref=_watch_reference("1"),
+        transaction_ref=_watch_reference("2"),
+        cloud_event={
+            "source": "urn:forge:distributed-fixture",
+            "id": "foreign-event",
+            "type": "com.forge.runtime.fixture.v1",
+            "time": BASE_TIME,
+            "data_ref": _watch_reference("3"),
+        },
+    )
+    try:
+        adapter.observe_watch([notification], _watch_cursor(adapter))
+    except distributed.DistributedRecoveryError as exc:
+        assert exc.reason_code == "watch_identity_mismatch"
+        return {"reason_code": exc.reason_code, "evidence_digest": _digest(exc.evidence)}
+    raise AssertionError("foreign watch notification was accepted")
+
+
+def _distributed_fixture_privacy(adapter: EtcdWatchBackend) -> dict[str, Any]:
+    _reset_watch(adapter)
+    try:
+        _publish_watch_event(adapter, 1, raw_data=True)
+    except distributed.DistributedRecoveryError as exc:
+        assert exc.reason_code == "raw_cloud_event_rejected"
+        return {"reason_code": exc.reason_code, "evidence_digest": _digest(exc.evidence)}
+    raise AssertionError("raw CloudEvent data crossed the adapter boundary")
+
+
+def _distributed_fixture_reconnect_fencing(adapter: EtcdWatchBackend) -> dict[str, Any]:
+    return _fixture_fencing(adapter, "distributed-fencing")
+
+
 def _case_result(
     adapter: BackendAdapter,
     case_id: str,
@@ -760,6 +995,7 @@ def _case_result(
         AssertionError,
         BackendContractError,
         BackendFault,
+        distributed.DistributedRecoveryError,
         KeyError,
         OSError,
         TypeError,
@@ -767,6 +1003,42 @@ def _case_result(
         sqlite3.Error,
         runtime.RuntimeStoreError,
     ) as exc:  # pragma: no cover - exercised through result classification
+        return {
+            "case_id": case_id,
+            "capability": capability,
+            "status": "failed",
+            "error_ref": _error_ref(exc),
+            "evidence_digest": None,
+        }
+    return {
+        "case_id": case_id,
+        "capability": capability,
+        "status": "passed",
+        "error_ref": None,
+        "evidence_digest": _digest(evidence),
+    }
+
+
+def _distributed_case_result(
+    adapter: EtcdWatchBackend,
+    case_id: str,
+    fixture: Callable[[], dict[str, Any]],
+) -> dict[str, Any]:
+    capability = DISTRIBUTED_CASE_CAPABILITIES[case_id]
+    try:
+        evidence = fixture()
+    except (
+        AssertionError,
+        BackendContractError,
+        BackendFault,
+        distributed.DistributedRecoveryError,
+        KeyError,
+        OSError,
+        TypeError,
+        ValueError,
+        sqlite3.Error,
+        runtime.RuntimeStoreError,
+    ) as exc:
         return {
             "case_id": case_id,
             "capability": capability,
@@ -830,6 +1102,36 @@ def run_conformance(adapter: BackendAdapter) -> dict[str, Any]:
     return result
 
 
+def run_distributed_conformance(adapter: EtcdWatchBackend) -> dict[str, Any]:
+    """Run deterministic revision, watch, compaction, and reconnect fixtures."""
+
+    fixtures: list[tuple[str, Callable[[], dict[str, Any]]]] = [
+        ("watch-ordering-dedup", lambda: _distributed_fixture_watch_ordering(adapter)),
+        ("cursor-gap", lambda: _distributed_fixture_cursor_gap(adapter)),
+        ("compaction-recovery", lambda: _distributed_fixture_compaction_recovery(adapter)),
+        ("stale-watch", lambda: _distributed_fixture_stale_watch(adapter)),
+        ("distributed-privacy", lambda: _distributed_fixture_privacy(adapter)),
+        ("reconnect-fencing", lambda: _distributed_fixture_reconnect_fencing(adapter)),
+    ]
+    cases = [_distributed_case_result(adapter, case_id, fixture) for case_id, fixture in fixtures]
+    result = {
+        "schema_version": CONFORMANCE_SCHEMA_VERSION,
+        "contract_revision": CONTRACT_REVISION,
+        "backend": adapter.descriptor,
+        "status": "passed" if all(item["status"] == "passed" for item in cases) else "failed",
+        "cases": cases,
+        "summary": {
+            "total": len(cases),
+            "passed": sum(item["status"] == "passed" for item in cases),
+            "unsupported": 0,
+            "degraded": 0,
+            "failed": sum(item["status"] == "failed" for item in cases),
+        },
+    }
+    result["result_digest"] = _digest(result)
+    return result
+
+
 def _requirements(raw: str) -> dict[str, Any]:
     try:
         value = json.loads(raw)
@@ -845,15 +1147,20 @@ def _parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     describe = sub.add_parser("describe", help="print a backend capability descriptor")
-    describe.add_argument("--backend", choices=["sqlite", "memory"], required=True)
+    describe.add_argument("--backend", choices=["sqlite", "memory", "etcd"], required=True)
 
     negotiation = sub.add_parser("negotiate", help="negotiate capabilities and consistency")
-    negotiation.add_argument("--backend", choices=["sqlite", "memory"], required=True)
+    negotiation.add_argument("--backend", choices=["sqlite", "memory", "etcd"], required=True)
     negotiation.add_argument("--requirements-json", default="{}")
 
     conformance = sub.add_parser("conformance", help="run the deterministic offline fixture matrix")
     conformance.add_argument("--backend", choices=["sqlite", "memory", "all"], default="all")
     conformance.add_argument("--db", type=Path, help="optional disposable SQLite path for the SQLite adapter")
+    watch_conformance = sub.add_parser(
+        "watch-conformance", help="run the distributed revision/watch recovery matrix"
+    )
+    watch_conformance.add_argument("--backend", choices=["etcd"], default="etcd")
+    watch_conformance.add_argument("--db", type=Path, help="optional disposable SQLite path for the etcd facade")
     return parser
 
 
@@ -867,6 +1174,27 @@ def _run_one(kind: str, path: Path | None) -> dict[str, Any]:
         adapter.close()
 
 
+def _run_distributed(path: Path | None) -> dict[str, Any]:
+    if path is None:
+        path = Path(tempfile.mkdtemp(prefix="forge-distributed-db-")) / "runtime.sqlite3"
+    adapter = make_backend("etcd", path)
+    try:
+        base = run_conformance(adapter)
+        distributed_result = run_distributed_conformance(adapter)
+    finally:
+        adapter.close()
+    output = {
+        "schema_version": CONFORMANCE_SCHEMA_VERSION,
+        "contract_revision": CONTRACT_REVISION,
+        "status": "passed" if base["status"] == "passed" and distributed_result["status"] == "passed" else "failed",
+        "backend": distributed_result["backend"],
+        "base": base,
+        "distributed": distributed_result,
+    }
+    output["result_digest"] = _digest(output)
+    return output
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
@@ -876,6 +1204,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "negotiate":
             print(json.dumps(negotiate(descriptor_for(args.backend), _requirements(args.requirements_json)), indent=2, sort_keys=True))
             return 0
+        if args.command == "watch-conformance":
+            result = _run_distributed(args.db)
+            print(json.dumps(result, indent=2, sort_keys=True))
+            return 0 if result["status"] == "passed" else 1
         if args.backend == "all":
             sqlite_path = None if args.db is None else Path(str(args.db) + ".sqlite")
             results = [_run_one("sqlite", sqlite_path), _run_one("memory", None)]

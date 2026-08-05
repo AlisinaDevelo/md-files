@@ -42,7 +42,11 @@
           "inbox_dedupe",
           "migration",
           "offline_lineage",
-          "privacy_boundary"
+          "privacy_boundary",
+          "remote_revisions",
+          "watch_delivery",
+          "snapshot_recovery",
+          "compaction_recovery"
         ]
       }
     },

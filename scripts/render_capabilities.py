@@ -288,6 +288,7 @@ def render_release_surface(repo: Path, graph: dict[str, Any], output: Path) -> d
         "data/runtime-backend.schema.json",
         "data/runtime-backend-evidence.schema.json",
         "data/runtime-conformance.schema.json",
+        "data/runtime-distributed.schema.json",
         "data/runtime-definitions.schema.json",
         "data/runtime-compatibility.schema.json",
     )

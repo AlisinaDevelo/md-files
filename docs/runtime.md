@@ -70,6 +70,10 @@ python3 scripts/forge-backends.py describe --backend sqlite
 python3 scripts/forge-backends.py negotiate --backend memory \
   --requirements-json '{"capabilities":["fenced_leases"],"consistency_level":"strict_serializable"}'
 python3 scripts/forge-backends.py conformance --backend all
+python3 scripts/forge-backends.py describe --backend etcd
+python3 scripts/forge-backends.py negotiate --backend etcd \
+  --requirements-json '{"required_capabilities":["remote_revisions","watch_delivery","snapshot_recovery","compaction_recovery","fenced_leases"],"consistency_level":"strict_serializable"}'
+python3 scripts/forge-backends.py watch-conformance --backend etcd
 ```
 
 The database schemas are versioned in [`data/runtime-events.schema.json`](../data/runtime-events.schema.json),
@@ -84,6 +88,7 @@ The database schemas are versioned in [`data/runtime-events.schema.json`](../dat
 [`data/runtime-backend.schema.json`](../data/runtime-backend.schema.json), and
 [`data/runtime-backend-evidence.schema.json`](../data/runtime-backend-evidence.schema.json), and
 [`data/runtime-conformance.schema.json`](../data/runtime-conformance.schema.json),
+[`data/runtime-distributed.schema.json`](../data/runtime-distributed.schema.json),
 [`data/runtime-definitions.schema.json`](../data/runtime-definitions.schema.json), and
 [`data/runtime-compatibility.schema.json`](../data/runtime-compatibility.schema.json). A store
 uses only the reviewed migration registry for an older database and refuses an unknown
@@ -178,6 +183,47 @@ affects new runs, while resolving a retired digest remains possible for in-fligh
 `rollout --registry-json REGISTRY --reference stable` command to inspect that alias state without
 connecting to a provider.
 
+## Distributed revision and watch recovery
+
+The etcd-first adapter extends the portable backend descriptor with `remote_revisions`,
+`watch_delivery`, `snapshot_recovery`, and `compaction_recovery`. Negotiate those capabilities and
+`strict_serializable` consistency before creating a run. The implementation in
+`scripts/forge-distributed.py` is a deterministic offline model: it proves the safety contract
+without requiring a live etcd cluster, credentials, or provider payloads.
+
+Canonical Forge history remains the source of truth. Remote revisions, transaction references,
+watch cursors, compaction markers, and CloudEvents are reference-only evidence; CloudEvent payloads
+must be represented by a `data_ref`. Notifications are normalized, verified against their watch
+identity, ordered by revision, and deduplicated by canonical event reference. A missing revision,
+conflicting duplicate, stale cursor, foreign watch, or tampered reference fails closed before it
+can affect canonical state.
+
+The offline contract models a dedicated Forge event stream in which every accepted revision is
+expected. A live etcd integration must define its watched key range explicitly: etcd revisions are
+cluster-wide, so unrelated writes can create numeric gaps in a filtered watch. Use the watch's
+progress/revision evidence to distinguish an unrelated revision from a dropped Forge event; never
+silently assume that a gap is harmless.
+
+When a watch cursor is older than the compaction boundary, do not guess or replay an incomplete
+history. Retain a digest-verified snapshot with its state reference and remote revision, then
+replay only the contiguous notification suffix. If the snapshot is older than compaction, the
+watch identity changes, or the suffix contains a gap, stop and require operator recovery. The
+adapter's `watch-conformance` command covers ordering/deduplication, cursor gaps, compaction
+recovery, stale watches, privacy rejection, and reconnect fencing:
+
+```bash
+python3 scripts/forge-backends.py watch-conformance --backend etcd
+```
+
+Operationally, snapshot retention must cover the longest expected reconnect and compaction
+window. Quorum loss pauses remote observation and effect dispatch; it must not rewrite canonical
+history or advance a cursor. After quorum returns, verify the persisted snapshot/cursor references
+and replay from the last accepted revision. Keep provider-specific watch code behind the adapter
+boundary and consult the [etcd API guarantees](https://etcd.io/docs/v3.7/learning/api_guarantees/),
+[etcd watch/compaction guidance](https://etcd.io/docs/v3.7/dev-guide/interacting_v3/), and the
+[CloudEvents specification](https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md)
+when implementing a live provider.
+
 ## External effect protocol
 
 Pass an effect descriptor when appending the event that schedules an external operation. Forge
@@ -208,12 +254,11 @@ and provider response bodies are rejected at the persistence boundary. The effec
 makes direct outbox tampering detectable before inspection or delivery.
 
 Adaptive routing remains follow-up work under
-[#22](https://github.com/AlisinaDevelo/md-files/issues/22); remote distributed adapters remain
-the next stage beyond [#58](https://github.com/AlisinaDevelo/md-files/issues/58). The first portable backend
-contract is executable: `forge-backends.py` negotiates capabilities and consistency,
-keeps Forge history canonical, normalizes remote metadata through a reference-only evidence
-envelope, and runs the same deterministic fixture matrix against the SQLite/WAL reference and
-a fault-injected in-memory adapter.
+[#22](https://github.com/AlisinaDevelo/md-files/issues/22). The portable backend contract is
+executable: `forge-backends.py` negotiates capabilities and consistency, keeps Forge history
+canonical, normalizes remote metadata through a reference-only evidence envelope, runs the same
+12-case fixture matrix against the SQLite/WAL reference, in-memory fault, and etcd-first facades,
+and adds a six-case distributed revision/watch recovery matrix.
 
 ## Boundary
 
