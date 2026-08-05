@@ -72,6 +72,7 @@ def test_traceparent_and_otlp_preserve_causality():
     module = load_module()
     stored = event(
         module,
+        event_type="model.called",
         traceparent="00-0123456789abcdef0123456789abcdef-0123456789abcdef-01",
         correlation_id="run-1",
         causation_id="event-parent",
@@ -86,7 +87,16 @@ def test_traceparent_and_otlp_preserve_causality():
     assert span["spanId"] == stored["trace"]["span_id"]
     assert span["parentSpanId"] == "0123456789abcdef"
     assert any(item["key"] == "gen_ai.system" for item in span["attributes"])
+    assert span["name"] == "chat"
+    assert module.OTEL_MAPPING_VERSION in payload["resourceSpans"][0]["scopeSpans"][0]["scope"]["version"]
     assert payload["resourceSpans"][0]["scopeSpans"][0]["spans"] == [span]
+
+
+def test_receipt_attributes_are_bounded_even_with_content_opt_in():
+    module = load_module()
+    stored = event(module, attributes={"description": "x" * (module.MAX_ATTRIBUTE_LENGTH + 1)}, allow_content=True)
+
+    assert stored["attributes"]["description"]["redacted"] is True
 
 
 def test_truncated_final_record_is_readable_and_explicitly_repairable(tmp_path):

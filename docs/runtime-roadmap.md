@@ -13,6 +13,8 @@ workflows, and telemetry remain adapters or evidence surfaces.
 - The local SQLite/WAL runtime has hash-chained events, deterministic replay, bounded
   lifecycle transitions, an atomic event-plus-outbox write, leases, retries, dead letters,
   inbox dedupe, and reference-only payload checks.
+- The verifiable lineage and receipt-integrity slice in #56 is now in progress; it will add
+  offline evidence verification without making telemetry the source of truth.
 - The current release remains 3.6.0. The transactional effect boundary is documented under
   `Unreleased`; no new tag should claim it until release validation is repeated.
 - The current stack delivery path already records head/base SHAs, guards mutations, handles
@@ -27,7 +29,7 @@ workflows, and telemetry remain adapters or evidence surfaces.
 | Worker ownership | Chubby uses a lock generation sequencer that protected services validate, closing the stale-client write window. | A lease claim must issue a monotonic generation or fencing token; owner and generation are required for heartbeat, completion, failure, and protected effect submission. |
 | Recovery | LangGraph, Microsoft Agent Framework, and Dapr persist checkpoints and durable retry state, including successful work that can be resumed after a sibling failure. | Add hashed checkpoints, suffix replay, crash recovery, and reviewed fail-closed migrations before calling the runtime durable at scale. |
 | Human interaction | MCP Tasks defines `input_required`, TTL, polling hints, cancellation, authorization binding, limits, and audit expectations; provider task state is not enough. | Model waits and signals in Forge history, then expose MCP Tasks as an adapter. |
-| Evidence | OpenTelemetry provides versioned agent/workflow/tool vocabulary; SLSA and in-toto bind evidence to immutable subjects and resolved inputs. | Add a privacy-safe, digest-bound episode lineage and receipt verifier without replacing canonical history or release attestations. |
+| Evidence | OpenTelemetry provides versioned agent/workflow/tool vocabulary; W3C Trace Context carries portable correlation; SLSA and in-toto bind evidence to immutable subjects and resolved inputs. | Add a privacy-safe, digest-bound episode lineage and receipt verifier with pinned mappings, without replacing canonical history or GitHub release attestations. |
 | GitHub delivery | GitHub Merge Queue validates checks on the latest target plus queued changes and requires `merge_group` reporting. | Preserve SHA-bound stack plans, queue-event correlation, explicit approval, and indeterminate stop states. |
 
 ## Release sequence
@@ -43,11 +45,19 @@ workflows, and telemetry remain adapters or evidence surfaces.
    recovers from corrupt prefixes with privacy-safe references, and applies reviewed additive
    migrations with resumable evidence.
 
-### Next runtime slices
+### In progress
 
 1. [#56 Verifiable execution lineage and receipt integrity](https://github.com/AlisinaDevelo/md-files/issues/56)
-2. [#57 Human-input waits, signals, and cancellation](https://github.com/AlisinaDevelo/md-files/issues/57)
-3. [#58 Portable backend adapter and conformance](https://github.com/AlisinaDevelo/md-files/issues/58)
+
+This slice derives a deterministic, privacy-safe manifest from canonical runtime history and
+optional policy/receipt evidence. It verifies parent identity, event heads, effect attempts,
+lease generations, adapter revisions, provider references, and receipt digests without network
+access.
+
+### Next runtime slices
+
+1. [#57 Human-input waits, signals, and cancellation](https://github.com/AlisinaDevelo/md-files/issues/57)
+2. [#58 Portable backend adapter and conformance](https://github.com/AlisinaDevelo/md-files/issues/58)
 
 These issues are the minimum credible v4 runtime contract. They are intentionally separate:
 recovery, evidence, interaction, and backend portability have different failure modes and

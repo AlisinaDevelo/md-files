@@ -40,6 +40,10 @@ python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 outbox --run-id run
 python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 inbox --run-id run-demo
 python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 lease-events \
   --effect-id EFFECT_ID
+
+python3 scripts/forge-lineage.py export \
+  --db .forge/runtime.sqlite3 --output .forge/lineage.json
+python3 scripts/forge-lineage.py verify --manifest .forge/lineage.json
 ```
 
 The database schemas are versioned in [`data/runtime-events.schema.json`](../data/runtime-events.schema.json),
@@ -52,6 +56,11 @@ The database schemas are versioned in [`data/runtime-events.schema.json`](../dat
 [`data/runtime-migrations.schema.json`](../data/runtime-migrations.schema.json). A store
 uses only the reviewed migration registry for an older database and refuses an unknown
 schema version rather than guessing at a transformation.
+
+For an offline, privacy-safe evidence view of this history, use the lineage exporter and
+verifier described in [`docs/receipts.md`](receipts.md). The manifest is derived from the
+canonical database and does not replace event verification, inbox receipts, or release
+artifact attestations.
 
 ## Execution contract
 

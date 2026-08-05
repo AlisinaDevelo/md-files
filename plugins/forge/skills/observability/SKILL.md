@@ -63,3 +63,21 @@ For orchestration evidence, use the bundled `scripts/forge-receipts.py` store ra
 free-form logs. It writes append-only, schema-versioned JSONL with monotonic sequences,
 idempotency keys, causation, W3C trace context, and privacy-safe attributes. Read the
 [receipt guide](../../../docs/receipts.md) before enabling OTLP export.
+
+## Offline lineage verification
+
+For durable runtime evidence, export from the canonical SQLite history with
+`scripts/forge-lineage.py`. The verifier binds scheduling events, effect attempts, lease
+generations, adapter revisions, provider references, retries, dead letters, and optional
+policy receipts into a deterministic manifest. It is offline-only and fails closed on a
+missing parent, digest mismatch, conflicting provider reference, or stale generation:
+
+```bash
+python3 scripts/forge-lineage.py export \
+  --db .forge/runtime.sqlite3 --receipts .forge/receipts.jsonl \
+  --output .forge/lineage.json
+python3 scripts/forge-lineage.py verify --manifest .forge/lineage.json
+```
+
+Lineage is evidence, not a replacement for canonical runtime history and not an exactly-once
+claim. Keep provider bodies, prompts, credentials, and tool content out of the manifest.

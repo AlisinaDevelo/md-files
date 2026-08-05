@@ -17,6 +17,9 @@ All notable changes to this project are documented here. The format is based on
 - **Checkpointed runtime recovery** - added hash-bound state checkpoints, verified suffix replay,
   corrupt-history recovery reports, and a reviewed migration registry with dry-run and resumable
   fail-closed upgrades.
+- **Verifiable runtime lineage** - added deterministic, privacy-safe offline manifests for event
+  parentage, effect attempts, lease generations, provider references, policy evidence, and
+  receipt integrity with pinned OpenTelemetry mappings.
 
 ## [3.6.0] — 2026-08-03
 

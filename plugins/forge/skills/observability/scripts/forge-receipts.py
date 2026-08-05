@@ -25,7 +25,9 @@ except ImportError:  # pragma: no cover - Windows does not expose fcntl.
 
 
 SCHEMA_VERSION = 1
-CONVENTIONS_VERSION = "2025.05"
+CONVENTIONS_VERSION = "gen-ai-1.42.0"
+OTEL_MAPPING_VERSION = "forge-otel-1"
+MAX_ATTRIBUTE_LENGTH = 512
 EVENT_TYPES = (
     "run.started",
     "run.finished",
@@ -89,6 +91,8 @@ def sanitize(value: Any, key: str = "", allow_content: bool = False) -> Any:
         return [sanitize(item, key, allow_content) for item in value]
     if isinstance(value, tuple):
         return [sanitize(item, key, allow_content) for item in value]
+    if isinstance(value, str) and len(value) > MAX_ATTRIBUTE_LENGTH:
+        return redacted(value)
     return value
 
 
@@ -280,6 +284,7 @@ def event_attributes(event: Mapping[str, Any]) -> list[dict[str, Any]]:
         ("forge.sequence", event["sequence"]),
         ("forge.schema_version", event["schema_version"]),
         ("forge.conventions_version", CONVENTIONS_VERSION),
+        ("forge.otel_mapping_version", OTEL_MAPPING_VERSION),
     ]
     trace = event.get("trace", {})
     if isinstance(trace, Mapping) and trace.get("correlation_id"):
@@ -296,6 +301,21 @@ def event_attributes(event: Mapping[str, Any]) -> list[dict[str, Any]]:
 
 
 def event_to_span(event: Mapping[str, Any]) -> dict[str, Any]:
+    span_names = {
+        "run.started": "invoke_workflow",
+        "run.finished": "invoke_workflow",
+        "task.started": "invoke_workflow.task",
+        "task.finished": "invoke_workflow.task",
+        "agent.started": "invoke_agent",
+        "agent.finished": "invoke_agent",
+        "model.called": "chat",
+        "tool.called": "execute_tool",
+        "approval.requested": "policy.decision",
+        "approval.granted": "policy.decision",
+        "approval.denied": "policy.decision",
+        "artifact.recorded": "artifact.recorded",
+        "outcome.recorded": "workflow.outcome",
+    }
     trace = event.get("trace", {})
     trace_id = trace.get("trace_id") if isinstance(trace, Mapping) else None
     span_id = trace.get("span_id") if isinstance(trace, Mapping) else None
@@ -304,7 +324,7 @@ def event_to_span(event: Mapping[str, Any]) -> dict[str, Any]:
     span: dict[str, Any] = {
         "traceId": trace_id,
         "spanId": span_id,
-        "name": event["event_type"],
+        "name": span_names[event["event_type"]],
         "startTimeUnixNano": str(parse_time(event["occurred_at"])),
         "attributes": event_attributes(event),
     }
@@ -322,11 +342,13 @@ def otlp_payload(events: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
                     "attributes": [
                         {"key": "service.name", "value": {"stringValue": "forge"}},
                         {"key": "forge.receipt_schema_version", "value": {"intValue": str(SCHEMA_VERSION)}},
+                        {"key": "forge.otel_mapping_version", "value": {"stringValue": OTEL_MAPPING_VERSION}},
+                        {"key": "forge.gen_ai_semconv_version", "value": {"stringValue": CONVENTIONS_VERSION}},
                     ]
                 },
                 "scopeSpans": [
                     {
-                        "scope": {"name": "forge.receipts", "version": str(SCHEMA_VERSION)},
+                        "scope": {"name": "forge.receipts", "version": OTEL_MAPPING_VERSION},
                         "spans": spans,
                     }
                 ],
