@@ -35,6 +35,10 @@ All notable changes to this project are documented here. The format is based on
   revision, watch delivery, snapshot, and compaction capabilities; digest-verified cursors and
   snapshots; ordering and duplicate checks; fail-closed gap, stale-watch, privacy, and compaction
   recovery fixtures; and a six-case offline matrix alongside the shared backend conformance suite.
+- **Deterministic chaos schedules** - added a seedable, digest-only runtime schedule DSL with
+  backend comparison, invariant classification, delta-debugging shrink, offline replay and
+  inspection, and a bounded three-seed corpus covering crashes, retries, fencing, cancellation,
+  recovery, privacy, and distributed watch behavior.
 
 ## [3.6.0] — 2026-08-03
 

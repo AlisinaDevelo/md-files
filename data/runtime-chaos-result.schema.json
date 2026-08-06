@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/chaos-result/v1",
+  "title": "Forge Deterministic Chaos Result",
+  "description": "Digest-only evidence from a deterministic schedule run or replay.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "contract_revision", "status", "result_digest"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "contract_revision": {"const": "forge-chaos-v1"},
+    "schedule_ref": {"$ref": "#/$defs/digest"},
+    "schedule": {"$ref": "runtime-chaos-schedule.schema.json"},
+    "backend": {"$ref": "runtime-backend.schema.json"},
+    "status": {"enum": ["passed", "degraded", "failed"]},
+    "failure_class": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+    "replayed": {"type": "boolean"},
+    "actions": {"type": "array", "items": {"$ref": "#/$defs/action_result"}},
+    "summary": {"type": "object"},
+    "canonical": {"$ref": "#/$defs/canonical"},
+    "comparison": {"$ref": "#/$defs/comparison"},
+    "results": {"type": "array", "items": {"type": "object"}},
+    "result_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "action_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_id", "kind", "status", "outcome", "failure_class", "error_ref", "evidence_digest"],
+      "properties": {
+        "action_id": {"type": "string", "minLength": 1},
+        "kind": {"type": "string", "minLength": 1},
+        "status": {"enum": ["passed", "unsupported", "failed"]},
+        "outcome": {"type": "string", "minLength": 1},
+        "failure_class": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "error_ref": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+        "evidence_digest": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]}
+      }
+    },
+    "canonical": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actions", "runs", "privacy_evidence"],
+      "properties": {
+        "actions": {"type": "array"},
+        "runs": {"type": "array"},
+        "privacy_evidence": {"type": "array", "items": {"$ref": "#/$defs/digest"}}
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "backend_count", "mismatches", "comparison_digest"],
+      "properties": {
+        "status": {"enum": ["passed", "failed"]},
+        "backend_count": {"type": "integer", "minimum": 1},
+        "mismatches": {"type": "array"},
+        "comparison_digest": {"$ref": "#/$defs/digest"}
+      }
+    }
+  }
+}
