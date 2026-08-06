@@ -248,8 +248,7 @@ def _sanitize_value(value: Any, key: str, policy: Mapping[str, Any]) -> Any:
     normalized = _normalized_key(key)
     explicitly_allowed = key in policy["allowed_keys"] and policy["allow_content"] and policy["export_enabled"]
     if _is_forbidden_key(key) or isinstance(value, (Mapping, list, tuple)):
-        if not explicitly_allowed or not isinstance(value, str) or _is_forbidden_key(key):
-            return _redacted(value)
+        return _redacted(value)
     if isinstance(value, str):
         if explicitly_allowed:
             maximum = policy["max_length"]
@@ -361,11 +360,11 @@ def parse_trace_context(traceparent: str | None, tracestate: str | None = None) 
 
 
 def _stable_span_id(kind: str, identifier: str) -> str:
-    return sha256(f"forge-span:{kind}:{identifier}".encode("utf-8")).hexdigest()[:16]
+    return sha256(f"forge-span:{kind}:{identifier}".encode()).hexdigest()[:16]
 
 
 def _trace_for_run(run_id: str, incoming: Mapping[str, Any]) -> dict[str, Any]:
-    trace_id = incoming["trace_id"] or sha256(f"forge-trace:{run_id}".encode("utf-8")).hexdigest()[:32]
+    trace_id = incoming["trace_id"] or sha256(f"forge-trace:{run_id}".encode()).hexdigest()[:32]
     root_span_id = _stable_span_id("run", run_id)
     trace_flags = incoming["trace_flags"] or "01"
     result = {
