@@ -81,3 +81,30 @@ python3 scripts/forge-lineage.py verify --manifest .forge/lineage.json
 
 Lineage is evidence, not a replacement for canonical runtime history and not an exactly-once
 claim. Keep provider bodies, prompts, credentials, and tool content out of the manifest.
+
+## Signed trace and provenance bridge
+
+For a portable, authenticated evidence package, use `scripts/forge-provenance.py`. It composes
+the verified lineage manifest, derives stable W3C trace/span identities from Forge IDs, maps
+workflow, agent, tool, effect, wait, receipt, and bounded GenAI cost fields to the pinned
+`forge-otel-1` convention, and signs an in-toto-shaped statement for offline verification:
+
+```bash
+python3 scripts/forge-provenance.py export \
+  --db .forge/runtime.sqlite3 \
+  --source-revision git:HEAD \
+  --policy-revision policy-v1 \
+  --key-id forge-local-2026 \
+  --key-file .forge/keys/forge-local-2026.key \
+  --trust-policy .forge/keys/trust-policy.json \
+  --output .forge/provenance.json
+python3 scripts/forge-provenance.py verify \
+  --bundle .forge/provenance.json \
+  --trust-policy .forge/keys/trust-policy.json
+```
+
+The default bundle contains digests and bounded references only. Raw prompts, credentials,
+tool arguments/results, and provider bodies are never exported implicitly. HMAC key material
+must stay outside bundles and source control; see [`docs/provenance.md`](../../../docs/provenance.md)
+for rotation, retention, redaction, and incident-response rules. Invalid W3C context is rejected
+so a caller can safely retry without the untrusted header and derive a new trace.
