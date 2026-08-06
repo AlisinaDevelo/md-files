@@ -1,0 +1,203 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/provenance/v1",
+  "title": "Forge Signed Runtime Provenance Bundle",
+  "description": "Deterministic offline trace projection and in-toto-shaped provenance envelope.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract_revision",
+    "mapping",
+    "trace_context",
+    "traces",
+    "evidence",
+    "provenance",
+    "signature",
+    "privacy",
+    "bundle_digest"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "contract_revision": {"const": "forge-provenance-v1"},
+    "mapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "trace_context_version",
+        "otel_spec_version",
+        "gen_ai_semconv_version",
+        "event_span_names",
+        "attributes"
+      ],
+      "properties": {
+        "version": {"const": "forge-otel-1"},
+        "trace_context_version": {"const": "w3c-trace-context-00"},
+        "otel_spec_version": {"type": "string", "minLength": 1},
+        "gen_ai_semconv_version": {"type": "string", "minLength": 1},
+        "event_span_names": {"type": "object", "additionalProperties": {"type": "string", "minLength": 1}},
+        "attributes": {"type": "object"}
+      }
+    },
+    "trace_context": {"$ref": "#/$defs/trace_context"},
+    "traces": {"type": "array", "items": {"$ref": "#/$defs/trace"}},
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lineage"],
+      "properties": {"lineage": {"type": "object"}}
+    },
+    "provenance": {"$ref": "#/$defs/provenance"},
+    "signature": {"$ref": "#/$defs/signature"},
+    "privacy": {"$ref": "#/$defs/privacy"},
+    "bundle_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "trace_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "source", "traceparent", "tracestate", "unknown_fields"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "source": {"enum": ["derived", "incoming"]},
+        "traceparent": {"type": ["string", "null"], "maxLength": 512},
+        "tracestate": {"type": ["string", "null"], "maxLength": 512},
+        "unknown_fields": {"type": "array", "items": {"type": "string", "minLength": 2}}
+      }
+    },
+    "trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "trace_id", "root_span_id", "traceparent", "spans"],
+      "properties": {
+        "run_id": {"type": "string", "minLength": 1},
+        "trace_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+        "root_span_id": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
+        "traceparent": {"type": "string", "minLength": 55, "maxLength": 512},
+        "tracestate": {"type": "string", "maxLength": 512},
+        "spans": {"type": "array", "items": {"$ref": "#/$defs/span"}}
+      }
+    },
+    "span": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["span_id", "trace_id", "name", "kind", "start_time", "end_time", "status", "attributes"],
+      "properties": {
+        "span_id": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
+        "trace_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+        "parent_span_id": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
+        "name": {"type": "string", "minLength": 1},
+        "kind": {"type": "string", "minLength": 1},
+        "start_time": {"type": "string", "format": "date-time"},
+        "end_time": {"type": "string", "format": "date-time"},
+        "status": {"enum": ["ok", "error"]},
+        "attributes": {"type": "object"}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["_type", "subject", "predicateType", "predicate"],
+      "properties": {
+        "_type": {"const": "https://in-toto.io/Statement/v1"},
+        "subject": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "digest"],
+            "properties": {
+              "name": {"type": "string", "minLength": 1},
+              "digest": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["sha256"],
+                "properties": {"sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+              }
+            }
+          }
+        },
+        "predicateType": {"const": "https://slsa.dev/provenance/v1"},
+        "predicate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["buildDefinition", "runDetails"],
+          "properties": {
+            "buildDefinition": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["buildType", "externalParameters", "internalParameters"],
+              "properties": {
+                "buildType": {"type": "string", "minLength": 1},
+                "externalParameters": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["source_revision", "policy_revision"],
+                  "properties": {
+                    "source_revision": {"type": "string", "minLength": 1},
+                    "policy_revision": {"type": "string", "minLength": 1}
+                  }
+                },
+                "internalParameters": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["mapping_revision", "evidence_inputs"],
+                  "properties": {
+                    "mapping_revision": {"type": "string", "minLength": 1},
+                    "evidence_inputs": {"type": "array", "items": {"type": "object"}}
+                  }
+                }
+              }
+            },
+            "runDetails": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["builder", "metadata"],
+              "properties": {
+                "builder": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["id"],
+                  "properties": {"id": {"type": "string", "format": "uri"}}
+                },
+                "metadata": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["invocation_id"],
+                  "properties": {"invocation_id": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "key_id", "algorithm", "payload_type", "payload_digest", "signature"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "key_id": {"type": "string", "minLength": 1},
+        "algorithm": {"const": "hmac-sha256"},
+        "payload_type": {"const": "application/vnd.in-toto+json"},
+        "payload_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "signature": {"type": "string", "pattern": "^[A-Za-z0-9+/]+={0,2}$"}
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "mode", "policy_digest", "export_enabled", "max_length"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "mode": {"enum": ["digest-only", "opt-in-content"]},
+        "policy_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "export_enabled": {"type": "boolean"},
+        "max_length": {"type": "integer", "minimum": 1, "maximum": 512}
+      }
+    }
+  }
+}
