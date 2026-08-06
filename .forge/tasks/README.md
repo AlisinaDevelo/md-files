@@ -25,5 +25,5 @@
 | 0021 | Add workflow definition versioning and replay compatibility gates | done | architect | opus | 0017, 0020 |
 | 0022 | Add signed trace-context and provenance bridge for runtime episodes | done | observability-specialist | sonnet | 0018, 0020 |
 | 0023 | Add distributed revision and watch recovery adapter | done | concurrency-engineer | sonnet | 0020 |
-| 0024 | Add deterministic chaos and schedule-shrinking harness | planned | test-engineer | sonnet | 0019, 0020 |
+| 0024 | Add deterministic chaos and schedule-shrinking harness | done | test-engineer | sonnet | 0019, 0020 |
 | 0025 | Add deterministic adaptive-routing policy and offline replay foundation | done | data-engineer | sonnet | 0018, 0019, 0020, 0021 |

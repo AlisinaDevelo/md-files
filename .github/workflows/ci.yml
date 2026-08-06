@@ -73,6 +73,8 @@ jobs:
         run: python3 evals/run_scenarios.py --adapter all --no-receipts --output "$RUNNER_TEMP/forge-scenario-results.json"
       - name: Run portable backend conformance
         run: python3 plugins/forge/skills/orchestration/scripts/forge-backends.py conformance --backend all > "$RUNNER_TEMP/forge-backend-conformance.json"
+      - name: Run bounded deterministic chaos corpus
+        run: python3 plugins/forge/skills/orchestration/scripts/forge-chaos.py corpus --output "$RUNNER_TEMP/forge-chaos-corpus.json"
       - name: Upload conformance evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -80,6 +82,7 @@ jobs:
           path: |
             ${{ runner.temp }}/forge-scenario-results.json
             ${{ runner.temp }}/forge-backend-conformance.json
+            ${{ runner.temp }}/forge-chaos-corpus.json
           if-no-files-found: error
           retention-days: 14
 

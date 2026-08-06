@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/chaos-schedule/v1",
+  "title": "Forge Deterministic Chaos Schedule",
+  "description": "A seedable, digest-only runtime schedule. Actions contain symbolic faults, never raw provider content.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "contract_revision", "seed", "actions", "schedule_ref"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "contract_revision": {"const": "forge-chaos-v1"},
+    "seed": {"type": "integer", "minimum": 0, "maximum": 9223372036854775807},
+    "actions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {"$ref": "#/$defs/action"}
+    },
+    "expected_failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "backend": {"enum": ["sqlite", "memory", "etcd", null]},
+        "failure_class": {"type": "string", "minLength": 1}
+      }
+    },
+    "schedule_ref": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_id", "kind", "run_id"],
+      "properties": {
+        "action_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+        "kind": {
+          "enum": [
+            "start_run",
+            "commit_crash",
+            "duplicate_delivery",
+            "stale_worker_mutation",
+            "wait_signal_race",
+            "cancel_race",
+            "checkpoint_corruption",
+            "provider_timeout",
+            "privacy_probe",
+            "cursor_gap",
+            "compaction_recovery",
+            "verify_replay",
+            "expect_state"
+          ]
+        },
+        "run_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"},
+        "point": {"enum": ["append.before_commit", "append.after_commit"]},
+        "expected_status": {
+          "enum": ["running", "paused", "input_required", "cancelling", "completed", "failed", "cancelled"]
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"kind": {"const": "commit_crash"}}},
+          "then": {"required": ["point"]}
+        },
+        {
+          "if": {"properties": {"kind": {"const": "expect_state"}}},
+          "then": {"required": ["expected_status"]}
+        }
+      ]
+    }
+  }
+}
