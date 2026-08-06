@@ -148,6 +148,20 @@ in the reference-only envelope returned by `adapter_evidence`; its schema is
 parents, leases, and provider idempotency remain canonical. The contract promises at-least-once
 delivery with idempotent effects, never exactly-once provider execution.
 
+For deterministic race coverage, use the chaos schedule harness. It is seedable and offline: the
+schedule contains symbolic faults and references only, while the runner drives the real backend
+adapters and compares canonical history, outcomes, receipts, and privacy evidence. Keep the CI
+corpus bounded; a passing seed set is evidence, not an exhaustive interleaving proof. Retain a
+failing schedule and digest-only result, then shrink it before promoting the minimized seed into
+regression evidence:
+
+```bash
+python3 scripts/forge-chaos.py generate --seed 6601 --output /tmp/forge-schedule.json
+python3 scripts/forge-chaos.py run --schedule /tmp/forge-schedule.json --backend all
+python3 scripts/forge-chaos.py shrink --schedule /tmp/failing-schedule.json --backend memory
+python3 scripts/forge-chaos.py corpus
+```
+
 ## How to delegate well (this makes or breaks it)
 
 When you spawn a specialist subagent, set two things deliberately:

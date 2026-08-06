@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/chaos-corpus/v1",
+  "title": "Forge Deterministic Chaos Corpus Result",
+  "description": "Bounded CI evidence for promoted deterministic chaos seeds.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "contract_revision", "status", "seeds", "entries", "result_digest"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "contract_revision": {"const": "forge-chaos-v1"},
+    "status": {"enum": ["passed", "failed"]},
+    "seeds": {"type": "array", "items": {"type": "integer", "minimum": 0}},
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seed", "schedule_ref", "status", "comparison_digest", "result_digest"],
+        "properties": {
+          "seed": {"type": "integer", "minimum": 0},
+          "schedule_ref": {"$ref": "#/$defs/digest"},
+          "status": {"enum": ["passed", "failed"]},
+          "comparison_digest": {"$ref": "#/$defs/digest"},
+          "result_digest": {"$ref": "#/$defs/digest"}
+        }
+      }
+    },
+    "redaction": {"const": "digest-only"},
+    "result_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

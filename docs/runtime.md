@@ -224,6 +224,46 @@ boundary and consult the [etcd API guarantees](https://etcd.io/docs/v3.7/learnin
 [CloudEvents specification](https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md)
 when implementing a live provider.
 
+## Deterministic chaos and schedule shrinking
+
+Runtime conformance fixtures prove selected contracts; the chaos harness explores replayable
+interleavings around those contracts. A schedule is a seed, an ordered list of symbolic actions,
+and an optional expected failure predicate. It never carries prompts, credentials, provider
+bodies, absolute paths, or wall-clock values. The schedule reference and every result are
+SHA-256 references over canonical JSON.
+
+Generate, inspect, run, replay, and shrink schedules offline:
+
+```bash
+python3 scripts/forge-chaos.py generate --seed 6601 --output /tmp/forge-schedule.json
+python3 scripts/forge-chaos.py inspect --schedule /tmp/forge-schedule.json
+python3 scripts/forge-chaos.py run --schedule /tmp/forge-schedule.json --backend all
+python3 scripts/forge-chaos.py replay --schedule /tmp/forge-schedule.json --backend etcd
+python3 scripts/forge-chaos.py shrink --schedule /tmp/failing-schedule.json --backend memory
+```
+
+The generated schedule covers pre- and post-commit crashes, ambiguous commits, duplicate
+delivery, lease expiry and stale-worker mutation, wait/signal ordering, cancellation, checkpoint
+corruption, provider timeout, privacy rejection, replay verification, cursor gaps, and
+compaction recovery. SQLite/WAL and memory explicitly report distributed-only actions as
+unsupported degradation; etcd must execute those actions. Backend comparison checks canonical
+history, terminal state, effect and receipt projections, action outcomes, and privacy evidence.
+
+The bounded release corpus is the promoted seed set `6601`, `6602`, and `6603`:
+
+```bash
+python3 scripts/forge-chaos.py corpus --output /tmp/forge-chaos-corpus.json
+```
+
+When a schedule fails, retain the schedule JSON and its digest-only result as regression evidence.
+Run `shrink` against the failing backend, review the minimized schedule, then promote its seed or
+schedule reference into the corpus and conformance evidence. A minimized schedule must preserve
+the same failure class. CI remains bounded and deterministic; the corpus is high-signal coverage,
+not a claim of exhaustive interleavings. See
+[`data/runtime-chaos-schedule.schema.json`](../data/runtime-chaos-schedule.schema.json),
+[`data/runtime-chaos-result.schema.json`](../data/runtime-chaos-result.schema.json), and
+[`data/runtime-chaos-corpus.schema.json`](../data/runtime-chaos-corpus.schema.json).
+
 ## External effect protocol
 
 Pass an effect descriptor when appending the event that schedules an external operation. Forge
