@@ -79,13 +79,20 @@ workflows, and telemetry remain adapters or evidence surfaces.
    from digest-verified snapshots plus contiguous replay. The shared backend matrix remains
    `12/12`, and the distributed matrix adds `6/6` deterministic cases.
 
+8. [#66 Deterministic chaos and schedule shrinking](https://github.com/AlisinaDevelo/md-files/issues/66)
+   This slice adds a seedable, digest-only schedule DSL and offline runner for the SQLite/WAL,
+   memory-fault, and etcd-first facades. It exercises commit crashes, ambiguous commits, duplicate
+   delivery, fencing, waits/signals, cancellation, checkpoint corruption, provider timeouts,
+   privacy boundaries, replay, cursor gaps, and compaction recovery. Delta-debugging preserves a
+   classified failure while removing irrelevant actions, and the bounded corpus promotes seeds
+   `6601`, `6602`, and `6603` into CI evidence.
+
 ### Next runtime slices
 
 These issues are the minimum credible v4 runtime contract. They are intentionally separate:
 recovery, evidence, interaction, and backend portability have different failure modes and
 must remain independently reviewable.
 
-- [#66 Deterministic chaos and schedule shrinking](https://github.com/AlisinaDevelo/md-files/issues/66)
 - [#65 Signed trace-context and provenance bridge](https://github.com/AlisinaDevelo/md-files/issues/65)
 
 ### Later integrations
