@@ -9,8 +9,8 @@ import hashlib
 import importlib.util
 import json
 import random
-import sqlite3
 import re
+import sqlite3
 import sys
 import tempfile
 from collections.abc import Mapping
