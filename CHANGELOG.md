@@ -39,6 +39,10 @@ All notable changes to this project are documented here. The format is based on
   filtering; digest-only route decisions with fallback and policy evidence; and offline baseline /
   candidate replay gates for quality, cost, latency, failure, approval burden, confidence, and
   sample sufficiency without raw content telemetry.
+- **Signed trace and provenance bridge** - added deterministic W3C trace correlation, pinned
+  OpenTelemetry workflow/agent/tool/effect/wait/GenAI mappings, digest-only privacy defaults,
+  an offline HMAC-signed in-toto/SLSA-shaped bundle, trust-policy rotation and revocation, and
+  tamper/reproducibility fixtures without mutating canonical runtime history.
 
 ## [3.6.0] — 2026-08-03
 

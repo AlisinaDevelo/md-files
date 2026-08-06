@@ -97,7 +97,8 @@ schema version rather than guessing at a transformation.
 For an offline, privacy-safe evidence view of this history, use the lineage exporter and
 verifier described in [`docs/receipts.md`](receipts.md). The manifest is derived from the
 canonical database and does not replace event verification, inbox receipts, or release
-artifact attestations.
+artifact attestations. A signed trace projection is described in
+[`docs/provenance.md`](provenance.md); it remains an evidence adapter rather than runtime state.
 
 ## Execution contract
 
