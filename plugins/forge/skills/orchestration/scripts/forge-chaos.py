@@ -9,6 +9,7 @@ import hashlib
 import importlib.util
 import json
 import random
+import sqlite3
 import re
 import sys
 import tempfile
@@ -703,7 +704,17 @@ def _execute_action(adapter: Any, action: Mapping[str, Any], index: int, context
             error=error,
             failure_class=error.failure_class,
         )
-    except Exception as error:  # pragma: no cover - classification protects CLI callers
+    except (
+        backends.BackendContractError,
+        backends.BackendFault,
+        distributed.DistributedRecoveryError,
+        runtime.RuntimeStoreError,
+        KeyError,
+        OSError,
+        TypeError,
+        ValueError,
+        sqlite3.Error,
+    ) as error:  # pragma: no cover - classification protects CLI callers
         return _action_result(
             action,
             status="failed",
