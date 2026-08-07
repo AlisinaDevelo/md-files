@@ -1,7 +1,7 @@
 ---
 id: 0025
 title: Add deterministic adaptive-routing policy and offline replay foundation
-status: in_progress
+status: done
 agent: data-engineer
 model: sonnet
 depends_on: [0018, 0019, 0020, 0021]
@@ -15,18 +15,18 @@ any provider integration or online adaptation is enabled.
 
 ## Acceptance criteria
 
-- [ ] Capability, pin, data-policy, replay-safety, latency, concurrency, and token/cost budgets
+- [x] Capability, pin, data-policy, replay-safety, latency, concurrency, and token/cost budgets
       filter ineligible routes before scoring.
-- [ ] Decisions record candidate status, exclusion reasons, score source, fallback plan, budget
+- [x] Decisions record candidate status, exclusion reasons, score source, fallback plan, budget
       state, policy revision, request digest, and outcome evidence digests.
-- [ ] Static and disabled modes are deterministic; live adaptive decisions fail closed until an
+- [x] Static and disabled modes are deterministic; live adaptive decisions fail closed until an
       offline replay satisfies sample, confidence, regression, cost, failure, approval, and
       replay-budget gates.
-- [ ] Replay compares quality, cost, latency, failure rate, and approval burden over a shared
+- [x] Replay compares quality, cost, latency, failure rate, and approval burden over a shared
       episode set without persisting raw content or treating agent confidence as ground truth.
-- [ ] Versioned policy, decision, and replay schemas ship through Claude, Codex, and Agent Skills
+- [x] Versioned policy, decision, and replay schemas ship through Claude, Codex, and Agent Skills
       release surfaces.
-- [ ] Focused and full validation, release rendering, and hosted CI pass under `AlisinaDevelo`.
+- [x] Focused and full validation, release rendering, and hosted CI pass under `AlisinaDevelo`.
 
 ## Scope boundary
 
@@ -35,5 +35,15 @@ slice must add reviewed evidence windows, approval policy, provider adapters, an
 
 ## Verification
 
-Update this ledger with the focused test count, full validation result, release artifact result,
-and hosted CI run after the branch is pushed.
+Verification:
+
+- Focused routing/release/schema coverage: `14 passed`.
+- Full repository suite: `236 passed`; `scripts/validate.sh`, Ruff, Markdown lint, static evals
+  (`312/313`, one existing warning, zero failures), and all-adapter scenarios (`12/12`) pass.
+- Forge 3.6.0 release artifacts verify offline and are byte-identical across two local builds;
+  hosted release packaging and Claude/Codex/Agent Skills validation pass.
+- Hosted CI run [31136906946](https://github.com/AlisinaDevelo/md-files/actions/runs/31136906946)
+  is green for commit `3d1ec52`.
+
+The scope remains offline and fail-closed: provider adapters and online self-modification are
+future rollout work.
