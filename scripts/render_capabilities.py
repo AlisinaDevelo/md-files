@@ -291,6 +291,9 @@ def render_release_surface(repo: Path, graph: dict[str, Any], output: Path) -> d
         "data/runtime-distributed.schema.json",
         "data/runtime-definitions.schema.json",
         "data/runtime-compatibility.schema.json",
+        "data/runtime-routing-policy.schema.json",
+        "data/runtime-routing-decision.schema.json",
+        "data/runtime-routing-replay.schema.json",
     )
     common_manifest = {
         "schema_version": 1,

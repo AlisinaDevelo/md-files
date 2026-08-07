@@ -253,12 +253,14 @@ and provider request IDs. Prompts, raw content, tool arguments/results, credenti
 and provider response bodies are rejected at the persistence boundary. The effect hash also
 makes direct outbox tampering detectable before inspection or delivery.
 
-Adaptive routing remains follow-up work under
-[#22](https://github.com/AlisinaDevelo/md-files/issues/22). The portable backend contract is
-executable: `forge-backends.py` negotiates capabilities and consistency, keeps Forge history
-canonical, normalizes remote metadata through a reference-only evidence envelope, runs the same
-12-case fixture matrix against the SQLite/WAL reference, in-memory fault, and etcd-first facades,
-and adds a six-case distributed revision/watch recovery matrix.
+Deterministic model routing is documented in [`docs/routing.md`](routing.md) and exposed through
+`scripts/forge-routing.py`. Capability and policy constraints filter routes before scoring;
+static decisions remain the live default, and adaptive decisions fail closed until an offline
+replay satisfies its sample, confidence, regression, cost, failure, approval, and budget gates.
+The portable backend contract is executable: `forge-backends.py` negotiates capabilities and
+consistency, keeps Forge history canonical, normalizes remote metadata through a reference-only
+evidence envelope, runs the same 12-case fixture matrix against the SQLite/WAL reference,
+in-memory fault, and etcd-first facades, and adds a six-case distributed revision/watch matrix.
 
 ## Boundary
 

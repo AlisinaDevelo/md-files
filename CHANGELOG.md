@@ -35,6 +35,10 @@ All notable changes to this project are documented here. The format is based on
   revision, watch delivery, snapshot, and compaction capabilities; digest-verified cursors and
   snapshots; ordering and duplicate checks; fail-closed gap, stale-watch, privacy, and compaction
   recovery fixtures; and a six-case offline matrix alongside the shared backend conformance suite.
+- **Deterministic model routing foundation** - added capability-, pin-, budget-, and replay-safety
+  filtering; digest-only route decisions with fallback and policy evidence; and offline baseline /
+  candidate replay gates for quality, cost, latency, failure, approval burden, confidence, and
+  sample sufficiency without raw content telemetry.
 
 ## [3.6.0] — 2026-08-03
 

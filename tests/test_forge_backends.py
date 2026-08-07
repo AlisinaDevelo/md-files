@@ -174,6 +174,9 @@ def test_conformance_and_backend_schemas_are_valid_json():
         "runtime-distributed.schema.json",
         "runtime-definitions.schema.json",
         "runtime-compatibility.schema.json",
+        "runtime-routing-policy.schema.json",
+        "runtime-routing-decision.schema.json",
+        "runtime-routing-replay.schema.json",
     ):
         document = json.loads((REPO / "data" / name).read_text(encoding="utf-8"))
         assert document["$schema"].endswith("draft/2020-12/schema")

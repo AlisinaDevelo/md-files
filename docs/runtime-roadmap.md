@@ -1,6 +1,6 @@
 # Runtime Roadmap
 
-Last reviewed: 2026-08-05.
+Last reviewed: 2026-08-07.
 
 This roadmap is the execution plan for Forge's durable runtime. The event history is the
 source of truth for a run; receipts, task ledgers, provider sessions, MCP Tasks, GitHub
@@ -92,8 +92,10 @@ must remain independently reviewable.
 
 - [#21 GitHub Agentic Workflows](https://github.com/AlisinaDevelo/md-files/issues/21) comes
   after the runtime can correlate dispatch, workers, safe outputs, and replay.
-- [#22 Adaptive model routing](https://github.com/AlisinaDevelo/md-files/issues/22) comes
-  after outcome evidence, budgets, policy gates, and offline replay are trustworthy.
+- [#22 Adaptive model routing](https://github.com/AlisinaDevelo/md-files/issues/22) now has a
+  deterministic capability filter, digest-only decision contract, pins/budgets/fallbacks, and
+  offline replay gate. Live adaptive activation and provider integrations remain gated follow-up
+  work after this foundation is reviewed.
 - [#8 Connected Control Plane](https://github.com/AlisinaDevelo/md-files/issues/8) and
   [#9 Evidence and Trust](https://github.com/AlisinaDevelo/md-files/issues/9) remain the
   compatibility and release tracks for GitHub synchronization, policy, attestations, and

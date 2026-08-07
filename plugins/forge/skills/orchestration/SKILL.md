@@ -148,6 +148,35 @@ in the reference-only envelope returned by `adapter_evidence`; its schema is
 parents, leases, and provider idempotency remain canonical. The contract promises at-least-once
 delivery with idempotent effects, never exactly-once provider execution.
 
+## Deterministic model routing
+
+Use the routing contract when a workflow has more than one provider/model route. Capability and
+policy constraints are evaluated before scoring: required tools, structured output, context
+window, modality, host, region, data policy, replay safety, pins, and budgets can only exclude a
+route, never be outweighed by a score. The decision record contains candidate status, exclusion
+reason, score source, fallback plan, budget state, policy revision, request digest, and outcome
+evidence digests. Raw prompts, tool content, credentials, and provider bodies are rejected at the
+boundary.
+
+Live decisions are deterministic static decisions by default. An adaptive policy fails closed in
+`decide` until an offline replay proves its minimum-sample, confidence, quality-regression, cost,
+failure, approval-burden, and replay-budget gates. Pin a provider, model, or route per workflow;
+set `disable_adaptation` for an individual request when a workflow requires static behavior.
+Replay is an offline comparison only and does not mutate policy or activate itself:
+
+```bash
+python3 scripts/forge-routing.py inspect --policy POLICY.json
+python3 scripts/forge-routing.py decide --policy POLICY.json --request REQUEST.json
+python3 scripts/forge-routing.py replay \
+  --baseline-policy BASELINE.json \
+  --candidate-policy CANDIDATE.json \
+  --episodes EPISODES.json
+```
+
+See `docs/routing.md` and the versioned contracts in `data/runtime-routing-*.schema.json` for
+the input and output shapes. Replay evidence is numeric and digest-only; an agent's confidence
+field is never accepted as ground-truth quality.
+
 ## How to delegate well (this makes or breaks it)
 
 When you spawn a specialist subagent, set two things deliberately:
