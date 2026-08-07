@@ -258,7 +258,9 @@ python3 scripts/forge-chaos.py corpus --output /tmp/forge-chaos-corpus.json
 When a schedule fails, retain the schedule JSON and its digest-only result as regression evidence.
 Run `shrink` against the failing backend, review the minimized schedule, then promote its seed or
 schedule reference into the corpus and conformance evidence. A minimized schedule must preserve
-the same failure class. CI remains bounded and deterministic; the corpus is high-signal coverage,
+the same failure class. An `expected_failure` predicate can scope a regression to a backend and
+failure class; a missing or changed failure is reported as `expected_failure_mismatch` with
+digest-only evidence. CI remains bounded and deterministic; the corpus is high-signal coverage,
 not a claim of exhaustive interleavings. See
 [`data/runtime-chaos-schedule.schema.json`](../data/runtime-chaos-schedule.schema.json),
 [`data/runtime-chaos-result.schema.json`](../data/runtime-chaos-result.schema.json), and

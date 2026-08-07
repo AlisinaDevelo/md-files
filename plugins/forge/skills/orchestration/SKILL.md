@@ -153,7 +153,8 @@ schedule contains symbolic faults and references only, while the runner drives t
 adapters and compares canonical history, outcomes, receipts, and privacy evidence. Keep the CI
 corpus bounded; a passing seed set is evidence, not an exhaustive interleaving proof. Retain a
 failing schedule and digest-only result, then shrink it before promoting the minimized seed into
-regression evidence:
+regression evidence. Backend-scoped `expected_failure` predicates are enforced during replay;
+missing or changed failure classes fail closed with digest-only mismatch evidence:
 
 ```bash
 python3 scripts/forge-chaos.py generate --seed 6601 --output /tmp/forge-schedule.json

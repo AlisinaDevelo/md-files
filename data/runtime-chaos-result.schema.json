@@ -14,6 +14,8 @@
     "backend": {"$ref": "runtime-backend.schema.json"},
     "status": {"enum": ["passed", "degraded", "failed"]},
     "failure_class": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+    "expected_failure": {"$ref": "#/$defs/expected_failure"},
+    "expected_failure_evidence": {"$ref": "#/$defs/expected_failure_evidence"},
     "replayed": {"type": "boolean"},
     "actions": {"type": "array", "items": {"$ref": "#/$defs/action_result"}},
     "summary": {"type": "object"},
@@ -24,6 +26,25 @@
   },
   "$defs": {
     "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "expected_failure": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "backend": {"enum": ["sqlite", "memory", "etcd", null]},
+        "failure_class": {"type": "string", "minLength": 1}
+      }
+    },
+    "expected_failure_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expected_failure", "observed_status", "observed_failure_class"],
+      "properties": {
+        "expected_failure": {"$ref": "#/$defs/expected_failure"},
+        "observed_status": {"enum": ["passed", "degraded", "failed"]},
+        "observed_failure_class": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]}
+      }
+    },
     "action_result": {
       "type": "object",
       "additionalProperties": false,

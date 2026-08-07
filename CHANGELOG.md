@@ -37,8 +37,8 @@ All notable changes to this project are documented here. The format is based on
   recovery fixtures; and a six-case offline matrix alongside the shared backend conformance suite.
 - **Deterministic chaos schedules** - added a seedable, digest-only runtime schedule DSL with
   backend comparison, invariant classification, delta-debugging shrink, offline replay and
-  inspection, and a bounded three-seed corpus covering crashes, retries, fencing, cancellation,
-  recovery, privacy, and distributed watch behavior.
+  inspection, enforced backend-scoped failure predicates, and a bounded three-seed corpus covering
+  crashes, retries, fencing, cancellation, recovery, privacy, and distributed watch behavior.
 
 ## [3.6.0] — 2026-08-03
 

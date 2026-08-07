@@ -18,6 +18,7 @@
     },
     "expected_failure": {
       "type": "object",
+      "minProperties": 1,
       "additionalProperties": false,
       "properties": {
         "backend": {"enum": ["sqlite", "memory", "etcd", null]},

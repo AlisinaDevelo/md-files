@@ -186,6 +186,8 @@ def validate_schedule(value: Any) -> dict[str, Any]:
         if not isinstance(expected_failure, Mapping):
             raise ChaosError("expected_failure must be an object")
         expected_failure = dict(expected_failure)
+        if not expected_failure:
+            raise ChaosError("expected_failure must include backend or failure_class")
         if set(expected_failure) - {"backend", "failure_class"}:
             raise ChaosError("expected_failure contains unsupported fields")
         if expected_failure.get("backend") not in (*BACKENDS, None):
@@ -684,6 +686,35 @@ def _action_result(
     }
 
 
+def _apply_expected_failure(
+    schedule: Mapping[str, Any],
+    backend_kind: str,
+    result: dict[str, Any],
+) -> None:
+    expected = schedule.get("expected_failure")
+    if expected is None:
+        return
+    result["expected_failure"] = copy.deepcopy(expected)
+    if expected.get("backend") not in {None, backend_kind}:
+        return
+
+    observed_status = result["status"]
+    observed_failure_class = result["failure_class"]
+    expected_failure_class = expected.get("failure_class")
+    matches = observed_status == "failed" and (
+        expected_failure_class is None or observed_failure_class == expected_failure_class
+    )
+    if matches:
+        return
+    result["status"] = "failed"
+    result["failure_class"] = "expected_failure_mismatch"
+    result["expected_failure_evidence"] = {
+        "expected_failure": copy.deepcopy(expected),
+        "observed_failure_class": observed_failure_class,
+        "observed_status": observed_status,
+    }
+
+
 def _execute_action(adapter: Any, action: Mapping[str, Any], index: int, context: set[str]) -> dict[str, Any]:
     required = ACTION_CAPABILITIES.get(str(action["kind"]), set())
     missing = sorted(required - set(adapter.descriptor["capabilities"]))
@@ -803,6 +834,7 @@ def run_schedule(schedule: Mapping[str, Any], backend_kind: str) -> dict[str, An
                 },
                 "canonical": projection,
             }
+            _apply_expected_failure(schedule, backend_kind, result)
             result["result_digest"] = digest(result)
             return result
         finally:
