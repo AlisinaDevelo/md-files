@@ -644,7 +644,7 @@ def _decision(
         body["denial_reason"] = "no_eligible_route"
         body["decision_ref"] = digest(body)
         return body
-    selected = sorted(eligible, key=lambda item: (-item["score"], item["route_id"]))[0]
+    selected = min(eligible, key=lambda item: (-item["score"], item["route_id"]))
     selected_route = next(route for route in policy["routes"] if route["route_id"] == selected["route_id"])
     eligible_ids = {item["route_id"] for item in eligible}
     body["status"] = "selected"
