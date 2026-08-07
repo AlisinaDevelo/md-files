@@ -45,6 +45,8 @@ Implementation and release evidence:
   distributed degradations, memory-fault `11/13` plus the same degradations, and etcd-first `13/13`.
 - Cross-backend canonical history, state, effect, receipt, outcome, and privacy projections compare
   with zero mismatches.
+- Backend-scoped `expected_failure` predicates fail closed when a classified regression disappears
+  or changes failure class.
 - Seeds `6601`, `6602`, and `6603` pass the bounded corpus with no network or wall-clock reads.
-- The focused chaos suite passes five tests; shrink tests preserve the `terminal_outcome_mismatch`
+- The focused chaos suite passes six tests; shrink tests preserve the `terminal_outcome_mismatch`
   failure class while removing two irrelevant actions.

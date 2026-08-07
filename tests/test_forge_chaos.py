@@ -86,6 +86,48 @@ def test_shrinker_removes_irrelevant_actions_and_preserves_failure_class():
     assert [action["action_id"] for action in minimized["actions"]] == ["target-start", "target-expectation"]
 
 
+def test_expected_failure_predicate_is_enforced_per_backend():
+    module = load_module()
+    schedule = module.make_schedule(
+        992,
+        [{"action_id": "start", "kind": "start_run", "run_id": "target"}],
+        expected_failure={"backend": "memory", "failure_class": "terminal_outcome_mismatch"},
+    )
+
+    selected = module.run_schedule(schedule, "memory")
+    unselected = module.run_schedule(schedule, "sqlite")
+
+    assert selected["status"] == "failed"
+    assert selected["failure_class"] == "expected_failure_mismatch"
+    assert selected["expected_failure"] == schedule["expected_failure"]
+    assert selected["expected_failure_evidence"] == {
+        "expected_failure": schedule["expected_failure"],
+        "observed_failure_class": None,
+        "observed_status": "passed",
+    }
+    assert unselected["status"] == "passed"
+
+    matching_schedule = module.make_schedule(
+        993,
+        [
+            {"action_id": "start", "kind": "start_run", "run_id": "target"},
+            {
+                "action_id": "expect",
+                "kind": "expect_state",
+                "run_id": "target",
+                "expected_status": "completed",
+            },
+        ],
+        expected_failure={"backend": "memory", "failure_class": "terminal_outcome_mismatch"},
+    )
+    matching = module.run_schedule(matching_schedule, "memory")
+
+    assert matching["status"] == "failed"
+    assert matching["failure_class"] == "terminal_outcome_mismatch"
+    assert matching["expected_failure"] == matching_schedule["expected_failure"]
+    assert "expected_failure_evidence" not in matching
+
+
 def test_cli_generate_inspect_and_replay(tmp_path, capsys):
     module = load_module()
     schedule_path = tmp_path / "schedule.json"
