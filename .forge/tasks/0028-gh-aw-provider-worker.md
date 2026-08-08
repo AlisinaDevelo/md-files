@@ -1,7 +1,7 @@
 ---
 id: 0028
 title: Add a fenced gh-aw GitHub provider worker
-status: in_progress
+status: done
 agent: security-engineer
 model: sonnet
 depends_on: [0027]
@@ -26,7 +26,7 @@ operation without weakening Forge's approval, privacy, replay, or idempotency co
       closed rather than duplicating effects.
 - [x] Issue, comment, PR, and workflow-dispatch paths have transport-mocked tests; no test or
       verification step mutates GitHub.
-- [ ] CLI, schema, docs, capability graph, release projections, focused tests, full validation,
+- [x] CLI, schema, docs, capability graph, release projections, focused tests, full validation,
       and hosted CI pass under `AlisinaDevelo`.
 
 ## Scope boundary
@@ -48,8 +48,10 @@ Local implementation evidence:
   marker recovery, append-only 0600 hash-chained evidence, and reference-only receipts. It
   fails closed on ambiguous dispatch or partial provider outcomes and does not claim exactly-once
   delivery.
-- Focused provider/runtime tests pass (`9 + 28 passed`); the full repository suite passes
+- Focused provider/runtime tests pass (`9 + 29 passed`); the full repository suite passes
   (`271 passed`). Ruff, Python compilation, `scripts/validate.sh`, Markdown lint (193 files),
   and ShellCheck pass.
 - Static evals pass `312/313` with one existing warning and zero failures; all 12 cross-host
   scenarios, both backend conformance adapters, and the bounded chaos corpus pass.
+- Hosted CI run [31279816254](https://github.com/AlisinaDevelo/md-files/actions/runs/31279816254)
+  is green for commit `0ee8bf9`; OpenSSF Scorecard is skipped on this feature branch.
