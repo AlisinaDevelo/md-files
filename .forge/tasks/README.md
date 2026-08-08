@@ -31,4 +31,4 @@
 | 0027 | Bind gh-aw episodes to the durable Forge runtime | done | orchestration-specialist | sonnet | 0018, 0019, 0021, 0026 |
 | 0028 | Add a fenced gh-aw GitHub provider worker | done | security-engineer | sonnet | 0027 |
 | 0029 | Add reviewed adaptive-routing rollout certificates | done | architect | opus | 0025 |
-| 0030 | Add operator-confirmed gh-aw dispatch reconciliation | in_progress | reliability-engineer | sonnet | 0028 |
+| 0030 | Add operator-confirmed gh-aw dispatch reconciliation | done | reliability-engineer | sonnet | 0028 |
