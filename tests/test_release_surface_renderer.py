@@ -64,6 +64,7 @@ def test_release_surface_derives_metadata_and_install_inputs(tmp_path):
     assert (tmp_path / "codex/data/runtime-routing-decision.schema.json").is_file()
     assert (tmp_path / "claude/data/runtime-routing-replay.schema.json").is_file()
     assert (tmp_path / "claude/data/runtime-gh-aw.schema.json").is_file()
+    assert (tmp_path / "claude/data/runtime-gh-aw-episode.schema.json").is_file()
     assert (tmp_path / "codex/data/gh-aw-workflows.json").is_file()
     assert (tmp_path / "claude/policies/gh-aw.json").is_file()
     assert (tmp_path / "claude/plugins/forge/skills/observability/scripts/forge-lineage.py").is_file()

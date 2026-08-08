@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw-episode/v1",
+  "title": "Forge GitHub Agentic Workflows Episode Projection",
+  "description": "Privacy-safe correlation of one gh-aw dispatcher episode with durable Forge tasks, effects, and receipts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "contract_revision", "episode_id", "repository", "dispatcher_workflow_id",
+    "dispatcher_source_workflow", "runtime_definition_digest", "gh_aw_definition_digest", "graph_digest",
+    "spec_digest", "effect_set_digest", "upstream", "status", "sequence", "history_head", "tasks",
+    "effects", "receipts", "correlation", "correlation_digest"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "contract_revision": {"const": "forge-gh-aw-runtime-v1"},
+    "episode_id": {"type": "string", "pattern": "^gh-aw:[A-Za-z0-9._:/-]+$"},
+    "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+    "dispatcher_workflow_id": {"type": "string", "minLength": 1},
+    "dispatcher_source_workflow": {"type": "string", "minLength": 1},
+    "runtime_definition_digest": {"$ref": "#/$defs/ref"},
+    "gh_aw_definition_digest": {"$ref": "#/$defs/ref"},
+    "graph_digest": {"$ref": "#/$defs/ref"},
+    "spec_digest": {"$ref": "#/$defs/ref"},
+    "effect_set_digest": {"$ref": "#/$defs/ref"},
+    "upstream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "commit", "workflow_schema"],
+      "properties": {
+        "version": {"type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "workflow_schema": {"type": "string", "minLength": 1}
+      }
+    },
+    "status": {"enum": ["created", "running", "paused", "input_required", "cancelling", "cancelled", "completed", "failed"]},
+    "sequence": {"type": "integer", "minimum": 1},
+    "history_head": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "tasks": {"type": "array", "items": {"$ref": "#/$defs/task"}},
+    "effects": {"type": "array", "items": {"$ref": "#/$defs/effect"}},
+    "receipts": {"type": "array", "items": {"$ref": "#/$defs/receipt"}},
+    "correlation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dispatcher_workflow_id", "episode_id", "effect_ids", "receipt_digests", "worker_task_ids"],
+      "properties": {
+        "dispatcher_workflow_id": {"type": "string", "minLength": 1},
+        "episode_id": {"type": "string", "minLength": 1},
+        "effect_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "receipt_digests": {"type": "array", "items": {"$ref": "#/$defs/ref"}},
+        "worker_task_ids": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "correlation_digest": {"$ref": "#/$defs/ref"}
+  },
+  "$defs": {
+    "ref": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "workflow_id", "status", "attempt", "depends_on", "effect_ids"],
+      "properties": {
+        "task_id": {"type": "string", "minLength": 1},
+        "workflow_id": {"type": "string", "minLength": 1},
+        "status": {"enum": ["scheduled", "started", "completed", "failed", "cancelled"]},
+        "attempt": {"type": "integer", "minimum": 0},
+        "depends_on": {"type": "array", "items": {"type": "string"}},
+        "effect_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "output_ref": {"$ref": "#/$defs/ref"},
+        "error_ref": {"$ref": "#/$defs/ref"}
+      }
+    },
+    "effect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["effect_id", "task_id", "effect_type", "status", "idempotency_key", "source_event_id", "activity_attempt"],
+      "properties": {
+        "effect_id": {"type": "string", "minLength": 1},
+        "task_id": {"type": "string", "minLength": 1},
+        "effect_type": {"type": "string", "minLength": 1},
+        "status": {"enum": ["pending", "leased", "retry", "succeeded", "dead_letter"]},
+        "idempotency_key": {"type": "string", "minLength": 1},
+        "source_event_id": {"type": "string", "minLength": 1},
+        "activity_attempt": {"type": "integer", "minimum": 1}
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["effect_id", "status", "receipt_digest"],
+      "properties": {
+        "effect_id": {"type": "string", "minLength": 1},
+        "status": {"const": "succeeded"},
+        "receipt_digest": {"$ref": "#/$defs/ref"},
+        "approval_id": {"$ref": "#/$defs/ref"},
+        "provider_request_id": {"type": "string", "minLength": 1, "maxLength": 512},
+        "resource_ref": {"type": "string", "minLength": 1, "maxLength": 512},
+        "result_ref": {"$ref": "#/$defs/ref"}
+      }
+    }
+  }
+}

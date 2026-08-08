@@ -358,7 +358,7 @@ scripts/               validation, installation, release, and marketplace checks
 - [Runtime provenance](docs/provenance.md) — signed trace correlation, privacy defaults,
   offline trust verification, key rotation, retention, and incident response
 - [GitHub Agentic Workflows](docs/gh-aw.md) — pinned gh-aw compilation, read-only agents,
-  staged safe outputs, policy evidence, and native lock verification
+  staged safe outputs, policy evidence, native lock verification, and durable episode correlation
 - [Architecture](docs/architecture.md) — how the repo is organized and why
 - [Design rationale](docs/design-rationale.md) — the decisions and trade-offs behind Forge
 - [CI & headless usage](docs/ci-and-headless.md) — run Forge in pipelines and automated review

@@ -27,3 +27,5 @@
 | 0023 | Add distributed revision and watch recovery adapter | done | concurrency-engineer | sonnet | 0020 |
 | 0024 | Add deterministic chaos and schedule-shrinking harness | done | test-engineer | sonnet | 0019, 0020 |
 | 0025 | Add deterministic adaptive-routing policy and offline replay foundation | done | data-engineer | sonnet | 0018, 0019, 0020, 0021 |
+| 0026 | Add bounded GitHub Agentic Workflows compiler adapter | done | devops-engineer | sonnet | 0018, 0020, 0024, 0025 |
+| 0027 | Bind gh-aw episodes to the durable Forge runtime | in-progress | orchestration-specialist | sonnet | 0018, 0019, 0021, 0026 |

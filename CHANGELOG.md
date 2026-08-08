@@ -50,7 +50,8 @@ All notable changes to this project are documented here. The format is based on
 - **GitHub Agentic Workflows adapter** - added a pinned `forge-gh-aw-v1` projection with canonical
   workflow specs, capability and graph digests, bounded dispatcher validation, protected-path
   checks, staged policy effects, deterministic preview locks, and optional native compilation
-  through the official `gh aw` extension.
+  through the official `gh aw` extension, plus a durable Forge episode bridge for staged dispatch,
+  worker lifecycle, receipts, cancellation, and replay-safe inspection.
 
 ## [3.6.0] — 2026-08-03
 

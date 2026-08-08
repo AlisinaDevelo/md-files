@@ -214,6 +214,33 @@ known upstream provider/auth secret names, but Forge never commits their values 
 unknown references. Read [GitHub Agentic Workflows](../../../../docs/gh-aw.md) for the full
 contract, release surface, and runtime integration boundary.
 
+### Durable gh-aw episodes
+
+Bind a dispatcher to the Forge SQLite/WAL runtime when the workflow must survive process
+boundaries. The bridge pins the compiled gh-aw manifest and Forge definition, stages one
+approval-gated dispatch effect per declared worker, and exposes only digest/reference receipts
+at the provider boundary:
+
+```bash
+python3 scripts/forge-gh-aw-runtime.py start \
+  --dispatcher forge-dispatcher \
+  --request-digest sha256:REQUEST_DIGEST
+python3 scripts/forge-gh-aw-runtime.py dispatch \
+  --dispatcher forge-dispatcher --episode-id EPISODE_ID \
+  --request-digest sha256:REQUEST_DIGEST
+python3 scripts/forge-gh-aw-runtime.py claim \
+  --dispatcher forge-dispatcher --episode-id EPISODE_ID \
+  --worker-id gh-aw-provider --limit 4
+```
+
+After the provider verifies the approval and performs its idempotent GitHub operation, acknowledge
+the lease with `ack --receipt-json`, then record `worker-start`, `worker-complete` or
+`worker-fail`. Claim and acknowledge worker safe outputs through the same outbox; use `finish`
+only after every task and effect gate passes, or `cancel` for the durable request/acknowledgement/
+terminal cancellation protocol. `inspect` returns the privacy-safe projection defined by
+`data/runtime-gh-aw-episode.schema.json`; it never includes effect payloads or raw provider
+receipts. The bridge is local-first and does not call GitHub itself.
+
 ## How to delegate well (this makes or breaks it)
 
 When you spawn a specialist subagent, set two things deliberately:
