@@ -88,7 +88,7 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   deterministically, without relying on the model to remember.
 - **Proven, not asserted.** A real eval harness scores prompts and high-risk behavior
   contracts (312 deterministic checks plus cross-host scenarios and an opt-in LLM judge);
-  256 tests cover safety hooks, task sync, receipts, durable runtime replay, external effect
+  271 tests cover safety hooks, task sync, receipts, durable runtime replay, external effect
   delivery, doctor, policy,
   stacks, marketplace readiness, capability graph, rendering, semantic evidence, and conformance. Run
   them yourself — `just check`.
@@ -97,7 +97,9 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   issue identity, native task graphs, conflict stops, and resumable evidence.
 - **GitHub-native workflow bridge.** A pinned `gh-aw` adapter projects Forge orchestration
   into deterministic workflow sources, read-only agent jobs, staged safe outputs, and
-  source-to-lock drift checks without committing credentials.
+  source-to-lock drift checks. Its optional provider worker adds fenced leases, exact one-use
+  approvals, account verification, idempotent recovery, and reference-only GitHub receipts
+  without committing credentials.
 
 ## Install
 

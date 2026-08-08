@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw-provider-request/v1",
+  "title": "Forge gh-aw Provider Request",
+  "description": "Secret-free operation material supplied separately from the durable runtime and bound to a leased gh-aw effect by request_ref.",
+  "type": "object",
+  "required": [
+    "$schema",
+    "schema_version",
+    "adapter_contract_revision",
+    "episode_id",
+    "request_ref",
+    "repository",
+    "workflow_id",
+    "safe_output_type",
+    "operations"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw-provider-request/v1"
+    },
+    "schema_version": {"const": 1},
+    "adapter_contract_revision": {"const": "forge-gh-aw-provider-v1"},
+    "episode_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^gh-aw:[A-Za-z0-9._:/-]+$"
+    },
+    "request_ref": {"$ref": "#/$defs/sha256Ref"},
+    "repository": {
+      "type": "string",
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+    },
+    "workflow_id": {"$ref": "#/$defs/workflowId"},
+    "safe_output_type": {
+      "enum": ["add-comment", "create-issue", "create-pull-request", "dispatch-workflow"]
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "oneOf": [
+          {"$ref": "#/$defs/addComment"},
+          {"$ref": "#/$defs/createIssue"},
+          {"$ref": "#/$defs/createPullRequest"},
+          {"$ref": "#/$defs/dispatchWorkflow"}
+        ]
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"safe_output_type": {"const": "add-comment"}}},
+      "then": {"properties": {"operations": {"items": {"$ref": "#/$defs/addComment"}}}}
+    },
+    {
+      "if": {"properties": {"safe_output_type": {"const": "create-issue"}}},
+      "then": {"properties": {"operations": {"items": {"$ref": "#/$defs/createIssue"}}}}
+    },
+    {
+      "if": {"properties": {"safe_output_type": {"const": "create-pull-request"}}},
+      "then": {"properties": {"operations": {"items": {"$ref": "#/$defs/createPullRequest"}}}}
+    },
+    {
+      "if": {"properties": {"safe_output_type": {"const": "dispatch-workflow"}}},
+      "then": {"properties": {"operations": {"items": {"$ref": "#/$defs/dispatchWorkflow"}}}}
+    }
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "sha256Ref": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "workflowId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "branch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+    },
+    "body": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 65536
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "labels": {
+      "type": "array",
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 64}
+    },
+    "addComment": {
+      "type": "object",
+      "required": ["type", "item_number", "body"],
+      "properties": {
+        "type": {"const": "add-comment"},
+        "item_number": {"type": "integer", "minimum": 1},
+        "body": {"$ref": "#/$defs/body"}
+      },
+      "additionalProperties": false
+    },
+    "createIssue": {
+      "type": "object",
+      "required": ["type", "title", "body"],
+      "properties": {
+        "type": {"const": "create-issue"},
+        "title": {"$ref": "#/$defs/title"},
+        "body": {"$ref": "#/$defs/body"},
+        "labels": {"$ref": "#/$defs/labels"}
+      },
+      "additionalProperties": false
+    },
+    "createPullRequest": {
+      "type": "object",
+      "required": ["type", "title", "body", "head", "base", "head_sha", "changed_files"],
+      "properties": {
+        "type": {"const": "create-pull-request"},
+        "title": {"$ref": "#/$defs/title"},
+        "body": {"$ref": "#/$defs/body"},
+        "head": {"$ref": "#/$defs/branch"},
+        "base": {"$ref": "#/$defs/branch"},
+        "head_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "changed_files": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 300,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512,
+            "pattern": "^(?![/~])(?!.*\\\\)(?!.*(?:^|/)\\.\\.?/).+$"
+          }
+        },
+        "draft": {"type": "boolean", "default": true}
+      },
+      "additionalProperties": false
+    },
+    "dispatchWorkflow": {
+      "type": "object",
+      "required": ["type", "workflow_id", "ref"],
+      "properties": {
+        "type": {"const": "dispatch-workflow"},
+        "workflow_id": {"$ref": "#/$defs/workflowId"},
+        "ref": {"$ref": "#/$defs/branch"},
+        "inputs": {
+          "type": "object",
+          "maxProperties": 25,
+          "propertyNames": {"pattern": "^[A-Za-z_][A-Za-z0-9_-]{0,63}$"},
+          "additionalProperties": {"type": ["string", "number", "boolean"]}
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

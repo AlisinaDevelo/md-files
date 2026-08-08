@@ -54,16 +54,22 @@ dispatch declarations, protected-path checks, and policy evidence.
   Forge permits only the known upstream names, never values, and rejects unknown references.
 - Definition, graph, source, effect-set, episode, and idempotency digests make source-to-lock
   drift and replay identity inspectable without persisting prompts or provider responses.
+- The optional Forge provider worker is no-effect by default. Live execution requires the
+  current fenced lease, an exact one-use approval, an expected authenticated GitHub login, and
+  an explicit `--execute` acknowledgement.
 
 ## Canonical inputs
 
 - `data/gh-aw-workflows.json` is the reviewed workflow specification.
 - `data/runtime-gh-aw.schema.json` defines the adapter schema and pinned upstream contract.
 - `data/runtime-gh-aw-episode.schema.json` defines the privacy-safe durable episode projection.
+- `data/runtime-gh-aw-provider-request.schema.json` defines the secret-free provider envelope.
 - `policies/gh-aw.json` constrains the external effect boundary.
 - `plugins/forge/skills/orchestration/scripts/forge-gh-aw.py` owns validation and rendering.
 - `plugins/forge/skills/orchestration/scripts/forge-gh-aw-runtime.py` binds staged effects to the
   Forge SQLite/WAL runtime without calling GitHub.
+- `plugins/forge/skills/orchestration/scripts/forge-gh-aw-provider.py` plans, approves, executes,
+  and acknowledges the four compiled GitHub safe-output types.
 
 The workflow examples cover a staged dispatcher, issue triage, CI diagnosis, documentation
 maintenance, and bounded feature planning. They are examples and contract fixtures; they do
@@ -89,7 +95,7 @@ python3 scripts/forge-gh-aw-runtime.py inspect \
 ```
 
 The provider loop claims the outbox with a lease, verifies the external approval, authorizes the
-current lease immediately before the provider call, submits the provider idempotency key, and
+current lease immediately before the provider call, submits stable idempotency evidence, and
 acknowledges a bounded receipt. Then the worker lifecycle is recorded with `worker-start`,
 `worker-complete` or `worker-fail`; safe outputs are claimed and acknowledged through the same
 outbox. Repeating an accepted transition with the same identity is idempotent. Stale leases,
@@ -100,5 +106,47 @@ acknowledgement, and terminal cancellation events and fences further claims.
 The projection returned by `inspect` is defined by
 [`data/runtime-gh-aw-episode.schema.json`](../data/runtime-gh-aw-episode.schema.json). It contains
 digests, task/effect summaries, provider reference IDs, and receipt digests, not raw outbox
-payloads or receipt bodies. The bridge is the Forge runtime boundary; a future provider adapter
-can perform the live GitHub operation without becoming a second source of truth.
+payloads or receipt bodies. The bridge remains the Forge runtime boundary; the provider worker
+does not become a second source of truth.
+
+## Fenced provider worker
+
+The `forge-gh-aw-provider-v1` worker consumes a request file separately from runtime history.
+`request_ref` is the SHA-256 digest of the canonical `repository`, `workflow_id`,
+`safe_output_type`, and `operations` object. The envelope repeats episode and workflow identity,
+but raw titles, bodies, inputs, and changed-file lists remain outside the runtime database,
+approval store, receipts, and CLI plan output. Dispatch envelopes cover every compiled target
+exactly once; each leased dispatch effect selects only its declared worker.
+
+After `claim` returns an effect ID and lease generation, run the local stages in order:
+
+```bash
+python3 scripts/forge-gh-aw-provider.py plan \
+  --request /secure/path/provider-request.json \
+  --effect-id EFFECT_ID --worker-id gh-aw-provider --lease-generation GENERATION
+
+python3 scripts/forge-gh-aw-provider.py approve \
+  --request /secure/path/provider-request.json \
+  --effect-id EFFECT_ID --worker-id gh-aw-provider --lease-generation GENERATION \
+  --ttl-seconds 600
+
+python3 scripts/forge-gh-aw-provider.py execute \
+  --request /secure/path/provider-request.json \
+  --effect-id EFFECT_ID --worker-id gh-aw-provider --lease-generation GENERATION \
+  --approval-id APPROVAL_ID --expected-login AlisinaDevelo --execute
+```
+
+`plan` performs no provider call and does not consume an approval. `approve` binds one short-lived
+use to the exact effect, request reference, sanitized operation digests, repository, paths, and
+policy revision. `execute` first verifies `gh api user`, then rechecks the lease and policy before
+calling a bounded REST endpoint. Issue and comment limits, configured title prefixes and labels,
+dispatch allowlists, and pull-request file scope are enforced again outside the agent process.
+Pull requests also compare the planned head SHA and complete changed-file set immediately before
+creation. Workflow dispatch requests ask GitHub to return the run ID and URLs for a direct receipt.
+
+The 0600 provider journal is append-only and hash-chained. It records only authorization digests,
+approval handles, and bounded receipts, allowing a retry to close the post-write/pre-acknowledgement
+window without repeating the provider call. A dispatch crash before its returned run details are
+journaled remains ambiguous and fails closed for reconciliation. Forge promises at-least-once
+delivery with idempotent recovery where GitHub exposes enough evidence; it does not claim
+exactly-once provider execution.

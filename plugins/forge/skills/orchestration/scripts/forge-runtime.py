@@ -2851,6 +2851,11 @@ class RuntimeStore:
         now = _utc_timestamp(now or utc_now())
         with self._transaction():
             row = self._outbox_locked(effect_id)
+            state = replay(self._run(row["run_id"]), self._events(row["run_id"]))
+            if state["status"] != "running":
+                raise RuntimeStoreError(
+                    f"run is not running: {row['run_id']} ({state['status']})"
+                )
             self._require_current_lease_locked(row, worker_id, lease_generation, now)
             return {
                 "effect_id": row["effect_id"],
