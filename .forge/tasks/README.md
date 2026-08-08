@@ -30,4 +30,4 @@
 | 0026 | Add bounded GitHub Agentic Workflows compiler adapter | done | devops-engineer | sonnet | 0018, 0020, 0024, 0025 |
 | 0027 | Bind gh-aw episodes to the durable Forge runtime | done | orchestration-specialist | sonnet | 0018, 0019, 0021, 0026 |
 | 0028 | Add a fenced gh-aw GitHub provider worker | done | security-engineer | sonnet | 0027 |
-| 0029 | Add reviewed adaptive-routing rollout certificates | review | architect | opus | 0025 |
+| 0029 | Add reviewed adaptive-routing rollout certificates | done | architect | opus | 0025 |

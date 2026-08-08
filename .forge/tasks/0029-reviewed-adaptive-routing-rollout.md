@@ -1,7 +1,7 @@
 ---
 id: 0029
 title: Add reviewed adaptive-routing rollout certificates
-status: review
+status: done
 agent: architect
 model: opus
 depends_on: [0025]
@@ -28,7 +28,7 @@ future provider adapter.
       stale or mismatched; no raw request, outcome, prompt, or provider content is persisted.
 - [x] The CLI and Python API expose certificate issuance and explicit certificate consumption;
       the default adaptive `decide` path remains fail-closed without a certificate.
-- [ ] Claude, Codex, and Agent Skills release projections ship the rollout schema, focused tests
+- [x] Claude, Codex, and Agent Skills release projections ship the rollout schema, focused tests
       pass, and the full validation suite remains green.
 
 ## Scope boundary
@@ -46,4 +46,10 @@ Local verification:
 - Full repository suite: `277 passed`.
 - `./scripts/validate.sh`, exact CI Ruff scope, Markdown lint (`194 files`), ShellCheck, and
   static scenarios (`12 passed, 0 failed, 12 skipped`) pass.
-- Hosted CI and reproducible release packaging remain required before marking this task done.
+- Two local Forge 3.6.0 release builds are byte-identical; the archive manifest verifies offline
+  against commit `0f1d03e712165a1126de2502be118f28df2db1c8`.
+- Hosted CI run [31280943839](https://github.com/AlisinaDevelo/md-files/actions/runs/31280943839)
+  is green for corrective commit `74dd9b0b7c689aa444e6ff53ca1889f6e739105f` under
+  `AlisinaDevelo`. The preceding run [31280868673](https://github.com/AlisinaDevelo/md-files/actions/runs/31280868673)
+  caught Ruff 0.16's `RUF046` diagnostic; the redundant cast was removed and the full hosted
+  matrix was rerun successfully.
