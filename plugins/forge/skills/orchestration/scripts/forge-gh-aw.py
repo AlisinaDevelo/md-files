@@ -57,6 +57,13 @@ SAFE_OUTPUT_KEYS = {
 }
 ACTION_REFERENCE_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$")
 SECRET_REFERENCE_RE = re.compile(r"\$\{\{\s*secrets\.([A-Za-z0-9_]+)")
+NATIVE_EVIDENCE_RE = re.compile(
+    r"\A# Forge adapter evidence: (?P<adapter>[^\n]+)\n"
+    r"# forge-source-sha256: (?P<source>sha256:[0-9a-f]{64})\n"
+    r"# forge-definition-sha256: (?P<definition>sha256:[0-9a-f]{64})\n"
+)
+UPSTREAM_METADATA_RE = re.compile(r"^# gh-aw-metadata: (?P<metadata>\{.*\})$", re.MULTILINE)
+UPSTREAM_MANIFEST_RE = re.compile(r"^# gh-aw-manifest: (?P<manifest>\{.*\})$", re.MULTILINE)
 
 
 class GhAwError(ValueError):
@@ -735,12 +742,86 @@ def compile_artifacts(repo: Path, spec_path: Path, output: Path) -> dict[str, An
     return manifest
 
 
+def _check_native_lock_evidence(output: Path, path: Path, manifest: Mapping[str, Any]) -> None:
+    text = path.read_text(encoding="utf-8")
+    evidence = NATIVE_EVIDENCE_RE.match(text)
+    if evidence is None or evidence.group("adapter") != ADAPTER_REVISION:
+        raise GhAwError(f"missing Forge native evidence: {path.name}")
+
+    workflow_id = path.name.removesuffix(".lock.yml")
+    workflows = [item for item in manifest.get("workflows", []) if isinstance(item, dict) and item.get("id") == workflow_id]
+    if len(workflows) != 1:
+        raise GhAwError(f"native lock is not bound to one Forge workflow: {path.name}")
+    source_path = output / "workflows" / f"{workflow_id}.md"
+    if not source_path.is_file():
+        raise GhAwError(f"native lock source is missing: {source_path.name}")
+    if evidence.group("source") != file_digest(source_path):
+        raise GhAwError(f"native lock source digest mismatch: {path.name}")
+    if evidence.group("definition") != workflows[0].get("definition_digest"):
+        raise GhAwError(f"native lock definition digest mismatch: {path.name}")
+
+    metadata_match = UPSTREAM_METADATA_RE.search(text)
+    if metadata_match is None:
+        raise GhAwError(f"missing upstream compiler metadata: {path.name}")
+    try:
+        metadata = json.loads(metadata_match.group("metadata"))
+    except json.JSONDecodeError as exc:
+        raise GhAwError(f"invalid upstream compiler metadata: {path.name}") from exc
+    upstream = manifest.get("upstream", {})
+    if not isinstance(upstream, Mapping):
+        raise GhAwError(f"native lock has invalid upstream contract: {path.name}")
+    if metadata.get("compiler_version") != upstream.get("version"):
+        raise GhAwError(f"native lock compiler version is not pinned: {path.name}")
+    if metadata.get("schema_version") != upstream.get("workflow_schema"):
+        raise GhAwError(f"native lock workflow schema is not pinned: {path.name}")
+    if metadata.get("strict") is not True:
+        raise GhAwError(f"native lock was not compiled in strict mode: {path.name}")
+
+    native_manifest_match = UPSTREAM_MANIFEST_RE.search(text)
+    if native_manifest_match is None:
+        raise GhAwError(f"missing upstream action manifest: {path.name}")
+    try:
+        native_manifest = json.loads(native_manifest_match.group("manifest"))
+    except json.JSONDecodeError as exc:
+        raise GhAwError(f"invalid upstream action manifest: {path.name}") from exc
+    actions = native_manifest.get("actions") if isinstance(native_manifest, Mapping) else None
+    if not isinstance(actions, list) or not actions:
+        raise GhAwError(f"upstream action manifest is empty: {path.name}")
+    for action in actions:
+        if not isinstance(action, Mapping) or not isinstance(action.get("repo"), str):
+            raise GhAwError(f"upstream action manifest is invalid: {path.name}")
+        if not isinstance(action.get("sha"), str) or re.fullmatch(r"[0-9a-f]{40}", action["sha"]) is None:
+            raise GhAwError(f"upstream action is not pinned: {path.name}")
+    for line in text.splitlines():
+        if re.match(r"^\s+uses:\s+", line) and re.search(r"@[0-9a-f]{40}(?:\s|$)", line) is None:
+            raise GhAwError(f"native lock contains an unpinned action: {path.name}")
+
+
 def check_artifacts(repo: Path, spec_path: Path, output: Path) -> dict[str, Any]:
     manifest = _load_json(output / "manifest.json", "gh-aw manifest")
     with tempfile.TemporaryDirectory(prefix="forge-gh-aw-check-") as temporary:
         expected = compile_artifacts(repo, spec_path, Path(temporary))
+    mode = manifest.get("mode")
+    if mode not in {"contract-preview", "upstream-gh-aw"}:
+        raise GhAwError(f"unsupported gh-aw artifact mode: {mode}")
     if manifest.get("spec_digest") != expected.get("spec_digest"):
         raise GhAwError("gh-aw spec drift detected; recompile the adapter output")
+    for key in ("adapter_revision", "definition_schema_version", "graph_digest", "spec_path", "upstream", "workflows"):
+        if manifest.get(key) != expected.get(key):
+            raise GhAwError(f"gh-aw manifest drift detected: {key}")
+    expected_artifacts = {(item["kind"], item["path"]): item for item in expected["artifacts"]}
+    actual_artifacts = manifest.get("artifacts")
+    if not isinstance(actual_artifacts, list):
+        raise GhAwError("gh-aw manifest artifacts must be a list")
+    actual_keys = {(item.get("kind"), item.get("path")) for item in actual_artifacts if isinstance(item, dict)}
+    if actual_keys != set(expected_artifacts):
+        raise GhAwError("gh-aw artifact inventory drift detected")
+    for artifact in actual_artifacts:
+        if not isinstance(artifact, dict) or not isinstance(artifact.get("path"), str):
+            raise GhAwError("gh-aw manifest contains an invalid artifact")
+        expected_artifact = expected_artifacts[(artifact.get("kind"), artifact["path"])]
+        if artifact.get("kind") == "source" and artifact.get("sha256") != expected_artifact["sha256"]:
+            raise GhAwError(f"generated source drift detected: {artifact['path']}")
     for artifact in manifest.get("artifacts", []):
         path = output / artifact["path"]
         if not path.is_file():
@@ -759,6 +840,14 @@ def check_artifacts(repo: Path, spec_path: Path, output: Path) -> dict[str, Any]
         if unknown_secrets:
             names = ", ".join(unknown_secrets)
             raise GhAwError(f"agent job references unknown upstream secrets in {path.name}: {names}")
+        if mode == "upstream-gh-aw":
+            _check_native_lock_evidence(output, path, manifest)
+        elif UPSTREAM_METADATA_RE.search(text):
+            raise GhAwError(f"native gh-aw metadata requires upstream mode: {path.name}")
+    if mode == "contract-preview":
+        for artifact in actual_artifacts:
+            if artifact["kind"] == "lock" and artifact.get("sha256") != expected_artifacts[(artifact["kind"], artifact["path"])]["sha256"]:
+                raise GhAwError(f"generated lock drift detected: {artifact['path']}")
     return {"status": "current", "manifest": manifest}
 
 

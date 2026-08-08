@@ -30,6 +30,37 @@ def snapshot(root: Path) -> dict[str, bytes]:
     return {path.relative_to(root).as_posix(): path.read_bytes() for path in root.rglob("*") if path.is_file()}
 
 
+def native_fixture(module, output: Path) -> dict:
+    manifest = module.compile_artifacts(REPO, SPEC_PATH, output)
+    definitions = {item["id"]: item for item in manifest["workflows"]}
+    for lock_path in sorted((output / "workflows").glob("*.lock.yml")):
+        workflow_id = lock_path.name.removesuffix(".lock.yml")
+        source_hash = module.file_digest(output / "workflows" / f"{workflow_id}.md")
+        metadata = {
+            "compiler_version": manifest["upstream"]["version"],
+            "schema_version": manifest["upstream"]["workflow_schema"],
+            "strict": True,
+        }
+        upstream_manifest = {
+            "actions": [{"repo": "actions/checkout", "sha": "a" * 40}],
+            "secrets": [],
+            "version": 1,
+        }
+        header = "".join([
+            "# Forge adapter evidence: forge-gh-aw-v1\n",
+            f"# forge-source-sha256: {source_hash}\n",
+            f"# forge-definition-sha256: {definitions[workflow_id]['definition_digest']}\n",
+            f"# gh-aw-metadata: {json.dumps(metadata, sort_keys=True, separators=(',', ':'))}\n",
+            f"# gh-aw-manifest: {json.dumps(upstream_manifest, sort_keys=True, separators=(',', ':'))}\n",
+        ])
+        lock_path.write_text(header + lock_path.read_text(encoding="utf-8"), encoding="utf-8")
+        artifact = next(item for item in manifest["artifacts"] if item["path"] == f"workflows/{lock_path.name}")
+        artifact["sha256"] = module.file_digest(lock_path)
+    manifest["mode"] = "upstream-gh-aw"
+    (output / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return manifest
+
+
 def test_spec_has_pinned_dispatch_and_policy_contract():
     module = load_module()
     spec = load_json(SPEC_PATH)
@@ -105,6 +136,47 @@ def test_check_rejects_unknown_native_secret_reference(tmp_path):
     (tmp_path / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     with pytest.raises(module.GhAwError, match="unknown upstream secrets"):
+        module.check_artifacts(REPO, SPEC_PATH, tmp_path)
+
+
+def test_native_mode_requires_bound_upstream_evidence(tmp_path):
+    module = load_module()
+    manifest = native_fixture(module, tmp_path)
+    module.check_artifacts(REPO, SPEC_PATH, tmp_path)
+
+    path = tmp_path / "workflows/forge-ci-diagnosis.lock.yml"
+    path.write_text(path.read_text(encoding="utf-8").replace("# Forge adapter evidence:", "# forge adapter evidence:", 1), encoding="utf-8")
+    artifact = next(item for item in manifest["artifacts"] if item["path"] == "workflows/forge-ci-diagnosis.lock.yml")
+    artifact["sha256"] = module.file_digest(path)
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(module.GhAwError, match="missing Forge native evidence"):
+        module.check_artifacts(REPO, SPEC_PATH, tmp_path)
+
+
+def test_native_mode_rejects_unpinned_upstream_metadata(tmp_path):
+    module = load_module()
+    manifest = native_fixture(module, tmp_path)
+    path = tmp_path / "workflows/forge-ci-diagnosis.lock.yml"
+    path.write_text(path.read_text(encoding="utf-8").replace('"v0.85.4"', '"v0.85.3"', 1), encoding="utf-8")
+    artifact = next(item for item in manifest["artifacts"] if item["path"] == "workflows/forge-ci-diagnosis.lock.yml")
+    artifact["sha256"] = module.file_digest(path)
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(module.GhAwError, match="compiler version"):
+        module.check_artifacts(REPO, SPEC_PATH, tmp_path)
+
+
+def test_check_rejects_source_drift_even_when_manifest_hash_is_rewritten(tmp_path):
+    module = load_module()
+    manifest = module.compile_artifacts(REPO, SPEC_PATH, tmp_path)
+    path = tmp_path / "workflows/forge-ci-diagnosis.md"
+    path.write_text(path.read_text(encoding="utf-8") + "\n# drift\n", encoding="utf-8")
+    artifact = next(item for item in manifest["artifacts"] if item["path"] == "workflows/forge-ci-diagnosis.md")
+    artifact["sha256"] = module.file_digest(path)
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(module.GhAwError, match="generated source drift"):
         module.check_artifacts(REPO, SPEC_PATH, tmp_path)
 
 

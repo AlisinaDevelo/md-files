@@ -86,6 +86,38 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  gh-aw-native:
+    name: Pinned gh-aw native compiler
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.x"
+      - name: Install the pinned gh-aw extension
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh extension install github/gh-aw --pin v0.85.4
+          test "$(gh aw version)" = "v0.85.4"
+      - name: Compile and verify native locks without dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/forge-gh-aw-native"
+          python3 scripts/forge-gh-aw.py compile \
+            --spec data/gh-aw-workflows.json \
+            --output "$output" \
+            --upstream
+          python3 scripts/forge-gh-aw.py check \
+            --spec data/gh-aw-workflows.json \
+            --output "$output"
+          test "$(find "$output/workflows" -name '*.lock.yml' -type f | wc -l | tr -d ' ')" = "5"
+
   python-lint:
     name: Hook scripts (ruff + compile)
     runs-on: ubuntu-latest

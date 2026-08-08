@@ -105,10 +105,10 @@ intentionally separate from the local-first runtime contract.
 
 - [#21 GitHub Agentic Workflows](https://github.com/AlisinaDevelo/md-files/issues/21) now has a
   pinned `forge-gh-aw-v1` adapter with deterministic sources, preview locks, policy-gated
-  effects, protected-path validation, optional native upstream compilation, a fenced provider
-  worker, and operator-confirmed dispatch reconciliation. Live execution remains opt-in; the
-  remaining work is native upstream worker integration and production deployment rather than
-  treating the workflow lock as canonical history.
+  effects, protected-path validation, a hosted gate for pinned native upstream compilation, a
+  fenced provider worker, and operator-confirmed dispatch reconciliation. Live execution remains
+  opt-in; the remaining work is native upstream worker integration and production deployment
+  rather than treating the workflow lock as canonical history.
 - [#22 Adaptive model routing](https://github.com/AlisinaDevelo/md-files/issues/22) now has a
   deterministic capability filter, digest-only decision contract, pins/budgets/fallbacks, and
   offline replay gate. Live adaptive activation and provider integrations remain gated follow-up
