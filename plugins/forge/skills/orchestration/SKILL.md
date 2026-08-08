@@ -188,6 +188,24 @@ python3 scripts/forge-routing.py replay \
   --episodes EPISODES.json
 ```
 
+Issue a reviewed, digest-bound rollout certificate before enabling adaptive decisions. Preview,
+canary, active, rollback, and retired stages are explicit; canary cohorts are derived from the
+request digest and outside requests fall back to static scoring. The default adaptive `decide`
+path remains denied without an activated certificate:
+
+```bash
+python3 scripts/forge-routing.py activate \
+  --baseline-policy BASELINE.json \
+  --candidate-policy CANDIDATE.json \
+  --episodes EPISODES.json \
+  --rollout ROLLOUT.json \
+  --output ROUTING-CERTIFICATE.json
+python3 scripts/forge-routing.py decide \
+  --policy CANDIDATE.json \
+  --request REQUEST.json \
+  --certificate ROUTING-CERTIFICATE.json
+```
+
 See `docs/routing.md` and the versioned contracts in `data/runtime-routing-*.schema.json` for
 the input and output shapes. Replay evidence is numeric and digest-only; an agent's confidence
 field is never accepted as ground-truth quality.

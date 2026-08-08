@@ -63,6 +63,7 @@ def test_release_surface_derives_metadata_and_install_inputs(tmp_path):
     assert (tmp_path / "claude/data/runtime-routing-policy.schema.json").is_file()
     assert (tmp_path / "codex/data/runtime-routing-decision.schema.json").is_file()
     assert (tmp_path / "claude/data/runtime-routing-replay.schema.json").is_file()
+    assert (tmp_path / "claude/data/runtime-routing-rollout.schema.json").is_file()
     assert (tmp_path / "claude/data/runtime-gh-aw.schema.json").is_file()
     assert (tmp_path / "claude/data/runtime-gh-aw-episode.schema.json").is_file()
     assert (tmp_path / "codex/data/runtime-gh-aw-provider-request.schema.json").is_file()

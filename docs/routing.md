@@ -59,6 +59,45 @@ Replay uses the redacted outcome corpus as bounded offline evidence for counterf
 this is not an online learning claim. Production integrations must pin the policy revision and
 define their own reviewed evidence-window and rollout process before enabling adaptive decisions.
 
+## Reviewed rollout certificates
+
+An offline replay is evidence, not permission. The `activate` command binds the exact baseline
+and candidate policy revisions, replay reference, normalized evidence-window digest, rollout
+stage, traffic allocation, and an external approval reference into a self-digesting certificate:
+
+```bash
+python3 scripts/forge-routing.py activate \
+  --baseline-policy BASELINE.json \
+  --candidate-policy CANDIDATE.json \
+  --episodes EPISODES.json \
+  --rollout ROLLOUT.json \
+  --output ROUTING-CERTIFICATE.json
+```
+
+Stages are explicit and fail closed: `preview` has no effect, `canary` admits a percentage
+between 0 and 100, `active` admits 100 percent, and `rollback` or `retired` force static
+behavior. Canary membership is derived from the request digest, so the same request always takes
+the same path. A canary request outside the cohort receives static scoring. `canary` and `active`
+certificates require an approval reference with scope `routing.adaptive.activate`; rollback and
+retirement require their corresponding safety scopes. The reference identifies an externally
+verified approval record; this local contract does not pretend to authenticate its owner.
+
+Only an `activated` canary or active certificate can be consumed by a live decision, and it must
+match the candidate policy revision exactly:
+
+```bash
+python3 scripts/forge-routing.py decide \
+  --policy CANDIDATE.json \
+  --request REQUEST.json \
+  --outcomes OUTCOMES.json \
+  --certificate ROUTING-CERTIFICATE.json
+```
+
+The default adaptive `decide` path remains denied without that certificate. Certificate issuance
+does not connect a provider, mutate policy, or persist rollout state; a production control plane
+must add approval identity, expiry, one-use, and operational rollback enforcement. The versioned
+certificate contract is [`runtime-routing-rollout.schema.json`](../data/runtime-routing-rollout.schema.json).
+
 ## Privacy and provenance
 
 The routing validator rejects prompt-like and provider-content fields recursively. Decision,

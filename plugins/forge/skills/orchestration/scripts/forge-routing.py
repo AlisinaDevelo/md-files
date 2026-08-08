@@ -20,6 +20,22 @@ MAX_ROUTES = 64
 MAX_OUTCOMES = 4096
 MAX_EPISODES = 4096
 ROUTING_MODES = {"static", "adaptive", "disabled"}
+ROLLOUT_STAGES = {"preview", "canary", "active", "rollback", "retired"}
+ROLLOUT_STATUSES = {"activated", "staged", "blocked"}
+ROLLOUT_KEYS = {
+    "schema_version",
+    "contract_revision",
+    "rollout_id",
+    "stage",
+    "baseline_policy_revision",
+    "candidate_policy_revision",
+    "replay_ref",
+    "evidence_ref",
+    "approval_ref",
+    "approval_scope",
+    "traffic_percent",
+}
+CERTIFICATE_KEYS = ROLLOUT_KEYS | {"status", "reasons", "activation", "rollout_ref"}
 ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 REFERENCE_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 FORBIDDEN_KEYS = {
@@ -181,6 +197,10 @@ def _nonnegative_int(value: Any, label: str) -> int:
     return value
 
 
+def _reference(value: Any, label: str) -> str:
+    return _string(value, label, pattern=REFERENCE_RE)
+
+
 def _string_list(value: Any, label: str, *, allow_empty: bool = True) -> list[str]:
     if not isinstance(value, list) or (not allow_empty and not value):
         raise RoutingError(f"{label} must be a string array")
@@ -189,6 +209,15 @@ def _string_list(value: Any, label: str, *, allow_empty: bool = True) -> list[st
     if len(set(value)) != len(value):
         raise RoutingError(f"{label} must not contain duplicates")
     return sorted(value)
+
+
+def _reason_codes(value: Any, label: str) -> list[str]:
+    if not isinstance(value, list):
+        raise RoutingError(f"{label} must be a string array")
+    codes = [_string(item, f"{label}[{index}]", pattern=ID_RE) for index, item in enumerate(value)]
+    if len(set(codes)) != len(codes):
+        raise RoutingError(f"{label} must not contain duplicates")
+    return sorted(codes)
 
 
 def _reject_forbidden(value: Any, path: str = "value") -> None:
@@ -354,6 +383,135 @@ def validate_policy(value: Any) -> dict[str, Any]:
 
 def make_policy(value: Mapping[str, Any]) -> dict[str, Any]:
     return validate_policy(value)
+
+
+def validate_rollout_manifest(value: Any) -> dict[str, Any]:
+    """Normalize the reviewed rollout request before any certificate is issued."""
+
+    _reject_forbidden(value, "rollout")
+    rollout = _mapping(value, "rollout")
+    _unknown(rollout, ROLLOUT_KEYS, "rollout")
+    required = {
+        "schema_version",
+        "contract_revision",
+        "rollout_id",
+        "stage",
+        "baseline_policy_revision",
+        "candidate_policy_revision",
+        "replay_ref",
+        "evidence_ref",
+        "traffic_percent",
+    }
+    missing = required - set(rollout)
+    if missing:
+        raise RoutingError(f"rollout is missing: {', '.join(sorted(missing))}")
+    if rollout["schema_version"] != SCHEMA_VERSION:
+        raise RoutingError(f"unsupported rollout schema_version: {rollout['schema_version']}")
+    if rollout["contract_revision"] != CONTRACT_REVISION:
+        raise RoutingError("unsupported rollout contract revision")
+    stage = _string(rollout["stage"], "rollout.stage")
+    if stage not in ROLLOUT_STAGES:
+        raise RoutingError("rollout.stage is unsupported")
+    traffic_percent = _number(rollout["traffic_percent"], "rollout.traffic_percent", maximum=100.0)
+    if stage == "canary" and not 0 < traffic_percent < 100:
+        raise RoutingError("canary rollout traffic_percent must be between 0 and 100")
+    if stage == "active" and traffic_percent != 100:
+        raise RoutingError("active rollout traffic_percent must be 100")
+    if stage in {"preview", "rollback", "retired"} and traffic_percent != 0:
+        raise RoutingError(f"{stage} rollout traffic_percent must be 0")
+    normalized = {
+        "schema_version": SCHEMA_VERSION,
+        "contract_revision": CONTRACT_REVISION,
+        "rollout_id": _string(rollout["rollout_id"], "rollout.rollout_id", pattern=ID_RE),
+        "stage": stage,
+        "baseline_policy_revision": _reference(
+            rollout["baseline_policy_revision"], "rollout.baseline_policy_revision"
+        ),
+        "candidate_policy_revision": _reference(
+            rollout["candidate_policy_revision"], "rollout.candidate_policy_revision"
+        ),
+        "replay_ref": _reference(rollout["replay_ref"], "rollout.replay_ref"),
+        "evidence_ref": _reference(rollout["evidence_ref"], "rollout.evidence_ref"),
+        "traffic_percent": traffic_percent,
+    }
+    if stage != "preview":
+        normalized["approval_ref"] = _reference(rollout.get("approval_ref"), "rollout.approval_ref")
+        expected_scope = {
+            "canary": "routing.adaptive.activate",
+            "active": "routing.adaptive.activate",
+            "rollback": "routing.adaptive.rollback",
+            "retired": "routing.adaptive.retire",
+        }[stage]
+        approval_scope = _string(rollout.get("approval_scope"), "rollout.approval_scope")
+        if approval_scope != expected_scope:
+            raise RoutingError(f"{stage} rollout requires approval_scope {expected_scope}")
+        normalized["approval_scope"] = approval_scope
+    elif "approval_ref" in rollout or "approval_scope" in rollout:
+        raise RoutingError("preview rollout cannot carry approval fields")
+    return normalized
+
+
+def validate_rollout_certificate(value: Any) -> dict[str, Any]:
+    """Validate a certificate and its self-digest before it reaches live routing."""
+
+    _reject_forbidden(value, "rollout_certificate")
+    certificate = _mapping(value, "rollout_certificate")
+    _unknown(certificate, CERTIFICATE_KEYS, "rollout_certificate")
+    required = {
+        "schema_version",
+        "contract_revision",
+        "rollout_id",
+        "status",
+        "stage",
+        "baseline_policy_revision",
+        "candidate_policy_revision",
+        "replay_ref",
+        "evidence_ref",
+        "traffic_percent",
+        "reasons",
+        "activation",
+        "rollout_ref",
+    }
+    missing = required - set(certificate)
+    if missing:
+        raise RoutingError(f"rollout certificate is missing: {', '.join(sorted(missing))}")
+    manifest = validate_rollout_manifest(
+        {key: certificate[key] for key in ROLLOUT_KEYS if key in certificate}
+    )
+    status = _string(certificate["status"], "rollout_certificate.status")
+    if status not in ROLLOUT_STATUSES:
+        raise RoutingError("rollout_certificate.status is unsupported")
+    reasons = _reason_codes(certificate["reasons"], "rollout_certificate.reasons")
+    activation = _mapping(certificate["activation"], "rollout_certificate.activation")
+    _unknown(activation, {"enabled", "cohort", "fallback"}, "rollout_certificate.activation")
+    if not isinstance(activation.get("enabled"), bool):
+        raise RoutingError("rollout_certificate.activation.enabled must be a boolean")
+    if activation.get("cohort") != "request-digest":
+        raise RoutingError("rollout_certificate.activation.cohort must be request-digest")
+    if activation.get("fallback") != "static":
+        raise RoutingError("rollout_certificate.activation.fallback must be static")
+    normalized = {
+        **manifest,
+        "status": status,
+        "reasons": reasons,
+        "activation": {
+            "enabled": activation["enabled"],
+            "cohort": "request-digest",
+            "fallback": "static",
+        },
+    }
+    rollout_ref = _reference(certificate["rollout_ref"], "rollout_certificate.rollout_ref")
+    if rollout_ref != digest(normalized):
+        raise RoutingError("rollout_ref does not match certificate content")
+    if normalized["stage"] in {"canary", "active"}:
+        if status == "activated" and not normalized["activation"]["enabled"]:
+            raise RoutingError("activated adaptive rollout must enable adaptation")
+        if status != "activated" and normalized["activation"]["enabled"]:
+            raise RoutingError("blocked or staged rollout cannot enable adaptation")
+    elif normalized["activation"]["enabled"]:
+        raise RoutingError(f"{normalized['stage']} rollout cannot enable adaptation")
+    normalized["rollout_ref"] = rollout_ref
+    return normalized
 
 
 def validate_request(value: Any) -> dict[str, Any]:
@@ -556,18 +714,46 @@ def _candidate_exclusion(route: Mapping[str, Any], request: Mapping[str, Any], p
     return None
 
 
+def _cohort(request_ref: str, traffic_percent: float) -> dict[str, Any]:
+    bucket = int(request_ref.split(":", 1)[1][:8], 16) % 10_000
+    threshold = int(round(traffic_percent * 100))
+    return {
+        "bucket": bucket,
+        "traffic_percent": traffic_percent,
+        "included": bucket < threshold,
+    }
+
+
 def _decision(
     policy: Mapping[str, Any],
     request: Mapping[str, Any],
     outcomes: list[Mapping[str, Any]],
     *,
     allow_adaptive: bool,
+    rollout: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     policy = validate_policy(policy)
     request = validate_request(request)
     outcomes = validate_outcomes(outcomes)
     requested_mode = policy["mode"]
-    mode = "static" if request.get("disable_adaptation") and requested_mode == "adaptive" else requested_mode
+    rollout_certificate = validate_rollout_certificate(rollout) if rollout is not None else None
+    rollout_reason: str | None = None
+    rollout_cohort: dict[str, Any] | None = None
+    if rollout_certificate is not None:
+        if rollout_certificate["candidate_policy_revision"] != policy["policy_revision"]:
+            raise RoutingError("rollout certificate policy revision does not match policy")
+        if rollout_certificate["status"] != "activated":
+            raise RoutingError("rollout certificate is not activated")
+        if rollout_certificate["stage"] in {"canary", "active"}:
+            rollout_cohort = _cohort(digest(request), rollout_certificate["traffic_percent"])
+            if not rollout_cohort["included"]:
+                rollout_reason = "cohort_excluded"
+        else:
+            rollout_reason = rollout_certificate["stage"]
+    if rollout_certificate is not None and rollout_reason is not None:
+        mode = "static"
+    else:
+        mode = "static" if request.get("disable_adaptation") and requested_mode == "adaptive" else requested_mode
     body: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "contract_revision": CONTRACT_REVISION,
@@ -589,6 +775,17 @@ def _decision(
             "disabled_by_request": bool(request.get("disable_adaptation")),
         },
     }
+    if rollout_certificate is not None:
+        body["adaptation"]["rollout_ref"] = rollout_certificate["rollout_ref"]
+        body["adaptation"]["cohort"] = rollout_cohort
+        if rollout_reason is not None and not request.get("disable_adaptation"):
+            body["adaptation"]["reason"] = rollout_reason
+        allow_adaptive = (
+            rollout_certificate["activation"]["enabled"]
+            and rollout_certificate["stage"] in {"canary", "active"}
+            and rollout_cohort is not None
+            and rollout_cohort["included"]
+        )
     grouped = _group_outcomes(outcomes)
     eligible: list[dict[str, Any]] = []
     for route in policy["routes"]:
@@ -664,8 +861,14 @@ def _decision(
     return body
 
 
-def decide(policy: Mapping[str, Any], request: Mapping[str, Any], outcomes: list[Mapping[str, Any]] | None = None) -> dict[str, Any]:
-    return _decision(policy, request, outcomes or [], allow_adaptive=False)
+def decide(
+    policy: Mapping[str, Any],
+    request: Mapping[str, Any],
+    outcomes: list[Mapping[str, Any]] | None = None,
+    *,
+    rollout: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    return _decision(policy, request, outcomes or [], allow_adaptive=False, rollout=rollout)
 
 
 def _metric_summary(observed: list[Mapping[str, Any]], missing: int, total: int) -> dict[str, Any]:
@@ -792,6 +995,54 @@ def replay(
     return output
 
 
+def activate_rollout(
+    baseline_policy: Mapping[str, Any],
+    candidate_policy: Mapping[str, Any],
+    episodes: list[Mapping[str, Any]],
+    rollout: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Issue a digest-bound certificate for one reviewed routing rollout stage."""
+
+    baseline = validate_policy(baseline_policy)
+    candidate = validate_policy(candidate_policy)
+    normalized_episodes = validate_episodes(episodes)
+    manifest = validate_rollout_manifest(rollout)
+    replay_result = replay(baseline, candidate, normalized_episodes)
+    evidence_ref = digest(normalized_episodes)
+    reasons: list[str] = []
+    if manifest["baseline_policy_revision"] != baseline["policy_revision"]:
+        reasons.append("baseline_policy_mismatch")
+    if manifest["candidate_policy_revision"] != candidate["policy_revision"]:
+        reasons.append("candidate_policy_mismatch")
+    if manifest["replay_ref"] != replay_result["replay_ref"]:
+        reasons.append("replay_mismatch")
+    if manifest["evidence_ref"] != evidence_ref:
+        reasons.append("evidence_mismatch")
+    if manifest["stage"] in {"canary", "active"}:
+        if candidate["mode"] != "adaptive":
+            reasons.append("candidate_not_adaptive")
+        reasons.extend(replay_result["activation"]["reasons"])
+    if manifest["stage"] == "preview":
+        reasons.append("preview_only")
+    reasons = sorted(set(reasons))
+    enabled = manifest["stage"] in {"canary", "active"} and not reasons
+    status = "activated" if manifest["stage"] in {"canary", "active", "rollback", "retired"} and not reasons else "blocked"
+    if manifest["stage"] == "preview":
+        status = "staged"
+    certificate: dict[str, Any] = {
+        **manifest,
+        "status": status,
+        "reasons": reasons,
+        "activation": {
+            "enabled": enabled,
+            "cohort": "request-digest",
+            "fallback": "static",
+        },
+    }
+    certificate["rollout_ref"] = digest(certificate)
+    return validate_rollout_certificate(certificate)
+
+
 def inspect_policy(policy: Mapping[str, Any]) -> dict[str, Any]:
     policy = validate_policy(policy)
     return {
@@ -837,6 +1088,7 @@ def _parser() -> argparse.ArgumentParser:
     decide_parser.add_argument("--policy", type=Path, required=True)
     decide_parser.add_argument("--request", type=Path, required=True)
     decide_parser.add_argument("--outcomes", type=Path)
+    decide_parser.add_argument("--certificate", type=Path, help="reviewed adaptive rollout certificate")
     decide_parser.add_argument("--output", type=Path)
 
     replay_parser = sub.add_parser("replay", help="compare baseline and candidate policies offline")
@@ -844,6 +1096,13 @@ def _parser() -> argparse.ArgumentParser:
     replay_parser.add_argument("--candidate-policy", type=Path, required=True)
     replay_parser.add_argument("--episodes", type=Path, required=True)
     replay_parser.add_argument("--output", type=Path)
+
+    activate_parser = sub.add_parser("activate", help="issue a reviewed adaptive rollout certificate")
+    activate_parser.add_argument("--baseline-policy", type=Path, required=True)
+    activate_parser.add_argument("--candidate-policy", type=Path, required=True)
+    activate_parser.add_argument("--episodes", type=Path, required=True)
+    activate_parser.add_argument("--rollout", type=Path, required=True)
+    activate_parser.add_argument("--output", type=Path)
     return parser
 
 
@@ -855,9 +1114,24 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "decide":
             outcomes = _load_json(args.outcomes, "outcomes") if args.outcomes else []
-            result = decide(_load_json(args.policy, "policy"), _load_json(args.request, "request"), outcomes)
+            certificate = _load_json(args.certificate, "rollout certificate") if args.certificate else None
+            result = decide(
+                _load_json(args.policy, "policy"),
+                _load_json(args.request, "request"),
+                outcomes,
+                rollout=certificate,
+            )
             _write_json(result, args.output)
             return 0 if result["status"] == "selected" else 1
+        if args.command == "activate":
+            result = activate_rollout(
+                _load_json(args.baseline_policy, "baseline policy"),
+                _load_json(args.candidate_policy, "candidate policy"),
+                _load_json(args.episodes, "episodes"),
+                _load_json(args.rollout, "rollout"),
+            )
+            _write_json(result, args.output)
+            return 0 if result["status"] == "activated" else 1
         result = replay(
             _load_json(args.baseline_policy, "baseline policy"),
             _load_json(args.candidate_policy, "candidate policy"),

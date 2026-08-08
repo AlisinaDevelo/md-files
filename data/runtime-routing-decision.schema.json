@@ -106,7 +106,24 @@
       "properties": {
         "mode": {"enum": ["static", "adaptive", "disabled"]},
         "requested_mode": {"enum": ["static", "adaptive", "disabled"]},
-        "disabled_by_request": {"type": "boolean"}
+        "disabled_by_request": {"type": "boolean"},
+        "rollout_ref": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "cohort": {
+          "anyOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["bucket", "traffic_percent", "included"],
+              "properties": {
+                "bucket": {"type": "integer", "minimum": 0, "maximum": 9999},
+                "traffic_percent": {"type": "number", "minimum": 0, "maximum": 100},
+                "included": {"type": "boolean"}
+              }
+            }
+          ]
+        },
+        "reason": {"type": "string", "minLength": 1}
       }
     },
     "decision_ref": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
