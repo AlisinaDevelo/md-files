@@ -102,7 +102,8 @@ JOURNAL_KEYS = {
     "event_hash",
 }
 AUTHORIZED_DETAIL_KEYS = {"approval_id", "approval_ref", "action_digest"}
-SUCCEEDED_DETAIL_KEYS = {"receipt", "recovered"}
+SUCCEEDED_DETAIL_KEYS = {"receipt", "recovered", "reconciled"}
+SUCCEEDED_REQUIRED_DETAIL_KEYS = {"receipt", "recovered"}
 RECEIPT_KEYS = {
     "status",
     "episode_id",
@@ -922,8 +923,12 @@ def _validate_journal_details(event_type: str, details: Any, number: int | str) 
                 )
         return
     _unknown(details, SUCCEEDED_DETAIL_KEYS, f"provider journal record {number} details")
-    if set(details) != SUCCEEDED_DETAIL_KEYS or not isinstance(details.get("recovered"), bool):
+    if not SUCCEEDED_REQUIRED_DETAIL_KEYS <= set(details) or not isinstance(
+        details.get("recovered"), bool
+    ):
         raise GhAwProviderError(f"provider journal success is incomplete at record {number}")
+    if "reconciled" in details and not isinstance(details["reconciled"], bool):
+        raise GhAwProviderError(f"provider journal reconciliation marker is invalid at record {number}")
     receipt = details.get("receipt")
     if not isinstance(receipt, Mapping):
         raise GhAwProviderError(f"provider journal receipt is invalid at record {number}")
@@ -1271,6 +1276,37 @@ def _resource_summary(output_type: str, response: Mapping[str, Any]) -> tuple[st
     if not isinstance(html_url, str) or not html_url.startswith("https://github.com/"):
         raise GhAwProviderError("GitHub provider result has an invalid resource URL")
     return html_url, summary
+
+
+def _reconcile_dispatch_run(
+    operation: Mapping[str, Any],
+    repository: str,
+    run_id: int,
+    transport: Any,
+) -> tuple[str, dict[str, Any]]:
+    """Verify operator-supplied workflow-run evidence without issuing another dispatch."""
+
+    if isinstance(run_id, bool) or not isinstance(run_id, int) or run_id < 1:
+        raise GhAwProviderError("run_id must be a positive integer")
+    endpoint = f"/repos/{repository}/actions/runs/{run_id}"
+    response = transport.request("GET", endpoint)
+    if not isinstance(response, Mapping):
+        raise GhAwProviderError("workflow run reconciliation response must be an object")
+    if response.get("id") != run_id:
+        raise GhAwProviderError("workflow run reconciliation returned a different run identity")
+    expected_path = f".github/workflows/{operation['source']['workflow_id']}.lock.yml"
+    if response.get("path") != expected_path:
+        raise GhAwProviderError("workflow run does not match the compiled lock workflow")
+    if response.get("event") != "workflow_dispatch":
+        raise GhAwProviderError("workflow run is not a workflow_dispatch event")
+    if response.get("head_branch") != operation["source"]["ref"]:
+        raise GhAwProviderError("workflow run ref does not match the dispatched ref")
+    expected_url = f"https://github.com/{repository}/actions/runs/{run_id}"
+    if response.get("html_url") != expected_url:
+        raise GhAwProviderError("workflow run URL does not match the repository and run identity")
+    observed = dict(response)
+    observed["workflow_run_id"] = run_id
+    return _resource_summary("dispatch-workflow", observed)
 
 
 def _receipt(
@@ -1665,6 +1701,144 @@ def execute_effect(
     }
 
 
+def reconcile_effect(
+    spec_path: Path,
+    output: Path,
+    database: Path,
+    request: Mapping[str, Any],
+    effect_id: str,
+    worker_id: str,
+    lease_generation: int,
+    approval_id: str,
+    run_id: int,
+    *,
+    expected_login: str,
+    approvals_path: Path = DEFAULT_APPROVALS,
+    receipts_path: Path | None = None,
+    journal_path: Path = DEFAULT_JOURNAL,
+    transport: Any | None = None,
+    now: str | None = None,
+) -> dict[str, Any]:
+    """Reconcile one ambiguous workflow dispatch from verified GitHub run metadata."""
+
+    normalized_request = validate_request(request)
+    if normalized_request["safe_output_type"] != "dispatch-workflow":
+        raise GhAwProviderError("reconciliation is supported only for workflow dispatch")
+    existing_receipt = _existing_receipt(database, normalized_request, effect_id)
+    if existing_receipt is not None:
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "provider_revision": PROVIDER_REVISION,
+            "status": "succeeded",
+            "reconciled": True,
+            "replayed": True,
+            "receipt": existing_receipt,
+        }
+    prepared = _prepare(
+        spec_path,
+        output,
+        database,
+        normalized_request,
+        effect_id,
+        worker_id,
+        lease_generation,
+        approvals_path=approvals_path,
+        now=now,
+    )
+    expected_login = _text(expected_login, "expected_login", maximum=128)
+    approval_id = _text(approval_id, "approval_id", maximum=128)
+    provider = transport or GitHubTransport()
+    actual_login = provider.authenticated_login()
+    if actual_login.casefold() != expected_login.casefold():
+        raise GhAwProviderError(
+            f"authenticated GitHub login mismatch: expected {expected_login}, got {actual_login}"
+        )
+    journal = ProviderJournal(journal_path)
+    evidence = journal.for_effect(effect_id, prepared.public["execution_digest"])
+    authorized = evidence.get("authorized")
+    if authorized is None:
+        raise GhAwProviderError("cannot reconcile a dispatch without provider authorization evidence")
+    recorded_approval = authorized["details"].get("approval_id")
+    if recorded_approval != approval_id:
+        raise GhAwProviderError("reconciliation approval does not match provider journal evidence")
+    if "succeeded" in evidence:
+        receipt = evidence["succeeded"]["details"].get("receipt")
+        if not isinstance(receipt, Mapping):
+            raise GhAwProviderError("provider journal succeeded evidence has no receipt")
+        authorization = _authorization_from_journal(
+            prepared,
+            approval_id,
+            authorized["details"]["action_digest"],
+            approvals_path,
+        )
+        _commit_policy_outcome(
+            prepared,
+            authorization,
+            receipt,
+            receipts_path=receipts_path,
+        )
+        _acknowledge(
+            prepared,
+            database,
+            worker_id,
+            lease_generation,
+            receipt,
+            now=now,
+        )
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "provider_revision": PROVIDER_REVISION,
+            "status": "succeeded",
+            "reconciled": True,
+            "replayed": True,
+            "receipt": copy.deepcopy(dict(receipt)),
+        }
+    if len(prepared.operations) != 1:
+        raise GhAwProviderError("workflow dispatch reconciliation requires one compiled operation")
+    resource_ref, summary = _reconcile_dispatch_run(
+        prepared.operations[0],
+        prepared.request["repository"],
+        run_id,
+        provider,
+    )
+    receipt = _receipt(prepared, recorded_approval, [summary], [resource_ref])
+    authorization = _authorization_from_journal(
+        prepared,
+        recorded_approval,
+        authorized["details"]["action_digest"],
+        approvals_path,
+    )
+    _commit_policy_outcome(
+        prepared,
+        authorization,
+        receipt,
+        receipts_path=receipts_path,
+    )
+    journal.append(
+        "succeeded",
+        effect_id,
+        prepared.public["execution_digest"],
+        {"receipt": receipt, "recovered": True, "reconciled": True},
+        occurred_at=now,
+    )
+    _acknowledge(
+        prepared,
+        database,
+        worker_id,
+        lease_generation,
+        receipt,
+        now=now,
+    )
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "provider_revision": PROVIDER_REVISION,
+        "status": "succeeded",
+        "reconciled": True,
+        "recovered": True,
+        "receipt": receipt,
+    }
+
+
 def _load_request(path: Path) -> dict[str, Any]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
@@ -1711,6 +1885,20 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="required acknowledgement that GitHub may be mutated",
     )
+    reconcile_parser = subparsers.add_parser(
+        "reconcile", help="reconcile an ambiguous workflow dispatch from a verified run"
+    )
+    _common(reconcile_parser)
+    reconcile_parser.add_argument("--approval-id", required=True)
+    reconcile_parser.add_argument("--expected-login", required=True)
+    reconcile_parser.add_argument("--run-id", type=int, required=True)
+    reconcile_parser.add_argument("--receipts", type=Path, default=DEFAULT_RECEIPTS)
+    reconcile_parser.add_argument("--journal", type=Path, default=DEFAULT_JOURNAL)
+    reconcile_parser.add_argument(
+        "--reconcile",
+        action="store_true",
+        help="required acknowledgement that the supplied run evidence may complete the effect",
+    )
     try:
         args = parser.parse_args(argv)
         request = _load_request(args.request)
@@ -1740,7 +1928,7 @@ def main(argv: list[str] | None = None) -> int:
                 ttl_seconds=args.ttl_seconds,
                 now=args.now,
             )
-        else:
+        elif args.command == "execute":
             if not args.execute:
                 raise GhAwProviderError("execute requires the explicit --execute flag")
             result = execute_effect(
@@ -1752,6 +1940,25 @@ def main(argv: list[str] | None = None) -> int:
                 args.worker_id,
                 args.lease_generation,
                 args.approval_id,
+                expected_login=args.expected_login,
+                approvals_path=args.approvals,
+                receipts_path=args.receipts,
+                journal_path=args.journal,
+                now=args.now,
+            )
+        else:
+            if not args.reconcile:
+                raise GhAwProviderError("reconcile requires the explicit --reconcile flag")
+            result = reconcile_effect(
+                args.spec,
+                args.output,
+                args.db,
+                request,
+                args.effect_id,
+                args.worker_id,
+                args.lease_generation,
+                args.approval_id,
+                args.run_id,
                 expected_login=args.expected_login,
                 approvals_path=args.approvals,
                 receipts_path=args.receipts,

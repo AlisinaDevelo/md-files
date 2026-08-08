@@ -134,6 +134,11 @@ python3 scripts/forge-gh-aw-provider.py execute \
   --request /secure/path/provider-request.json \
   --effect-id EFFECT_ID --worker-id gh-aw-provider --lease-generation GENERATION \
   --approval-id APPROVAL_ID --expected-login AlisinaDevelo --execute
+
+python3 scripts/forge-gh-aw-provider.py reconcile \
+  --request /secure/path/provider-request.json \
+  --effect-id EFFECT_ID --worker-id gh-aw-provider --lease-generation GENERATION \
+  --approval-id APPROVAL_ID --expected-login AlisinaDevelo --run-id RUN_ID --reconcile
 ```
 
 `plan` performs no provider call and does not consume an approval. `approve` binds one short-lived
@@ -143,10 +148,14 @@ calling a bounded REST endpoint. Issue and comment limits, configured title pref
 dispatch allowlists, and pull-request file scope are enforced again outside the agent process.
 Pull requests also compare the planned head SHA and complete changed-file set immediately before
 creation. Workflow dispatch requests ask GitHub to return the run ID and URLs for a direct receipt.
+If a dispatch is accepted but its run details are lost before the provider journal is written, use
+`reconcile` with the operator-supplied run ID. It performs one read-only run lookup, requires the
+compiled lock workflow, `workflow_dispatch` event, requested ref, repository URL, and run ID to
+match, then records the normal bounded receipt. It never infers dispatch inputs from run metadata.
 
 The 0600 provider journal is append-only and hash-chained. It records only authorization digests,
 approval handles, and bounded receipts, allowing a retry to close the post-write/pre-acknowledgement
 window without repeating the provider call. A dispatch crash before its returned run details are
-journaled remains ambiguous and fails closed for reconciliation. Forge promises at-least-once
-delivery with idempotent recovery where GitHub exposes enough evidence; it does not claim
-exactly-once provider execution.
+journaled remains ambiguous and fails closed until this explicit reconciliation step. Forge promises
+at-least-once delivery with idempotent recovery where GitHub exposes enough evidence; it does not
+claim exactly-once provider execution.

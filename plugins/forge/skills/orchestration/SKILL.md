@@ -275,14 +275,21 @@ python3 scripts/forge-gh-aw-provider.py execute \
   --request REQUEST.json --effect-id EFFECT_ID \
   --worker-id gh-aw-provider --lease-generation GENERATION \
   --approval-id APPROVAL_ID --expected-login LOGIN --execute
+python3 scripts/forge-gh-aw-provider.py reconcile \
+  --request REQUEST.json --effect-id EFFECT_ID \
+  --worker-id gh-aw-provider --lease-generation GENERATION \
+  --approval-id APPROVAL_ID --expected-login LOGIN --run-id RUN_ID --reconcile
 ```
 
 The provider supports only the four compiled safe-output types. It revalidates title/label,
 comment, dispatch, and PR file constraints, compares PR head/file evidence immediately before
 creation, asks the current GitHub API for workflow-dispatch run details, and writes only bounded
 authorization/receipt evidence to its 0600 hash-chained journal. Never retry an ambiguous
-dispatch blindly; reconcile it first. The contract is at-least-once with idempotent recovery,
-not exactly-once provider execution. See `data/runtime-gh-aw-provider-request.schema.json` and
+dispatch blindly; use the explicit `reconcile` operation first. Reconciliation performs one
+read-only run lookup and requires the compiled lock workflow, dispatch event, ref, repository URL,
+and run ID to match before acknowledging the existing fenced effect. The contract is at-least-once
+with idempotent recovery, not exactly-once provider execution. See
+`data/runtime-gh-aw-provider-request.schema.json` and
 [GitHub Agentic Workflows](../../../../docs/gh-aw.md).
 
 ## How to delegate well (this makes or breaks it)

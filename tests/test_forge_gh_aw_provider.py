@@ -341,6 +341,142 @@ def test_dispatch_execute_requires_login_approval_and_acks_run_details(tmp_path)
     assert stored["status"] == "succeeded"
 
 
+def test_dispatch_reconcile_verifies_run_metadata_and_replays_safely(tmp_path):
+    module = load_module()
+    bridge, output, database = prepare(module, tmp_path)
+    episode_id, request, effect = dispatch_episode(module, bridge, output, database)
+    approval_id = approve(module, output, database, request, effect, tmp_path, worker_id="provider-a")
+    journal_path = tmp_path / "provider.jsonl"
+    approvals_path = tmp_path / "approvals.jsonl"
+
+    with pytest.raises(module.GhAwProviderError, match="workflow dispatch did not return"):
+        module.execute_effect(
+            SPEC_PATH,
+            output,
+            database,
+            request,
+            effect["effect_id"],
+            "provider-a",
+            effect["lease_generation"],
+            approval_id,
+            expected_login="AlisinaDevelo",
+            approvals_path=approvals_path,
+            journal_path=journal_path,
+            transport=FakeTransport([{}]),
+            now="2026-08-08T10:02:30Z",
+        )
+
+    with bridge._runtime().RuntimeStore(database) as store:
+        reclaimed = store.claim_outbox(
+            "provider-b",
+            run_id=episode_id,
+            now="2026-08-08T10:03:01Z",
+        )[0]
+    assert reclaimed["lease_generation"] > effect["lease_generation"]
+    reconcile_worker = "provider-b"
+    reconcile_generation = reclaimed["lease_generation"]
+    target_workflow = effect["payload"]["worker_workflow_id"]
+    run_id = 31234567891
+    bad_transport = FakeTransport(
+        [
+            {
+                "id": run_id,
+                "path": f".github/workflows/{target_workflow}.lock.yml",
+                "event": "push",
+                "head_branch": "main",
+                "html_url": f"https://github.com/AlisinaDevelo/md-files/actions/runs/{run_id}",
+            }
+        ]
+    )
+    with pytest.raises(module.GhAwProviderError, match="workflow_dispatch"):
+        module.reconcile_effect(
+            SPEC_PATH,
+            output,
+            database,
+            request,
+            effect["effect_id"],
+            reconcile_worker,
+            reconcile_generation,
+            approval_id,
+            run_id,
+            expected_login="AlisinaDevelo",
+            approvals_path=approvals_path,
+            journal_path=journal_path,
+            transport=bad_transport,
+            now="2026-08-08T10:03:10Z",
+        )
+    assert bad_transport.calls == [
+        {
+            "method": "GET",
+            "endpoint": f"/repos/AlisinaDevelo/md-files/actions/runs/{run_id}",
+            "body": None,
+            "paginate": False,
+        }
+    ]
+
+    transport = FakeTransport(
+        [
+            {
+                "id": run_id,
+                "path": f".github/workflows/{target_workflow}.lock.yml",
+                "event": "workflow_dispatch",
+                "head_branch": "main",
+                "html_url": f"https://github.com/AlisinaDevelo/md-files/actions/runs/{run_id}",
+            }
+        ]
+    )
+    result = module.reconcile_effect(
+        SPEC_PATH,
+        output,
+        database,
+        request,
+        effect["effect_id"],
+        reconcile_worker,
+        reconcile_generation,
+        approval_id,
+        run_id,
+        expected_login="AlisinaDevelo",
+        approvals_path=approvals_path,
+        journal_path=journal_path,
+        transport=transport,
+        now="2026-08-08T10:03:20Z",
+    )
+
+    assert result["status"] == "succeeded"
+    assert result["reconciled"] is True
+    assert result["recovered"] is True
+    assert result["receipt"]["resource_ref"].endswith(f"/actions/runs/{run_id}")
+    assert transport.calls[0]["method"] == "GET"
+    journal = [json.loads(line) for line in journal_path.read_text(encoding="utf-8").splitlines()]
+    success = next(item for item in journal if item["event_type"] == "succeeded")
+    assert success["details"]["reconciled"] is True
+    assert "workflow_dispatch" not in json.dumps(success, sort_keys=True)
+    with bridge._runtime().RuntimeStore(database) as store:
+        stored = next(item for item in store.list_outbox(episode_id) if item["effect_id"] == effect["effect_id"])
+    assert stored["status"] == "succeeded"
+
+    replay_transport = FakeTransport([])
+    replayed = module.reconcile_effect(
+        SPEC_PATH,
+        output,
+        database,
+        request,
+        effect["effect_id"],
+        reconcile_worker,
+        reconcile_generation,
+        approval_id,
+        run_id,
+        expected_login="AlisinaDevelo",
+        approvals_path=approvals_path,
+        journal_path=journal_path,
+        transport=replay_transport,
+        now="2026-08-08T10:03:30Z",
+    )
+    assert replayed["replayed"] is True
+    assert replayed["receipt"] == result["receipt"]
+    assert replay_transport.calls == []
+
+
 def test_add_comment_sanitizes_content_and_acks_comment_reference(tmp_path):
     module = load_module()
     bridge, output, database = prepare(module, tmp_path)
