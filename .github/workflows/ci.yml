@@ -102,7 +102,10 @@ jobs:
         run: |
           set -euo pipefail
           gh extension install github/gh-aw --pin v0.85.4
-          test "$(gh aw version)" = "v0.85.4"
+          case "$(gh aw version)" in
+            v0.85.4|"gh aw version v0.85.4") ;;
+            *) exit 1 ;;
+          esac
       - name: Compile and verify native locks without dispatch
         env:
           GH_TOKEN: ${{ github.token }}
