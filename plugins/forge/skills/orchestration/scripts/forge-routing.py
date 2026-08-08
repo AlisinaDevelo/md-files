@@ -716,7 +716,7 @@ def _candidate_exclusion(route: Mapping[str, Any], request: Mapping[str, Any], p
 
 def _cohort(request_ref: str, traffic_percent: float) -> dict[str, Any]:
     bucket = int(request_ref.split(":", 1)[1][:8], 16) % 10_000
-    threshold = int(round(traffic_percent * 100))
+    threshold = round(traffic_percent * 100)
     return {
         "bucket": bucket,
         "traffic_percent": traffic_percent,
