@@ -192,6 +192,28 @@ See `docs/routing.md` and the versioned contracts in `data/runtime-routing-*.sch
 the input and output shapes. Replay evidence is numeric and digest-only; an agent's confidence
 field is never accepted as ground-truth quality.
 
+## GitHub Agentic Workflows
+
+Use the bounded `forge-gh-aw-v1` adapter when a Forge workflow needs a GitHub Agentic
+Workflows projection. The adapter validates the canonical capability graph, pins the upstream
+`gh aw` compiler, rejects dispatcher cycles and protected-file writes, and turns every external
+operation into a staged policy effect. The agent job stays read-only; safe outputs are the only
+mutation boundary.
+
+Inspect and compile from the repository root:
+
+```bash
+python3 scripts/forge-gh-aw.py plan --spec data/gh-aw-workflows.json --json
+python3 scripts/forge-gh-aw.py compile --spec data/gh-aw-workflows.json --output build/gh-aw
+python3 scripts/forge-gh-aw.py check --spec data/gh-aw-workflows.json --output build/gh-aw
+```
+
+The default lock is an offline contract preview and stops before mutation. Install the exact
+upstream extension and add `--upstream` to produce native locks. Native locks can contain
+known upstream provider/auth secret names, but Forge never commits their values and rejects
+unknown references. Read [GitHub Agentic Workflows](../../../../docs/gh-aw.md) for the full
+contract, release surface, and runtime integration boundary.
+
 ## How to delegate well (this makes or breaks it)
 
 When you spawn a specialist subagent, set two things deliberately:

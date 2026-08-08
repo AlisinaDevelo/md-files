@@ -12,7 +12,7 @@ maximize the efficacy of LLMs in software engineering.**
 [![Agents](https://img.shields.io/badge/agents-20-8b5cf6.svg)](plugins/forge/agents/)
 [![Skills](https://img.shields.io/badge/skills-25-06b6d4.svg)](plugins/forge/skills/)
 [![Commands](https://img.shields.io/badge/commands-22-22c55e.svg)](plugins/forge/commands/)
-[![Tests](https://img.shields.io/badge/tests-228%20passing-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-256%20passing-success.svg)](tests/)
 [![Prompt evals](https://img.shields.io/badge/prompt%20evals-312%20checks-success.svg)](evals/)
 
 </div>
@@ -88,13 +88,16 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   deterministically, without relying on the model to remember.
 - **Proven, not asserted.** A real eval harness scores prompts and high-risk behavior
   contracts (312 deterministic checks plus cross-host scenarios and an opt-in LLM judge);
-  238 tests cover safety hooks, task sync, receipts, durable runtime replay, external effect
+  256 tests cover safety hooks, task sync, receipts, durable runtime replay, external effect
   delivery, doctor, policy,
   stacks, marketplace readiness, capability graph, rendering, semantic evidence, and conformance. Run
   them yourself — `just check`.
 - **Auditable & self-validating.** Read every prompt and script. CI validates structure,
   runs the tests, and scores the evals on every push. GitHub-backed task ledgers add stable
   issue identity, native task graphs, conflict stops, and resumable evidence.
+- **GitHub-native workflow bridge.** A pinned `gh-aw` adapter projects Forge orchestration
+  into deterministic workflow sources, read-only agent jobs, staged safe outputs, and
+  source-to-lock drift checks without committing credentials.
 
 ## Install
 
@@ -354,6 +357,8 @@ scripts/               validation, installation, release, and marketplace checks
   hash-chain verification, and explicit at-least-once boundaries
 - [Runtime provenance](docs/provenance.md) — signed trace correlation, privacy defaults,
   offline trust verification, key rotation, retention, and incident response
+- [GitHub Agentic Workflows](docs/gh-aw.md) — pinned gh-aw compilation, read-only agents,
+  staged safe outputs, policy evidence, and native lock verification
 - [Architecture](docs/architecture.md) — how the repo is organized and why
 - [Design rationale](docs/design-rationale.md) — the decisions and trade-offs behind Forge
 - [CI & headless usage](docs/ci-and-headless.md) — run Forge in pipelines and automated review

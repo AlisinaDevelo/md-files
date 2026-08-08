@@ -47,6 +47,10 @@ All notable changes to this project are documented here. The format is based on
   backend comparison, invariant classification, delta-debugging shrink, offline replay and
   inspection, enforced backend-scoped failure predicates, and a bounded three-seed corpus covering
   crashes, retries, fencing, cancellation, recovery, privacy, and distributed watch behavior.
+- **GitHub Agentic Workflows adapter** - added a pinned `forge-gh-aw-v1` projection with canonical
+  workflow specs, capability and graph digests, bounded dispatcher validation, protected-path
+  checks, staged policy effects, deterministic preview locks, and optional native compilation
+  through the official `gh aw` extension.
 
 ## [3.6.0] — 2026-08-03
 

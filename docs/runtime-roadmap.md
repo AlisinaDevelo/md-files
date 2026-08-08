@@ -103,8 +103,11 @@ intentionally separate from the local-first runtime contract.
 
 ### Later integrations
 
-- [#21 GitHub Agentic Workflows](https://github.com/AlisinaDevelo/md-files/issues/21) comes
-  after the runtime can correlate dispatch, workers, safe outputs, and replay.
+- [#21 GitHub Agentic Workflows](https://github.com/AlisinaDevelo/md-files/issues/21) now has a
+  pinned `forge-gh-aw-v1` adapter with deterministic sources, preview locks, policy-gated
+  effects, protected-path validation, and optional native upstream compilation. The remaining
+  work is wiring live dispatch, worker episodes, safe-output receipts, and replay into the
+  durable runtime rather than treating the workflow lock as canonical history.
 - [#22 Adaptive model routing](https://github.com/AlisinaDevelo/md-files/issues/22) now has a
   deterministic capability filter, digest-only decision contract, pins/budgets/fallbacks, and
   offline replay gate. Live adaptive activation and provider integrations remain gated follow-up
