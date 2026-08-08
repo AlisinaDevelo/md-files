@@ -1,7 +1,7 @@
 ---
 id: 0031
 title: Gate pinned native gh-aw compilation
-status: in-progress
+status: done
 agent: devops-engineer
 model: sonnet
 depends_on: [0026, 0030]
@@ -17,13 +17,13 @@ write boundary.
 
 ## Acceptance criteria
 
-- [ ] Native artifact checks require Forge source and definition evidence, the exact pinned
+- [x] Native artifact checks require Forge source and definition evidence, the exact pinned
       upstream version/schema, strict compiler metadata, and SHA-pinned upstream actions.
-- [ ] Manifest checks reject source drift even when a generated artifact hash is rewritten,
+- [x] Manifest checks reject source drift even when a generated artifact hash is rewritten,
       reject inventory/definition drift, and preserve preview-versus-native mode semantics.
-- [ ] Hosted CI installs `gh-aw` `v0.85.4`, compiles all five workflows with `--strict`, runs
+- [x] Hosted CI installs `gh-aw` `v0.85.4`, compiles all five workflows with `--strict`, runs
       the Forge verifier, and performs no workflow dispatch or repository mutation.
-- [ ] Focused tests, full validation, documentation, and hosted CI pass under `AlisinaDevelo`.
+- [x] Focused tests, full validation, documentation, and hosted CI pass under `AlisinaDevelo`.
 
 ## Context
 
@@ -37,3 +37,16 @@ safe-output execution behind the existing approval, lease, and provider boundari
 The verifier intentionally binds exact `v0.85.4` metadata and the pinned workflow schema. A
 future upstream compiler requires a reviewed spec/version update rather than silently changing
 the native output contract.
+
+## Verification
+
+- `check_artifacts` now validates manifest identity and inventory, source digests, Forge native
+  evidence, strict upstream metadata, action-manifest SHA pins, read-only agent permissions, and
+  known secret references. Focused gh-aw tests pass (`9 passed`); the full suite passes (`281
+  passed`).
+- Local Ruff, Python compilation, `scripts/validate.sh`, Markdownlint (196 files), ShellCheck,
+  `git diff --check`, and all 12 cross-host scenarios pass.
+- Hosted CI run
+  [31282192271](https://github.com/AlisinaDevelo/md-files/actions/runs/31282192271) is green for
+  the pushed implementation; the native compiler job installs `gh-aw v0.85.4`, compiles and
+  verifies all five workflows, and OpenSSF Scorecard is skipped on this feature branch.
