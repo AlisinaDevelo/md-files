@@ -18,8 +18,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 REPO = Path(__file__).resolve().parents[5]
 DEFAULT_SPEC = REPO / "data" / "gh-aw-workflows.json"
@@ -123,7 +124,7 @@ def _reject_secrets(value: Any, path: str = "spec") -> None:
             _reject_secrets(child, f"{path}[{index}]")
     elif isinstance(value, str):
         lowered = value.lower()
-        if "${{ secrets." in lowered or lowered.startswith("gho_") or lowered.startswith("github_pat_"):
+        if "${{ secrets." in lowered or lowered.startswith(("gho_", "github_pat_")):
             raise GhAwError(f"{path} contains a secret reference or token value")
 
 
@@ -180,7 +181,7 @@ def _workflow_ids(repo: Path) -> set[str]:
 
 def _path_may_be_protected(pattern: str, protected: list[str]) -> bool:
     normalized = pattern.replace("\\", "/")
-    if normalized.startswith(".github/") or normalized.startswith(".forge/") or normalized.startswith("plugins/"):
+    if normalized.startswith((".github/", ".forge/", "plugins/")):
         return True
     for candidate in protected:
         candidate = candidate.replace("\\", "/")
