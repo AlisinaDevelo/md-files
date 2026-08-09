@@ -273,7 +273,7 @@ python3 scripts/forge-gh-aw-runtime.py preflight \
 It requires verified `upstream-gh-aw` artifacts, binds the deterministic request-derived episode
 ID and current Forge definition, and emits the digest-only certificate described by
 `data/runtime-gh-aw-admission.schema.json`. It does not append runtime history or call GitHub;
-the eventual native worker must consume the certificate and still pass lease authorization.
+the fenced provider consumes the certificate and still passes lease authorization.
 
 For a live GitHub effect, keep the secret-free request envelope outside runtime history and use
 the fenced provider stages. Planning is no-effect; approval is one-use and bound to the exact
@@ -283,18 +283,22 @@ explicit flag:
 ```bash
 python3 scripts/forge-gh-aw-provider.py plan \
   --request REQUEST.json --effect-id EFFECT_ID \
-  --worker-id gh-aw-provider --lease-generation GENERATION
+  --worker-id gh-aw-provider --lease-generation GENERATION \
+  --admission .forge/gh-aw-admission.json
 python3 scripts/forge-gh-aw-provider.py approve \
   --request REQUEST.json --effect-id EFFECT_ID \
-  --worker-id gh-aw-provider --lease-generation GENERATION
+  --worker-id gh-aw-provider --lease-generation GENERATION \
+  --admission .forge/gh-aw-admission.json
 python3 scripts/forge-gh-aw-provider.py execute \
   --request REQUEST.json --effect-id EFFECT_ID \
   --worker-id gh-aw-provider --lease-generation GENERATION \
-  --approval-id APPROVAL_ID --expected-login LOGIN --execute
+  --approval-id APPROVAL_ID --expected-login LOGIN \
+  --admission .forge/gh-aw-admission.json --execute
 python3 scripts/forge-gh-aw-provider.py reconcile \
   --request REQUEST.json --effect-id EFFECT_ID \
   --worker-id gh-aw-provider --lease-generation GENERATION \
-  --approval-id APPROVAL_ID --expected-login LOGIN --run-id RUN_ID --reconcile
+  --approval-id APPROVAL_ID --expected-login LOGIN --run-id RUN_ID \
+  --admission .forge/gh-aw-admission.json --reconcile
 ```
 
 The provider supports only the four compiled safe-output types. It revalidates title/label,
@@ -303,8 +307,9 @@ creation, asks the current GitHub API for workflow-dispatch run details, and wri
 authorization/receipt evidence to its 0600 hash-chained journal. Never retry an ambiguous
 dispatch blindly; use the explicit `reconcile` operation first. Reconciliation performs one
 read-only run lookup and requires the compiled lock workflow, dispatch event, ref, repository URL,
-and run ID to match before acknowledging the existing fenced effect. The contract is at-least-once
-with idempotent recovery, not exactly-once provider execution. See
+and run ID to match before acknowledging the existing fenced effect. Native artifacts require
+`--admission`; preview artifacts omit it. The contract is at-least-once with idempotent recovery,
+not exactly-once provider execution. See
 `data/runtime-gh-aw-provider-request.schema.json` and
 [GitHub Agentic Workflows](../../../../docs/gh-aw.md).
 

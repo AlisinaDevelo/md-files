@@ -591,6 +591,7 @@ def _policy_context(
     *,
     approvals_path: Path,
     now: str | None,
+    admission_id: str | None = None,
 ) -> tuple[Any, Any, Any]:
     policy = _policy()
     profile_name = context["spec"]["defaults"]["policy_profile"]
@@ -620,18 +621,21 @@ def _policy_context(
         if operation["source"].get("base")
     }
     branch = next(iter(branch_values)) if len(branch_values) == 1 else None
+    arguments = {
+        "provider_revision": PROVIDER_REVISION,
+        "request_ref": request["request_ref"],
+        "effect_id": effect["effect_id"],
+        "safe_output": copy.deepcopy(safe_output),
+        "operation_digests": [item["operation_digest"] for item in operations],
+    }
+    if admission_id is not None:
+        arguments["admission_id"] = admission_id
     action = policy.ActionEnvelope.from_mapping(
         {
             "schema_version": 1,
             "action_id": f"gh-aw-provider:{effect['effect_id']}",
             "tool": "gh-aw.safe-output",
-            "arguments": {
-                "provider_revision": PROVIDER_REVISION,
-                "request_ref": request["request_ref"],
-                "effect_id": effect["effect_id"],
-                "safe_output": copy.deepcopy(safe_output),
-                "operation_digests": [item["operation_digest"] for item in operations],
-            },
+            "arguments": arguments,
             "resource": {
                 "repository": request["repository"],
                 "branch": branch,
@@ -673,6 +677,7 @@ class _Prepared:
     policy_module: Any
     policy_engine: Any
     policy_action: Any
+    admission: dict[str, Any] | None
     public: dict[str, Any]
 
 
@@ -680,6 +685,58 @@ def _paths(spec_path: Path, output: Path) -> tuple[Path, Path]:
     spec_path = spec_path if spec_path.is_absolute() else REPO / spec_path
     output = output if output.is_absolute() else REPO / output
     return spec_path, output
+
+
+def _admission_for_request(
+    bridge: Any,
+    context: Mapping[str, Any],
+    spec_path: Path,
+    output: Path,
+    database: Path,
+    request: Mapping[str, Any],
+    admission_path: Path | None,
+) -> dict[str, Any] | None:
+    native = context["manifest"]["mode"] == "upstream-gh-aw"
+    if native and admission_path is None:
+        raise GhAwProviderError("native execution requires an admission certificate")
+    if not native and admission_path is not None:
+        raise GhAwProviderError("admission certificate requires native artifacts")
+    if admission_path is None:
+        return None
+    try:
+        return bridge.verify_admission_certificate(
+            spec_path,
+            output,
+            database,
+            admission_path,
+            episode_id=request["episode_id"],
+        )
+    except bridge.GhAwRuntimeError as exc:
+        raise GhAwProviderError(f"native admission verification failed: {exc}") from exc
+
+
+def _validate_request_admission(
+    spec_path: Path,
+    output: Path,
+    database: Path,
+    request: Mapping[str, Any],
+    admission_path: Path | None,
+) -> dict[str, Any] | None:
+    bridge = _bridge()
+    spec_path, output = _paths(spec_path, output)
+    try:
+        context = bridge._contract(spec_path, output)
+    except bridge.GhAwRuntimeError as exc:
+        raise GhAwProviderError(f"native admission verification failed: {exc}") from exc
+    return _admission_for_request(
+        bridge,
+        context,
+        spec_path,
+        output,
+        database,
+        request,
+        admission_path,
+    )
 
 
 def _prepare(
@@ -693,6 +750,7 @@ def _prepare(
     *,
     approvals_path: Path,
     now: str | None,
+    admission_path: Path | None,
 ) -> _Prepared:
     request = validate_request(raw_request)
     bridge = _bridge()
@@ -701,6 +759,15 @@ def _prepare(
     context = bridge._contract(spec_path, output)
     if request["repository"] != context["spec"]["defaults"]["repository"]:
         raise GhAwProviderError("request repository does not match the compiled repository")
+    admission = _admission_for_request(
+        bridge,
+        context,
+        spec_path,
+        output,
+        database,
+        request,
+        admission_path,
+    )
     try:
         with runtime.RuntimeStore(database) as store:
             state = store.state(request["episode_id"])
@@ -732,6 +799,8 @@ def _prepare(
     if state["status"] != "running":
         raise GhAwProviderError(f"episode is not running: {state['status']}")
     dispatcher_id = state["workflow_id"].removeprefix("gh-aw:")
+    if admission is not None and admission["dispatcher_workflow_id"] != dispatcher_id:
+        raise GhAwProviderError("native admission dispatcher does not match the runtime episode")
     if request["workflow_id"] != effect["payload"].get("workflow_id"):
         raise GhAwProviderError("request workflow_id does not match the leased effect")
     if request["safe_output_type"] != effect["payload"].get("safe_output_type"):
@@ -770,19 +839,21 @@ def _prepare(
         operations,
         approvals_path=approvals_path,
         now=now,
+        admission_id=admission["admission_id"] if admission is not None else None,
     )
     evaluation = policy_engine.evaluate(policy_action)
     authorization_digest = "sha256:" + evaluation.decision.action_digest
-    execution_digest = digest(
-        {
-            "provider_revision": PROVIDER_REVISION,
-            "effect_id": effect["effect_id"],
-            "request_ref": request["request_ref"],
-            "compiled_action_digest": compiled_digest,
-            "authorization_action_digest": authorization_digest,
-            "operation_digests": [item["operation_digest"] for item in operations],
-        }
-    )
+    execution_material = {
+        "provider_revision": PROVIDER_REVISION,
+        "effect_id": effect["effect_id"],
+        "request_ref": request["request_ref"],
+        "compiled_action_digest": compiled_digest,
+        "authorization_action_digest": authorization_digest,
+        "operation_digests": [item["operation_digest"] for item in operations],
+    }
+    if admission is not None:
+        execution_material["admission_id"] = admission["admission_id"]
+    execution_digest = digest(execution_material)
     public = {
         "schema_version": SCHEMA_VERSION,
         "provider_revision": PROVIDER_REVISION,
@@ -817,6 +888,8 @@ def _prepare(
             for item in operations
         ],
     }
+    if admission is not None:
+        public["admission_id"] = admission["admission_id"]
     return _Prepared(
         bridge=bridge,
         runtime=runtime,
@@ -830,6 +903,7 @@ def _prepare(
         policy_module=policy_module,
         policy_engine=policy_engine,
         policy_action=policy_action,
+        admission=admission,
         public=public,
     )
 
@@ -844,6 +918,7 @@ def plan_effect(
     lease_generation: int,
     *,
     approvals_path: Path = DEFAULT_APPROVALS,
+    admission_path: Path | None = None,
     now: str | None = None,
 ) -> dict[str, Any]:
     prepared = _prepare(
@@ -856,6 +931,7 @@ def plan_effect(
         lease_generation,
         approvals_path=approvals_path,
         now=now,
+        admission_path=admission_path,
     )
     return copy.deepcopy(prepared.public)
 
@@ -870,6 +946,7 @@ def issue_approval(
     lease_generation: int,
     *,
     approvals_path: Path = DEFAULT_APPROVALS,
+    admission_path: Path | None = None,
     receipts_path: Path | None = None,
     ttl_seconds: int = 600,
     now: str | None = None,
@@ -884,6 +961,7 @@ def issue_approval(
         lease_generation,
         approvals_path=approvals_path,
         now=now,
+        admission_path=admission_path,
     )
     try:
         approval = prepared.policy_engine.issue_approval(
@@ -893,7 +971,7 @@ def issue_approval(
         )
     except prepared.policy_module.PolicyError as exc:
         raise GhAwProviderError(f"provider approval failed: {exc}") from exc
-    return {
+    result = {
         "schema_version": SCHEMA_VERSION,
         "provider_revision": PROVIDER_REVISION,
         "status": "approval-issued",
@@ -904,6 +982,9 @@ def issue_approval(
         "approval_ref": digest({"approval_id": approval.approval_id}),
         "expires_at": approval.expires_at,
     }
+    if prepared.admission is not None:
+        result["admission_id"] = prepared.admission["admission_id"]
+    return result
 
 
 def _validate_journal_details(event_type: str, details: Any, number: int | str) -> None:
@@ -1473,6 +1554,28 @@ def _existing_receipt(
         raise GhAwProviderError(f"cannot inspect provider replay state: {exc}") from exc
 
 
+def _recheck_admission(
+    prepared: _Prepared, database: Path, admission_path: Path | None
+) -> None:
+    if prepared.admission is None:
+        return
+    if admission_path is None:
+        raise GhAwProviderError("native execution requires an admission certificate")
+    try:
+        current = prepared.bridge.verify_admission_certificate(
+            prepared.spec_path,
+            prepared.output,
+            database,
+            admission_path,
+            episode_id=prepared.request["episode_id"],
+            dispatcher_id=prepared.public["dispatcher_workflow_id"],
+        )
+    except prepared.bridge.GhAwRuntimeError as exc:
+        raise GhAwProviderError(f"native admission verification failed: {exc}") from exc
+    if current["admission_id"] != prepared.admission["admission_id"]:
+        raise GhAwProviderError("native admission verification failed: admission identity changed")
+
+
 def execute_effect(
     spec_path: Path,
     output: Path,
@@ -1487,10 +1590,12 @@ def execute_effect(
     approvals_path: Path = DEFAULT_APPROVALS,
     receipts_path: Path | None = None,
     journal_path: Path = DEFAULT_JOURNAL,
+    admission_path: Path | None = None,
     transport: Any | None = None,
     now: str | None = None,
 ) -> dict[str, Any]:
     normalized_request = validate_request(request)
+    _validate_request_admission(spec_path, output, database, normalized_request, admission_path)
     existing_receipt = _existing_receipt(database, normalized_request, effect_id)
     if existing_receipt is not None:
         return {
@@ -1510,6 +1615,7 @@ def execute_effect(
         lease_generation,
         approvals_path=approvals_path,
         now=now,
+        admission_path=admission_path,
     )
     expected_login = _text(expected_login, "expected_login", maximum=128)
     provider = transport or GitHubTransport()
@@ -1518,6 +1624,7 @@ def execute_effect(
         raise GhAwProviderError(
             f"authenticated GitHub login mismatch: expected {expected_login}, got {actual_login}"
         )
+    _recheck_admission(prepared, database, admission_path)
     journal = ProviderJournal(journal_path)
     evidence = journal.for_effect(effect_id, prepared.public["execution_digest"])
     if "succeeded" in evidence:
@@ -1716,6 +1823,7 @@ def reconcile_effect(
     approvals_path: Path = DEFAULT_APPROVALS,
     receipts_path: Path | None = None,
     journal_path: Path = DEFAULT_JOURNAL,
+    admission_path: Path | None = None,
     transport: Any | None = None,
     now: str | None = None,
 ) -> dict[str, Any]:
@@ -1724,6 +1832,7 @@ def reconcile_effect(
     normalized_request = validate_request(request)
     if normalized_request["safe_output_type"] != "dispatch-workflow":
         raise GhAwProviderError("reconciliation is supported only for workflow dispatch")
+    _validate_request_admission(spec_path, output, database, normalized_request, admission_path)
     existing_receipt = _existing_receipt(database, normalized_request, effect_id)
     if existing_receipt is not None:
         return {
@@ -1744,6 +1853,7 @@ def reconcile_effect(
         lease_generation,
         approvals_path=approvals_path,
         now=now,
+        admission_path=admission_path,
     )
     expected_login = _text(expected_login, "expected_login", maximum=128)
     approval_id = _text(approval_id, "approval_id", maximum=128)
@@ -1753,6 +1863,7 @@ def reconcile_effect(
         raise GhAwProviderError(
             f"authenticated GitHub login mismatch: expected {expected_login}, got {actual_login}"
         )
+    _recheck_admission(prepared, database, admission_path)
     journal = ProviderJournal(journal_path)
     evidence = journal.for_effect(effect_id, prepared.public["execution_digest"])
     authorized = evidence.get("authorized")
@@ -1858,6 +1969,7 @@ def _common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--worker-id", required=True)
     parser.add_argument("--lease-generation", type=int, required=True)
     parser.add_argument("--approvals", type=Path, default=DEFAULT_APPROVALS)
+    parser.add_argument("--admission", type=Path)
     parser.add_argument("--now")
 
 
@@ -1912,6 +2024,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.worker_id,
                 args.lease_generation,
                 approvals_path=args.approvals,
+                admission_path=args.admission,
                 now=args.now,
             )
         elif args.command == "approve":
@@ -1924,6 +2037,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.worker_id,
                 args.lease_generation,
                 approvals_path=args.approvals,
+                admission_path=args.admission,
                 receipts_path=args.receipts,
                 ttl_seconds=args.ttl_seconds,
                 now=args.now,
@@ -1942,6 +2056,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.approval_id,
                 expected_login=args.expected_login,
                 approvals_path=args.approvals,
+                admission_path=args.admission,
                 receipts_path=args.receipts,
                 journal_path=args.journal,
                 now=args.now,
@@ -1961,6 +2076,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.run_id,
                 expected_login=args.expected_login,
                 approvals_path=args.approvals,
+                admission_path=args.admission,
                 receipts_path=args.receipts,
                 journal_path=args.journal,
                 now=args.now,

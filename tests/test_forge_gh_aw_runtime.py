@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import importlib.util
 import json
 import sys
@@ -507,4 +508,60 @@ def test_native_preflight_writes_only_the_same_certificate(tmp_path):
             started["episode_id"],
             REF_A,
             certificate_path=certificate_path,
+        )
+
+
+def test_native_admission_verifier_accepts_history_suffix_and_rejects_unknown_fields(tmp_path):
+    module = load_module()
+    output, database = prepare_native(module, tmp_path)
+    started = module.start_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        REF_A,
+        occurred_at="2026-08-08T08:40:00Z",
+    )
+    certificate_path = tmp_path / "admission.json"
+    certificate = module.preflight_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        started["episode_id"],
+        REF_A,
+        certificate_path=certificate_path,
+    )
+    module.dispatch_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        started["episode_id"],
+        REF_A,
+        occurred_at="2026-08-08T08:41:00Z",
+    )
+
+    verified = module.verify_admission_certificate(
+        SPEC_PATH,
+        output,
+        database,
+        certificate_path,
+        episode_id=started["episode_id"],
+        dispatcher_id="forge-dispatcher",
+    )
+    assert verified == certificate
+    with module._runtime().RuntimeStore(database) as store:
+        assert store.state(started["episode_id"])["sequence"] > certificate["history_sequence"]
+
+    tampered = copy.deepcopy(certificate)
+    tampered["unexpected"] = "reject me"
+    certificate_path.write_text(json.dumps(tampered, sort_keys=True) + "\n", encoding="utf-8")
+    with pytest.raises(module.GhAwRuntimeError, match="unsupported unexpected"):
+        module.verify_admission_certificate(
+            SPEC_PATH,
+            output,
+            database,
+            certificate_path,
+            episode_id=started["episode_id"],
         )

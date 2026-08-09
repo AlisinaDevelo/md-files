@@ -28,6 +28,7 @@ ADMISSION_SCHEMA = "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-
 SCHEMA_VERSION = 1
 ADMISSION_SCHEMA_VERSION = 1
 REF_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+HISTORY_HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 PROVIDER_REFERENCE_KEYS = ("provider_request_id", "resource_ref", "result_ref")
 RECEIPT_KEYS = {
     "status",
@@ -46,6 +47,44 @@ SAFE_OUTPUT_EFFECT_TYPES = {
     "create-pull-request": "github.pull-request.create",
     "dispatch-workflow": "github.workflow.dispatch",
 }
+ADMISSION_CERTIFICATE_KEYS = {
+    "$schema",
+    "schema_version",
+    "contract_revision",
+    "admission_id",
+    "mode",
+    "repository",
+    "episode_id",
+    "request_digest",
+    "dispatcher_workflow_id",
+    "dispatcher_source_workflow",
+    "runtime_definition_digest",
+    "gh_aw_definition_digest",
+    "graph_digest",
+    "spec_digest",
+    "effect_set_digest",
+    "upstream",
+    "artifacts",
+    "native_job_roles",
+    "dispatch_targets",
+    "safe_outputs",
+    "history_sequence",
+    "history_head",
+}
+ADMISSION_DEFINITION_FIELDS = (
+    "workflow_id",
+    "definition_version",
+    "workflow_code_digest",
+    "workflow_schema_digest",
+    "worker_build_id",
+    "policy_revision",
+    "policy_digest",
+    "feature_flags_digest",
+    "compatibility_revision",
+    "step_identity_revision",
+    "compatible_definition_digests",
+    "definition_digest",
+)
 
 
 class GhAwRuntimeError(ValueError):
@@ -79,6 +118,12 @@ def _runtime() -> Any:
 def _ref(value: Any, field: str) -> str:
     if not isinstance(value, str) or not REF_RE.fullmatch(value):
         raise GhAwRuntimeError(f"{field} must be a sha256 reference")
+    return value
+
+
+def _history_hash(value: Any, field: str) -> str:
+    if not isinstance(value, str) or not HISTORY_HASH_RE.fullmatch(value):
+        raise GhAwRuntimeError(f"{field} must be a lowercase 64-character hash")
     return value
 
 
@@ -255,6 +300,73 @@ def _write_admission(path: Path, certificate: Mapping[str, Any]) -> None:
         raise GhAwRuntimeError(f"cannot write admission certificate: {path}") from exc
 
 
+def _verify_runtime_definition(
+    state: Mapping[str, Any], definition: Mapping[str, Any]
+) -> None:
+    if state.get("workflow_id") != definition.get("workflow_id"):
+        raise GhAwRuntimeError("episode workflow does not match the pinned runtime definition")
+    if any(state.get(field) != definition.get(field) for field in ADMISSION_DEFINITION_FIELDS):
+        raise GhAwRuntimeError("episode runtime definition does not match native admission")
+
+
+def _admission_material(
+    context: Mapping[str, Any],
+    dispatcher_id: str,
+    episode_id: str,
+    request_digest: str,
+    state: Mapping[str, Any],
+    artifacts: Mapping[str, Any],
+    history_sequence: int,
+    history_head: str,
+) -> dict[str, Any]:
+    dispatcher = _workflow(context, dispatcher_id)
+    manifest_workflow = _manifest_workflow(context, dispatcher_id)
+    safe_outputs = [
+        {"type": item["type"], "max": item["max"]}
+        for item in dispatcher["safe_outputs"]
+    ]
+    return {
+        "contract_revision": ADMISSION_REVISION,
+        "mode": context["manifest"]["mode"],
+        "repository": context["spec"]["defaults"]["repository"],
+        "episode_id": episode_id,
+        "request_digest": _ref(request_digest, "request_digest"),
+        "dispatcher_workflow_id": dispatcher_id,
+        "dispatcher_source_workflow": dispatcher["source_workflow"],
+        "runtime_definition_digest": _ref(
+            state["definition_digest"], "runtime definition digest"
+        ),
+        "gh_aw_definition_digest": _ref(
+            manifest_workflow["definition_digest"], "gh-aw definition digest"
+        ),
+        "graph_digest": _ref(context["manifest"]["graph_digest"], "graph digest"),
+        "spec_digest": _ref(context["manifest"]["spec_digest"], "spec digest"),
+        "effect_set_digest": _ref(
+            manifest_workflow["effect_set_digest"], "effect set digest"
+        ),
+        "upstream": copy.deepcopy(context["manifest"]["upstream"]),
+        "artifacts": copy.deepcopy(dict(artifacts)),
+        "native_job_roles": sorted(context["compiler"].NATIVE_JOB_NEEDS),
+        "dispatch_targets": sorted(dispatcher["dispatches"]),
+        "safe_outputs": safe_outputs,
+        "history_sequence": history_sequence,
+        "history_head": _history_hash(history_head, "history_head"),
+    }
+
+
+def _admission_certificate(
+    context: Mapping[str, Any], material: Mapping[str, Any]
+) -> dict[str, Any]:
+    normalized = copy.deepcopy(dict(material))
+    return {
+        "$schema": ADMISSION_SCHEMA,
+        "schema_version": ADMISSION_SCHEMA_VERSION,
+        "contract_revision": ADMISSION_REVISION,
+        "admission_id": context["compiler"].digest(normalized),
+        **normalized,
+    }
+
+
 def preflight_episode(
     spec_path: Path,
     output: Path,
@@ -271,9 +383,8 @@ def preflight_episode(
     if context["manifest"]["mode"] != "upstream-gh-aw":
         raise GhAwRuntimeError("native execution requires upstream native artifacts")
     request_digest = _ref(request_digest, "request_digest")
-    dispatcher = _workflow(context, dispatcher_id)
+    _workflow(context, dispatcher_id)
     episode_id = _episode_id(context, dispatcher_id, request_digest, episode_id)
-    manifest_workflow = _manifest_workflow(context, dispatcher_id)
     definition = _runtime_definition(context, dispatcher_id)
     source_path = f"workflows/{dispatcher_id}.md"
     lock_path = f"workflows/{dispatcher_id}.lock.yml"
@@ -286,65 +397,132 @@ def preflight_episode(
     runtime = _runtime()
     with runtime.RuntimeStore(database) as store:
         state = _require_running(store, episode_id)
-        if state["workflow_id"] != definition["workflow_id"]:
-            raise GhAwRuntimeError("episode workflow does not match the pinned runtime definition")
-        definition_fields = (
-            "workflow_id",
-            "definition_version",
-            "workflow_code_digest",
-            "workflow_schema_digest",
-            "worker_build_id",
-            "policy_revision",
-            "policy_digest",
-            "feature_flags_digest",
-            "compatibility_revision",
-            "step_identity_revision",
-            "compatible_definition_digests",
-            "definition_digest",
-        )
-        if any(state.get(field) != definition.get(field) for field in definition_fields):
-            raise GhAwRuntimeError("episode runtime definition does not match native admission")
+        _verify_runtime_definition(state, definition)
         history = store.history(episode_id)
         if not history or state["sequence"] != len(history):
             raise GhAwRuntimeError("episode history is not at a verified admission boundary")
         history_sequence = state["sequence"]
         history_head = history[-1]["event_hash"]
-
-    safe_outputs = [
-        {"type": item["type"], "max": item["max"]}
-        for item in dispatcher["safe_outputs"]
-    ]
-    material = {
-        "contract_revision": ADMISSION_REVISION,
-        "mode": context["manifest"]["mode"],
-        "repository": context["spec"]["defaults"]["repository"],
-        "episode_id": episode_id,
-        "request_digest": request_digest,
-        "dispatcher_workflow_id": dispatcher_id,
-        "dispatcher_source_workflow": dispatcher["source_workflow"],
-        "runtime_definition_digest": _ref(state["definition_digest"], "runtime definition digest"),
-        "gh_aw_definition_digest": _ref(manifest_workflow["definition_digest"], "gh-aw definition digest"),
-        "graph_digest": _ref(context["manifest"]["graph_digest"], "graph digest"),
-        "spec_digest": _ref(context["manifest"]["spec_digest"], "spec digest"),
-        "effect_set_digest": _ref(manifest_workflow["effect_set_digest"], "effect set digest"),
-        "upstream": copy.deepcopy(context["manifest"]["upstream"]),
-        "artifacts": artifacts,
-        "native_job_roles": sorted(context["compiler"].NATIVE_JOB_NEEDS),
-        "dispatch_targets": sorted(dispatcher["dispatches"]),
-        "safe_outputs": safe_outputs,
-        "history_sequence": history_sequence,
-        "history_head": history_head,
-    }
-    certificate = {
-        "$schema": ADMISSION_SCHEMA,
-        "schema_version": ADMISSION_SCHEMA_VERSION,
-        "contract_revision": ADMISSION_REVISION,
-        "admission_id": context["compiler"].digest(material),
-        **material,
-    }
+    material = _admission_material(
+        context,
+        dispatcher_id,
+        episode_id,
+        request_digest,
+        state,
+        artifacts,
+        history_sequence,
+        history_head,
+    )
+    certificate = _admission_certificate(context, material)
     if certificate_path is not None:
         _write_admission(certificate_path, certificate)
     return certificate
+
+
+def _load_admission_certificate(path: Path) -> dict[str, Any]:
+    try:
+        if path.is_symlink() or not path.is_file():
+            raise GhAwRuntimeError(f"admission certificate path is not a regular file: {path}")
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except GhAwRuntimeError:
+        raise
+    except (OSError, json.JSONDecodeError) as exc:
+        raise GhAwRuntimeError(f"cannot read admission certificate: {path}") from exc
+    if not isinstance(value, dict):
+        raise GhAwRuntimeError("admission certificate must contain an object")
+    missing = sorted(ADMISSION_CERTIFICATE_KEYS - set(value))
+    unknown = sorted(set(value) - ADMISSION_CERTIFICATE_KEYS)
+    if missing or unknown:
+        details = []
+        if missing:
+            details.append("missing " + ", ".join(missing))
+        if unknown:
+            details.append("unsupported " + ", ".join(unknown))
+        raise GhAwRuntimeError("admission certificate fields are invalid: " + "; ".join(details))
+    return value
+
+
+def verify_admission_certificate(
+    spec_path: Path,
+    output: Path,
+    database: Path,
+    certificate_path: Path,
+    *,
+    episode_id: str | None = None,
+    dispatcher_id: str | None = None,
+) -> dict[str, Any]:
+    """Verify a native admission certificate without appending history or calling GitHub."""
+
+    certificate = _load_admission_certificate(certificate_path)
+    if certificate["$schema"] != ADMISSION_SCHEMA:
+        raise GhAwRuntimeError("admission certificate has the wrong schema URI")
+    if certificate["schema_version"] != ADMISSION_SCHEMA_VERSION:
+        raise GhAwRuntimeError("unsupported admission certificate schema version")
+    if certificate["contract_revision"] != ADMISSION_REVISION:
+        raise GhAwRuntimeError("unsupported admission certificate contract revision")
+    admission_id = _ref(certificate["admission_id"], "admission_id")
+    if certificate["mode"] != "upstream-gh-aw":
+        raise GhAwRuntimeError("native execution requires an upstream admission certificate")
+    certificate_episode_id = _text(certificate["episode_id"], "episode_id", maximum=256)
+    if episode_id is not None and certificate_episode_id != episode_id:
+        raise GhAwRuntimeError("admission certificate episode_id does not match the request")
+    request_digest = _ref(certificate["request_digest"], "request_digest")
+    certificate_dispatcher_id = _text(
+        certificate["dispatcher_workflow_id"], "dispatcher_workflow_id", maximum=128
+    )
+    if dispatcher_id is not None and certificate_dispatcher_id != dispatcher_id:
+        raise GhAwRuntimeError("admission certificate dispatcher does not match the request")
+    dispatcher_id = certificate_dispatcher_id
+    history_sequence = certificate["history_sequence"]
+    if isinstance(history_sequence, bool) or not isinstance(history_sequence, int) or history_sequence < 1:
+        raise GhAwRuntimeError("admission history_sequence must be a positive integer")
+    history_head = _history_hash(certificate["history_head"], "history_head")
+
+    context = _contract(spec_path, output)
+    if context["manifest"]["mode"] != "upstream-gh-aw":
+        raise GhAwRuntimeError("native execution requires upstream native artifacts")
+    if certificate["repository"] != context["spec"]["defaults"]["repository"]:
+        raise GhAwRuntimeError("admission certificate repository does not match the compiled repository")
+    _workflow(context, dispatcher_id)
+    derived_episode_id = _episode_id(
+        context, dispatcher_id, request_digest, certificate_episode_id
+    )
+    if derived_episode_id != certificate_episode_id:
+        raise GhAwRuntimeError("admission certificate episode_id is not bound to request_digest")
+    definition = _runtime_definition(context, dispatcher_id)
+    artifacts = {
+        "source": _manifest_artifact(context, "source", f"workflows/{dispatcher_id}.md"),
+        "lock": _manifest_artifact(context, "lock", f"workflows/{dispatcher_id}.lock.yml"),
+    }
+    if not database.is_file():
+        raise GhAwRuntimeError(f"runtime database is missing: {database}")
+    runtime = _runtime()
+    with runtime.RuntimeStore(database) as store:
+        state = _require_running(store, certificate_episode_id)
+        _verify_runtime_definition(state, definition)
+        history = store.history(certificate_episode_id)
+        if not history or state["sequence"] != len(history):
+            raise GhAwRuntimeError("episode history is not fully verified for native admission")
+        if history_sequence > len(history):
+            raise GhAwRuntimeError("admission history boundary is beyond the current history")
+        if history[history_sequence - 1]["event_hash"] != history_head:
+            raise GhAwRuntimeError("admission history head does not match the current history")
+        material = _admission_material(
+            context,
+            dispatcher_id,
+            certificate_episode_id,
+            request_digest,
+            state,
+            artifacts,
+            history_sequence,
+            history_head,
+        )
+    expected = _admission_certificate(context, material)
+    if admission_id != expected["admission_id"]:
+        raise GhAwRuntimeError("admission certificate digest does not match its material")
+    if certificate != expected:
+        raise GhAwRuntimeError("admission certificate does not match the current native runtime")
+    return copy.deepcopy(certificate)
 
 
 def _episode_effect(

@@ -141,8 +141,8 @@ rechecks the dispatcher source and native lock hashes. The resulting certificate
 upstream version/schema, native job roles, declared safe outputs, and verified history head to
 one episode without storing prompts, provider content, credentials, or GitHub objects. Repeating
 the command is byte-stable; an existing certificate may only be replaced by the exact same
-certificate. It writes no runtime event and performs no GitHub call. A future native worker must
-consume this certificate and revalidate the current lease before any provider effect.
+certificate. It writes no runtime event and performs no GitHub call. The fenced provider consumes
+this certificate and revalidates it against the current runtime before any provider effect.
 
 ## Fenced provider worker
 
@@ -158,28 +158,34 @@ After `claim` returns an effect ID and lease generation, run the local stages in
 ```bash
 python3 scripts/forge-gh-aw-provider.py plan \
   --request /secure/path/provider-request.json \
-  --effect-id EFFECT_ID --worker-id gh-aw-provider --lease-generation GENERATION
+  --effect-id EFFECT_ID --worker-id gh-aw-provider --lease-generation GENERATION \
+  --admission .forge/gh-aw-admission.json
 
 python3 scripts/forge-gh-aw-provider.py approve \
   --request /secure/path/provider-request.json \
   --effect-id EFFECT_ID --worker-id gh-aw-provider --lease-generation GENERATION \
-  --ttl-seconds 600
+  --ttl-seconds 600 --admission .forge/gh-aw-admission.json
 
 python3 scripts/forge-gh-aw-provider.py execute \
   --request /secure/path/provider-request.json \
   --effect-id EFFECT_ID --worker-id gh-aw-provider --lease-generation GENERATION \
-  --approval-id APPROVAL_ID --expected-login AlisinaDevelo --execute
+  --approval-id APPROVAL_ID --expected-login AlisinaDevelo \
+  --admission .forge/gh-aw-admission.json --execute
 
 python3 scripts/forge-gh-aw-provider.py reconcile \
   --request /secure/path/provider-request.json \
   --effect-id EFFECT_ID --worker-id gh-aw-provider --lease-generation GENERATION \
-  --approval-id APPROVAL_ID --expected-login AlisinaDevelo --run-id RUN_ID --reconcile
+  --approval-id APPROVAL_ID --expected-login AlisinaDevelo --run-id RUN_ID \
+  --admission .forge/gh-aw-admission.json --reconcile
 ```
 
 `plan` performs no provider call and does not consume an approval. `approve` binds one short-lived
 use to the exact effect, request reference, sanitized operation digests, repository, paths, and
-policy revision. `execute` first verifies `gh api user`, then rechecks the lease and policy before
-calling a bounded REST endpoint. Issue and comment limits, configured title prefixes and labels,
+policy revision. Native mode requires `--admission` on every stage; the provider rechecks its
+artifact, runtime-definition, episode, request, and history-prefix binding after the authenticated
+login and before transport or reconciliation work. Preview mode omits `--admission`. `execute`
+first verifies `gh api user`, then rechecks the lease and policy before calling a bounded REST endpoint.
+Issue and comment limits, configured title prefixes and labels,
 dispatch allowlists, and pull-request file scope are enforced again outside the agent process.
 Pull requests also compare the planned head SHA and complete changed-file set immediately before
 creation. Workflow dispatch requests ask GitHub to return the run ID and URLs for a direct receipt.

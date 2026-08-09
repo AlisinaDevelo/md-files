@@ -57,10 +57,40 @@ class FakeTransport:
         return copy.deepcopy(self.responses.pop(0))
 
 
+class MutatingTransport(FakeTransport):
+    def __init__(self, certificate_path: Path) -> None:
+        super().__init__([])
+        self.certificate_path = certificate_path
+
+    def authenticated_login(self) -> str:
+        certificate = json.loads(self.certificate_path.read_text(encoding="utf-8"))
+        certificate["history_head"] = "0" * 64
+        self.certificate_path.write_text(
+            json.dumps(certificate, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        return self.login
+
+
 def prepare(module, tmp_path: Path) -> tuple[Any, Path, Path]:
     bridge = module._bridge()
     output = tmp_path / "gh-aw"
     bridge._compiler().compile_artifacts(REPO, SPEC_PATH, output)
+    return bridge, output, tmp_path / "runtime.sqlite3"
+
+
+def prepare_native(module, tmp_path: Path) -> tuple[Any, Path, Path]:
+    bridge = module._bridge()
+    output = tmp_path / "gh-aw-native"
+    fixture_path = REPO / "tests/test_forge_gh_aw.py"
+    fixture_spec = importlib.util.spec_from_file_location(
+        "forge_gh_aw_native_provider_fixture", fixture_path
+    )
+    assert fixture_spec and fixture_spec.loader
+    fixture_module = importlib.util.module_from_spec(fixture_spec)
+    sys.modules[fixture_spec.name] = fixture_module
+    fixture_spec.loader.exec_module(fixture_module)
+    fixture_module.native_fixture(bridge._compiler(), output)
     return bridge, output, tmp_path / "runtime.sqlite3"
 
 
@@ -155,6 +185,72 @@ def dispatch_episode(module, bridge, output: Path, database: Path) -> tuple[str,
     return episode_id, request, claimed[0]
 
 
+def native_dispatch_episode(
+    module, bridge, output: Path, database: Path, tmp_path: Path
+) -> tuple[Any, Path, Path, str, dict[str, Any], dict[str, Any], Path]:
+    operations = [
+        {
+            "type": "dispatch-workflow",
+            "workflow_id": workflow_id,
+            "ref": "main",
+            "inputs": {"activate": True},
+        }
+        for workflow_id in (
+            "forge-issue-triage",
+            "forge-ci-diagnosis",
+            "forge-docs-maintenance",
+            "forge-feature-planning",
+        )
+    ]
+    material = {
+        "repository": "AlisinaDevelo/md-files",
+        "workflow_id": "forge-dispatcher",
+        "safe_output_type": "dispatch-workflow",
+        "operations": operations,
+    }
+    request_ref = module.digest(material)
+    started = bridge.start_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        request_ref,
+        occurred_at="2026-08-08T11:00:00Z",
+    )
+    episode_id = started["episode_id"]
+    certificate_path = tmp_path / "admission.json"
+    bridge.preflight_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        episode_id,
+        request_ref,
+        certificate_path=certificate_path,
+    )
+    request = envelope(module, episode_id, "forge-dispatcher", "dispatch-workflow", operations)
+    bridge.dispatch_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        episode_id,
+        request_ref,
+        occurred_at="2026-08-08T11:01:00Z",
+    )
+    effect = bridge.claim_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        episode_id,
+        "provider-a",
+        limit=4,
+        now="2026-08-08T11:02:00Z",
+    )["claimed"][0]
+    return bridge, output, database, episode_id, request, effect, certificate_path
+
+
 def worker_effect(
     module,
     bridge,
@@ -225,6 +321,7 @@ def approve(
     tmp_path: Path,
     *,
     worker_id: str,
+    admission_path: Path | None = None,
 ) -> str:
     approval_time = (
         "2026-08-08T10:02:20Z" if worker_id == "provider-a" else "2026-08-08T10:06:20Z"
@@ -238,6 +335,7 @@ def approve(
         worker_id,
         effect["lease_generation"],
         approvals_path=tmp_path / "approvals.jsonl",
+        admission_path=admission_path,
         ttl_seconds=600,
         now=approval_time,
     )
@@ -274,6 +372,119 @@ def test_plan_is_digest_only_and_does_not_consume_approval(tmp_path):
     assert "operations" not in plan
     assert "inputs" not in json.dumps(plan, sort_keys=True)
     assert not approvals.exists()
+
+
+def test_native_provider_requires_admission_and_accepts_history_suffix(tmp_path):
+    module = load_module()
+    bridge, output, database, episode_id, request, effect, admission = native_dispatch_episode(
+        module, *prepare_native(module, tmp_path), tmp_path
+    )
+    approvals = tmp_path / "approvals.jsonl"
+
+    with pytest.raises(module.GhAwProviderError, match="admission certificate"):
+        module.plan_effect(
+            SPEC_PATH,
+            output,
+            database,
+            request,
+            effect["effect_id"],
+            "provider-a",
+            effect["lease_generation"],
+            approvals_path=approvals,
+            now="2026-08-08T11:02:30Z",
+        )
+
+    plan = module.plan_effect(
+        SPEC_PATH,
+        output,
+        database,
+        request,
+        effect["effect_id"],
+        "provider-a",
+        effect["lease_generation"],
+        approvals_path=approvals,
+        admission_path=admission,
+        now="2026-08-08T11:02:30Z",
+    )
+    certificate = json.loads(admission.read_text(encoding="utf-8"))
+    assert plan["admission_id"] == certificate["admission_id"]
+    approval_id = approve(
+        module,
+        output,
+        database,
+        request,
+        effect,
+        tmp_path,
+        worker_id="provider-a",
+        admission_path=admission,
+    )
+    transport = FakeTransport(
+        [
+            {
+                "workflow_run_id": 31234567892,
+                "html_url": "https://github.com/AlisinaDevelo/md-files/actions/runs/31234567892",
+            }
+        ]
+    )
+    result = module.execute_effect(
+        SPEC_PATH,
+        output,
+        database,
+        request,
+        effect["effect_id"],
+        "provider-a",
+        effect["lease_generation"],
+        approval_id,
+        expected_login="AlisinaDevelo",
+        approvals_path=approvals,
+        journal_path=tmp_path / "provider.jsonl",
+        admission_path=admission,
+        transport=transport,
+        now="2026-08-08T10:02:30Z",
+    )
+
+    assert result["status"] == "succeeded"
+    assert transport.calls and transport.calls[-1]["method"] == "POST"
+    assert episode_id == request["episode_id"]
+
+
+def test_native_provider_rechecks_admission_after_login_before_provider_call(tmp_path):
+    module = load_module()
+    bridge, output, database, _, request, effect, admission = native_dispatch_episode(
+        module, *prepare_native(module, tmp_path), tmp_path
+    )
+    approval_id = approve(
+        module,
+        output,
+        database,
+        request,
+        effect,
+        tmp_path,
+        worker_id="provider-a",
+        admission_path=admission,
+    )
+    transport = MutatingTransport(admission)
+
+    with pytest.raises(module.GhAwProviderError, match="native admission verification failed"):
+        module.execute_effect(
+            SPEC_PATH,
+            output,
+            database,
+            request,
+            effect["effect_id"],
+            "provider-a",
+            effect["lease_generation"],
+            approval_id,
+            expected_login="AlisinaDevelo",
+            approvals_path=tmp_path / "approvals.jsonl",
+            journal_path=tmp_path / "provider.jsonl",
+            admission_path=admission,
+            transport=transport,
+            now="2026-08-08T11:02:30Z",
+        )
+
+    assert transport.calls == []
+    assert bridge is not None
 
 
 def test_dispatch_execute_requires_login_approval_and_acks_run_details(tmp_path):

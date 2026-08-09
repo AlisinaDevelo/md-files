@@ -36,3 +36,4 @@
 | 0032 | Enforce reproducible native gh-aw output | done | devops-engineer | sonnet | 0031 |
 | 0033 | Verify native gh-aw supply-chain and job-graph admission | done | security-engineer | sonnet | 0032 |
 | 0034 | Add native gh-aw execution admission preflight | done | reliability-engineer | sonnet | 0033 |
+| 0035 | Consume native gh-aw admission in the fenced provider | in_progress | security-engineer | sonnet | 0034 |
