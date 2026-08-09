@@ -243,6 +243,9 @@ jobs:
           python3 scripts/validate_codex_plugin.py \
             --archive "$candidate/dist/forge-$version-codex.tar.gz" \
             --version "$version"
+          python3 scripts/validate_codex_plugin.py \
+            --marketplace .agents/plugins/marketplace.json \
+            --root .
           tar -xzf "$candidate/dist/forge-$version-claude.tar.gz" -C "$candidate"
           claude plugin validate --strict "$candidate/forge"
       - name: Smoke-test isolated host marketplace lifecycle

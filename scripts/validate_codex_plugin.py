@@ -19,6 +19,8 @@ SEMVER_RE = re.compile(
 )
 HEX_COLOR_RE = re.compile(r"^#[0-9A-F]{6}$", re.IGNORECASE)
 TODO_MARKER = "[TODO:"
+MARKETPLACE_INSTALLATION = {"NOT_AVAILABLE", "AVAILABLE", "INSTALLED_BY_DEFAULT"}
+MARKETPLACE_AUTHENTICATION = {"ON_INSTALL", "ON_USE"}
 
 
 def _https(value: Any) -> bool:
@@ -182,6 +184,89 @@ def validate_plugin(plugin_root: Path, expected_version: str | None = None) -> l
     return errors
 
 
+def validate_marketplace(marketplace_path: Path, root: Path | None = None) -> list[str]:
+    """Validate the Codex marketplace contract and optional local source paths."""
+
+    errors: list[str] = []
+    marketplace = _load_json(marketplace_path.resolve(), errors, "marketplace.json")
+    if marketplace is None:
+        return errors
+
+    allowed = {"name", "interface", "plugins"}
+    for field in sorted(set(marketplace) - allowed):
+        errors.append(f"marketplace.json has unsupported field {field}")
+    if not isinstance(marketplace.get("name"), str) or not marketplace["name"].strip():
+        errors.append("marketplace.json name must be a non-empty string")
+
+    interface = marketplace.get("interface", {})
+    if not isinstance(interface, dict):
+        errors.append("marketplace.json interface must be an object")
+    elif "displayName" in interface and (
+        not isinstance(interface["displayName"], str) or not interface["displayName"].strip()
+    ):
+        errors.append("marketplace.json interface.displayName must be a non-empty string")
+
+    plugins = marketplace.get("plugins")
+    if not isinstance(plugins, list):
+        errors.append("marketplace.json plugins must be an array")
+        return errors
+
+    root_path = root.resolve() if root else None
+    for index, entry in enumerate(plugins):
+        label = f"marketplace.json plugins[{index}]"
+        if not isinstance(entry, dict):
+            errors.append(f"{label} must be an object")
+            continue
+        allowed_entry = {"name", "source", "policy", "category"}
+        for field in sorted(set(entry) - allowed_entry):
+            errors.append(f"{label} has unsupported field {field}")
+        if not isinstance(entry.get("name"), str) or not entry["name"].strip():
+            errors.append(f"{label}.name must be a non-empty string")
+        if not isinstance(entry.get("category"), str) or not entry["category"].strip():
+            errors.append(f"{label}.category must be a non-empty string")
+
+        source = entry.get("source")
+        if not isinstance(source, dict):
+            errors.append(f"{label}.source must be an object")
+        else:
+            if source.get("source") != "local":
+                errors.append(f"{label}.source.source must be local")
+            raw_path = source.get("path")
+            if not isinstance(raw_path, str) or not raw_path.startswith("./"):
+                errors.append(f"{label}.source.path must start with ./")
+            else:
+                relative = PurePosixPath(raw_path[2:])
+                if (
+                    not relative.parts
+                    or any(part in {"", ".", ".."} for part in relative.parts)
+                ):
+                    errors.append(f"{label}.source.path must stay inside the marketplace root")
+                elif root_path:
+                    candidate = (root_path / relative.as_posix()).resolve()
+                    if root_path not in candidate.parents:
+                        errors.append(f"{label}.source.path must stay inside the marketplace root")
+                    elif not (candidate / ".codex-plugin/plugin.json").is_file():
+                        errors.append(f"{label}.source.path has no .codex-plugin/plugin.json")
+
+        policy = entry.get("policy")
+        if not isinstance(policy, dict):
+            errors.append(f"{label}.policy must be an object")
+        else:
+            installation = policy.get("installation")
+            if installation not in MARKETPLACE_INSTALLATION:
+                errors.append(f"{label}.policy.installation has an unsupported value")
+            authentication = policy.get("authentication")
+            if authentication not in MARKETPLACE_AUTHENTICATION:
+                errors.append(f"{label}.policy.authentication has an unsupported value")
+            products = policy.get("products")
+            if products is not None and (
+                not isinstance(products, list)
+                or not all(isinstance(product, str) and product.strip() for product in products)
+            ):
+                errors.append(f"{label}.policy.products must be a string array")
+    return errors
+
+
 def _extract_archive(archive_path: Path, destination: Path) -> Path:
     root_name = "forge"
     seen: set[str] = set()
@@ -217,16 +302,29 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate a Codex plugin directory or Forge release archive.")
     parser.add_argument("plugin_path", nargs="?", type=Path)
     parser.add_argument("--archive", type=Path)
+    parser.add_argument("--marketplace", type=Path)
+    parser.add_argument("--root", type=Path, help="Repository root for local marketplace source checks")
     parser.add_argument("--version", dest="expected_version")
     args = parser.parse_args(argv)
-    if bool(args.plugin_path) == bool(args.archive):
-        parser.error("provide exactly one plugin path or --archive")
-    errors = validate_archive(args.archive, args.expected_version) if args.archive else validate_plugin(args.plugin_path, args.expected_version)
+    targets = [bool(args.plugin_path), bool(args.archive), bool(args.marketplace)]
+    if sum(targets) != 1:
+        parser.error("provide exactly one plugin path, --archive, or --marketplace")
+    if args.root and not args.marketplace:
+        parser.error("--root is only valid with --marketplace")
+    if args.marketplace:
+        errors = validate_marketplace(args.marketplace, args.root)
+        success_message = "Codex marketplace validation passed."
+    elif args.archive:
+        errors = validate_archive(args.archive, args.expected_version)
+        success_message = "Codex plugin validation passed."
+    else:
+        errors = validate_plugin(args.plugin_path, args.expected_version)
+        success_message = "Codex plugin validation passed."
     if errors:
-        print("Codex plugin validation failed:")
+        print(f"{('Codex marketplace' if args.marketplace else 'Codex plugin')} validation failed:")
         print("\n".join(f"- {error}" for error in errors))
         return 1
-    print("Codex plugin validation passed.")
+    print(success_message)
     return 0
 
 

@@ -39,3 +39,7 @@
 | 0035 | Consume native gh-aw admission in the fenced provider | done | security-engineer | sonnet | 0034 |
 | 0036 | Add native gh-aw worker handoff contract | done | reliability-engineer | sonnet | 0035 |
 | 0037 | Add native gh-aw provider lease supervision | done | reliability-engineer | sonnet | 0036 |
+| 0038 | Audit OpenAI universal Agent Plugin compatibility | done | architect | opus | 0037 |
+| 0039 | Add strict Codex marketplace contract validation | done | test-engineer | sonnet | 0038 |
+| 0040 | Prepare OpenAI skills-only submission evidence | ready | docs-writer | sonnet | 0038, 0039 |
+| 0041 | Evaluate optional OpenAI MCP and UI extension | backlog | architect | opus | 0038 |

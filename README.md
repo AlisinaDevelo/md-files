@@ -350,6 +350,8 @@ scripts/               validation, installation, release, and marketplace checks
   attestations, offline verification, and threat model
 - [Marketplace readiness](docs/marketplace-readiness.md) — honest directory status,
   publisher surfaces, asset policy, and submission smoke-test matrix
+- [OpenAI Agent Plugins compatibility](docs/openai-agent-plugins.md) — current universal
+  plugin contract, Forge audit, submission boundary, and staged compatibility plan
 - [Capability IR](docs/capability-ir.md) — body-aware graph, deterministic host renderer,
   adapter contract, migration workflow, and current compiler boundary
 - [Durable runtime](docs/runtime.md) — local SQLite/WAL history, deterministic replay,
