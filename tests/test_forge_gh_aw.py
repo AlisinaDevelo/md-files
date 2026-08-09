@@ -41,8 +41,15 @@ def native_fixture(module, output: Path) -> dict:
             "schema_version": manifest["upstream"]["workflow_schema"],
             "strict": True,
         }
+        container_image = "ghcr.io/example/forge-fixture"
+        container_digest = "sha256:" + "b" * 64
         upstream_manifest = {
             "actions": [{"repo": "actions/checkout", "sha": "a" * 40}],
+            "containers": [{
+                "image": container_image,
+                "digest": container_digest,
+                "pinned_image": f"{container_image}@{container_digest}",
+            }],
             "secrets": [],
             "version": 1,
         }
@@ -53,7 +60,47 @@ def native_fixture(module, output: Path) -> dict:
             f"# gh-aw-metadata: {json.dumps(metadata, sort_keys=True, separators=(',', ':'))}\n",
             f"# gh-aw-manifest: {json.dumps(upstream_manifest, sort_keys=True, separators=(',', ':'))}\n",
         ])
-        lock_path.write_text(header + lock_path.read_text(encoding="utf-8"), encoding="utf-8")
+        native_lock = "\n".join([
+            "name: Native fixture",
+            "permissions: {}",
+            f"# pinned-container: {container_image}@{container_digest}",
+            "jobs:",
+            "  activation:",
+            "    permissions: {}",
+            "  agent:",
+            "    needs: activation",
+            "    name: Read-only Forge agent contract",
+            "    permissions:",
+            "      actions: read",
+            "      contents: read",
+            "      issues: read",
+            "      pull-requests: read",
+            "    steps:",
+            f"      - uses: actions/checkout@{'a' * 40}",
+            "  detection:",
+            "    needs:",
+            "      - activation",
+            "      - agent",
+            "    permissions:",
+            "      contents: read",
+            "  safe_outputs:",
+            "    needs:",
+            "      - activation",
+            "      - agent",
+            "      - detection",
+            "    permissions:",
+            "      issues: write",
+            "  conclusion:",
+            "    needs:",
+            "      - activation",
+            "      - agent",
+            "      - detection",
+            "      - safe_outputs",
+            "    permissions:",
+            "      actions: write",
+            "",
+        ])
+        lock_path.write_text(header + native_lock, encoding="utf-8")
         artifact = next(item for item in manifest["artifacts"] if item["path"] == f"workflows/{lock_path.name}")
         artifact["sha256"] = module.file_digest(lock_path)
     manifest["mode"] = "upstream-gh-aw"
@@ -225,6 +272,80 @@ def test_native_mode_rejects_unpinned_upstream_metadata(tmp_path):
 
     with pytest.raises(module.GhAwError, match="compiler version"):
         module.check_artifacts(REPO, SPEC_PATH, tmp_path)
+
+
+def test_native_mode_rejects_unlisted_pinned_action(tmp_path):
+    module = load_module()
+    manifest = native_fixture(module, tmp_path)
+    path = tmp_path / "workflows/forge-ci-diagnosis.lock.yml"
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            f"actions/checkout@{'a' * 40}",
+            f"actions/checkout@{'c' * 40}",
+            1,
+        ),
+        encoding="utf-8",
+    )
+    artifact = next(item for item in manifest["artifacts"] if item["path"] == "workflows/forge-ci-diagnosis.lock.yml")
+    artifact["sha256"] = module.file_digest(path)
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(module.GhAwError, match="does not cover every emitted action"):
+        module.check_artifacts(REPO, SPEC_PATH, tmp_path)
+
+
+def test_native_mode_rejects_unpinned_list_action(tmp_path):
+    module = load_module()
+    manifest = native_fixture(module, tmp_path)
+    path = tmp_path / "workflows/forge-ci-diagnosis.lock.yml"
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            f"actions/checkout@{'a' * 40}",
+            "actions/checkout@v7",
+            1,
+        ),
+        encoding="utf-8",
+    )
+    artifact = next(item for item in manifest["artifacts"] if item["path"] == "workflows/forge-ci-diagnosis.lock.yml")
+    artifact["sha256"] = module.file_digest(path)
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(module.GhAwError, match="contains an unpinned action"):
+        module.check_artifacts(REPO, SPEC_PATH, tmp_path)
+
+
+def test_native_mode_rejects_unbound_container_digest(tmp_path):
+    module = load_module()
+    manifest = native_fixture(module, tmp_path)
+    path = tmp_path / "workflows/forge-ci-diagnosis.lock.yml"
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "# pinned-container: ghcr.io/example/forge-fixture@sha256:" + "b" * 64,
+            "# pinned-container: ghcr.io/example/forge-fixture@sha256:" + "c" * 64,
+            1,
+        ),
+        encoding="utf-8",
+    )
+    artifact = next(item for item in manifest["artifacts"] if item["path"] == "workflows/forge-ci-diagnosis.lock.yml")
+    artifact["sha256"] = module.file_digest(path)
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(module.GhAwError, match="does not bind upstream container digest"):
+        module.check_artifacts(REPO, SPEC_PATH, tmp_path)
+
+
+def test_native_job_graph_rejects_dependency_drift(tmp_path):
+    module = load_module()
+    native_fixture(module, tmp_path)
+    path = tmp_path / "workflows/forge-ci-diagnosis.lock.yml"
+    text = path.read_text(encoding="utf-8").replace(
+        "  detection:\n    needs:\n      - activation\n      - agent\n",
+        "  detection:\n    needs: activation\n",
+        1,
+    )
+
+    with pytest.raises(module.GhAwError, match="graph drift for detection"):
+        module._check_native_job_graph(text, path)
 
 
 def test_check_rejects_source_drift_even_when_manifest_hash_is_rewritten(tmp_path):

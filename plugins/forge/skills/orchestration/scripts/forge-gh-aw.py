@@ -67,6 +67,19 @@ UPSTREAM_MANIFEST_RE = re.compile(r"^# gh-aw-manifest: (?P<manifest>\{.*\})$", r
 JOB_HEADER_RE = re.compile(r"^  (?P<job>[a-z0-9][a-z0-9_-]*):\s*$", re.MULTILINE)
 PERMISSION_DECLARATION_RE = re.compile(r"^    permissions:(?:\s*(?P<inline>.*))?$")
 PERMISSION_ENTRY_RE = re.compile(r"^      (?P<name>[a-z0-9-]+):\s*(?P<value>[a-z]+)(?:\s+#.*)?$")
+NEEDS_DECLARATION_RE = re.compile(r"^    needs:(?:\s*(?P<inline>.*))?$")
+NEEDS_ENTRY_RE = re.compile(r"^      - (?P<job>[a-z0-9][a-z0-9_-]*)$")
+USES_REFERENCE_RE = re.compile(
+    r"^\s+(?:-\s+)?uses:\s+(?P<repo>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*)@(?P<sha>[0-9a-f]{40})(?:\s|$)"
+)
+CONTAINER_DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+NATIVE_JOB_NEEDS = {
+    "activation": set(),
+    "agent": {"activation"},
+    "detection": {"activation", "agent"},
+    "safe_outputs": {"activation", "agent", "detection"},
+    "conclusion": {"activation", "agent", "detection", "safe_outputs"},
+}
 
 
 class GhAwError(ValueError):
@@ -790,14 +803,43 @@ def _check_native_lock_evidence(output: Path, path: Path, manifest: Mapping[str,
     actions = native_manifest.get("actions") if isinstance(native_manifest, Mapping) else None
     if not isinstance(actions, list) or not actions:
         raise GhAwError(f"upstream action manifest is empty: {path.name}")
+    action_refs: set[tuple[str, str]] = set()
     for action in actions:
         if not isinstance(action, Mapping) or not isinstance(action.get("repo"), str):
             raise GhAwError(f"upstream action manifest is invalid: {path.name}")
         if not isinstance(action.get("sha"), str) or re.fullmatch(r"[0-9a-f]{40}", action["sha"]) is None:
             raise GhAwError(f"upstream action is not pinned: {path.name}")
+        action_ref = (action["repo"], action["sha"])
+        if action_ref in action_refs:
+            raise GhAwError(f"upstream action manifest contains a duplicate: {path.name}")
+        action_refs.add(action_ref)
+    containers = native_manifest.get("containers") if isinstance(native_manifest, Mapping) else None
+    if not isinstance(containers, list) or not containers:
+        raise GhAwError(f"upstream container manifest is empty: {path.name}")
+    lock_body = UPSTREAM_MANIFEST_RE.sub("", text, count=1)
+    for container in containers:
+        if not isinstance(container, Mapping):
+            raise GhAwError(f"upstream container manifest is invalid: {path.name}")
+        image = container.get("image")
+        container_digest = container.get("digest")
+        pinned_image = container.get("pinned_image")
+        if not isinstance(image, str) or not isinstance(container_digest, str) or not isinstance(pinned_image, str):
+            raise GhAwError(f"upstream container manifest is invalid: {path.name}")
+        if not CONTAINER_DIGEST_RE.fullmatch(container_digest) or pinned_image != f"{image}@{container_digest}":
+            raise GhAwError(f"upstream container is not digest-pinned: {path.name}")
+        if pinned_image not in lock_body:
+            raise GhAwError(f"native lock does not bind upstream container digest: {path.name}")
+    used_actions: set[tuple[str, str]] = set()
     for line in text.splitlines():
-        if re.match(r"^\s+uses:\s+", line) and re.search(r"@[0-9a-f]{40}(?:\s|$)", line) is None:
+        if not re.match(r"^\s+(?:-\s+)?uses:\s+", line):
+            continue
+        action_match = USES_REFERENCE_RE.match(line)
+        if action_match is None:
             raise GhAwError(f"native lock contains an unpinned action: {path.name}")
+        used_actions.add((action_match.group("repo"), action_match.group("sha")))
+    if not used_actions.issubset(action_refs):
+        raise GhAwError(f"native action manifest does not cover every emitted action: {path.name}")
+    _check_native_job_graph(text, path)
 
 
 def _job_sections(text: str, path: Path) -> dict[str, str]:
@@ -846,6 +888,90 @@ def _job_permissions(section: str, path: Path) -> dict[str, str]:
             permissions[entry.group("name")] = entry.group("value")
             index += 1
     return permissions
+
+
+def _job_needs(section: str, path: Path) -> set[str]:
+    lines = section.splitlines()
+    dependencies: set[str] = set()
+    index = 0
+    while index < len(lines):
+        declaration = NEEDS_DECLARATION_RE.fullmatch(lines[index])
+        if declaration is None:
+            index += 1
+            continue
+        inline = (declaration.group("inline") or "").strip()
+        if inline:
+            if inline == "[]":
+                index += 1
+                continue
+            if inline.startswith("[") and inline.endswith("]"):
+                values = [item.strip().strip("'\"") for item in inline[1:-1].split(",") if item.strip()]
+            else:
+                values = [inline.strip("'\"")]
+            for value in values:
+                if re.fullmatch(r"[a-z0-9][a-z0-9_-]*", value) is None:
+                    raise GhAwError(f"invalid job dependency: {path.name}")
+                dependencies.add(value)
+            index += 1
+            continue
+        index += 1
+        while index < len(lines):
+            line = lines[index]
+            if not line.strip():
+                index += 1
+                continue
+            if not line.startswith("      "):
+                break
+            entry = NEEDS_ENTRY_RE.fullmatch(line)
+            if entry is None:
+                raise GhAwError(f"invalid job dependency list: {path.name}")
+            dependencies.add(entry.group("job"))
+            index += 1
+    return dependencies
+
+
+def _check_job_graph(jobs: Mapping[str, str], path: Path) -> dict[str, set[str]]:
+    dependencies = {job: _job_needs(section, path) for job, section in jobs.items()}
+    for job, required in dependencies.items():
+        unknown = sorted(required - jobs.keys())
+        if unknown:
+            raise GhAwError(f"job {job} depends on undeclared job(s): {', '.join(unknown)} in {path.name}")
+
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(job: str) -> None:
+        if job in visiting:
+            raise GhAwError(f"job graph contains a cycle: {path.name}")
+        if job in visited:
+            return
+        visiting.add(job)
+        for dependency in dependencies[job]:
+            visit(dependency)
+        visiting.remove(job)
+        visited.add(job)
+
+    for job in dependencies:
+        visit(job)
+    return dependencies
+
+
+def _check_native_job_graph(text: str, path: Path) -> None:
+    jobs = _job_sections(text, path)
+    missing = sorted(set(NATIVE_JOB_NEEDS) - jobs.keys())
+    if missing:
+        raise GhAwError(f"native lock is missing required job role(s): {', '.join(missing)} in {path.name}")
+    dependencies = _check_job_graph(jobs, path)
+    expected_needs = {job: set(required) for job, required in NATIVE_JOB_NEEDS.items()}
+    if "pre_activation" in jobs:
+        if dependencies["pre_activation"]:
+            raise GhAwError(f"native job graph drift for pre_activation: expected none in {path.name}")
+        expected_needs["activation"] = {"pre_activation"}
+    for job, expected in expected_needs.items():
+        if dependencies[job] != expected:
+            expected_text = ", ".join(sorted(expected)) or "none"
+            actual_text = ", ".join(sorted(dependencies[job])) or "none"
+            raise GhAwError(f"native job graph drift for {job}: expected {expected_text}, got {actual_text} in {path.name}")
 
 
 def _check_lock_permission_boundary(text: str, path: Path, mode: str) -> dict[str, str]:

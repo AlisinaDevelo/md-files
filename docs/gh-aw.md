@@ -46,9 +46,10 @@ Hosted CI runs the native command twice in isolated runner directories through t
 job and requires the complete artifact trees to be byte-identical. The verifier requires the exact
 Forge source and definition digests, an empty top-level permission map, a read-only agent job,
 write permission only in the upstream safe-output/conclusion boundary, upstream compiler version
-and schema metadata, strict compilation, a SHA-pinned action manifest, and a complete artifact
-inventory. This gate compiles and checks locks only; it does not dispatch a workflow, approve a
-safe output, or publish generated files.
+and schema metadata, strict compilation, complete SHA coverage for emitted actions, digest-bound
+upstream containers, the pinned native job dependency graph, and a complete artifact inventory.
+This gate compiles and checks locks only; it does not dispatch a workflow, approve a safe output,
+or publish generated files.
 
 ## Safety boundary
 
