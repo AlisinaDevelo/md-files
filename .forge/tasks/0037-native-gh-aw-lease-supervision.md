@@ -1,7 +1,7 @@
 ---
 id: 0037
 title: Add native gh-aw provider lease supervision
-status: review
+status: done
 agent: reliability-engineer
 model: sonnet
 depends_on: [0036]
@@ -24,8 +24,8 @@ heartbeat lease before the receipt is acknowledged.
       after an external call returns but before acknowledgement.
 - [x] Tests cover heartbeat evidence, stale-owner/generation rejection, pre-call fencing, and
       post-call lease loss without recording raw provider responses.
-- [ ] The roadmap, provider docs, capability projections, local validation, and hosted CI remain
-      current under the `AlisinaDevelo` GitHub identity. Hosted CI is pending the review push.
+- [x] The roadmap, provider docs, capability projections, local validation, and hosted CI remain
+      current under the `AlisinaDevelo` GitHub identity.
 
 ## Context
 
@@ -48,3 +48,8 @@ loss remains ambiguous and must be recovered through the existing journal/reconc
   passed.
 - Static eval: 312/313 passed with one pre-existing situational warning and zero failures.
 - Cross-host scenarios: 12 passed, 12 skipped, zero failures.
+
+## Hosted verification
+
+- GitHub Actions CI: [run 31288519499](https://github.com/AlisinaDevelo/md-files/actions/runs/31288519499)
+  passed for commit `e76c957`.
