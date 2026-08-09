@@ -33,4 +33,4 @@
 | 0029 | Add reviewed adaptive-routing rollout certificates | done | architect | opus | 0025 |
 | 0030 | Add operator-confirmed gh-aw dispatch reconciliation | done | reliability-engineer | sonnet | 0028 |
 | 0031 | Gate pinned native gh-aw compilation | done | devops-engineer | sonnet | 0026, 0030 |
-| 0032 | Enforce reproducible native gh-aw output | in_progress | devops-engineer | sonnet | 0031 |
+| 0032 | Enforce reproducible native gh-aw output | done | devops-engineer | sonnet | 0031 |

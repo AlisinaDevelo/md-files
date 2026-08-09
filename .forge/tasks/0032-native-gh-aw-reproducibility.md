@@ -1,7 +1,7 @@
 ---
 id: 0032
 title: Enforce reproducible native gh-aw output
-status: in_progress
+status: done
 agent: devops-engineer
 model: sonnet
 depends_on: [0031]
@@ -23,7 +23,7 @@ control-plane job.
       safe-output boundary.
 - [x] Hosted CI compiles and verifies all five native workflows twice in isolated directories and
       fails unless the complete artifact trees are byte-identical.
-- [ ] Full local validation and hosted CI pass for the pushed branch.
+- [x] Full local validation and hosted CI pass for the pushed branch.
 
 ## Context
 
@@ -39,4 +39,7 @@ structural permission-boundary gaps without dispatching a workflow or approving 
   all five workflows.
 - Full local pytest passes (`284 passed`); `scripts/validate.sh`, full Ruff, Markdownlint (`0`
   issues across `197` files), ShellCheck, cross-host scenarios (`12/12`), and `git diff --check`
-  pass. Hosted CI is the remaining gate.
+  pass.
+- Hosted CI run [31285262041](https://github.com/AlisinaDevelo/md-files/actions/runs/31285262041)
+  passes all applicable jobs, including the pinned native compiler and release reproducibility
+  gates; OpenSSF Scorecard is skipped on the feature branch.
