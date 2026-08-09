@@ -42,11 +42,13 @@ and keeps the pinned version and commit in the generated manifest. The generated
 the upstream Markdown frontmatter contract, while Forge adds capability digests, bounded
 dispatch declarations, protected-path checks, and policy evidence.
 
-Hosted CI runs the native command in a temporary runner directory through the `gh-aw-native`
-job. The verifier requires the exact Forge source and definition digests, upstream compiler
-version and schema metadata, strict compilation, a SHA-pinned action manifest, and a complete
-artifact inventory. This gate compiles and checks locks only; it does not dispatch a workflow,
-approve a safe output, or publish generated files.
+Hosted CI runs the native command twice in isolated runner directories through the `gh-aw-native`
+job and requires the complete artifact trees to be byte-identical. The verifier requires the exact
+Forge source and definition digests, an empty top-level permission map, a read-only agent job,
+write permission only in the upstream safe-output/conclusion boundary, upstream compiler version
+and schema metadata, strict compilation, a SHA-pinned action manifest, and a complete artifact
+inventory. This gate compiles and checks locks only; it does not dispatch a workflow, approve a
+safe output, or publish generated files.
 
 ## Safety boundary
 

@@ -107,20 +107,24 @@ jobs:
             v0.85.4|"gh aw version v0.85.4") ;;
             *) exit 1 ;;
           esac
-      - name: Compile and verify native locks without dispatch
+      - name: Compile, verify, and reproduce native locks without dispatch
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          output="$RUNNER_TEMP/forge-gh-aw-native"
-          python3 scripts/forge-gh-aw.py compile \
-            --spec data/gh-aw-workflows.json \
-            --output "$output" \
-            --upstream
-          python3 scripts/forge-gh-aw.py check \
-            --spec data/gh-aw-workflows.json \
-            --output "$output"
-          test "$(find "$output/workflows" -name '*.lock.yml' -type f | wc -l | tr -d ' ')" = "5"
+          first="$RUNNER_TEMP/forge-gh-aw-native-first"
+          second="$RUNNER_TEMP/forge-gh-aw-native-second"
+          for output in "$first" "$second"; do
+            python3 scripts/forge-gh-aw.py compile \
+              --spec data/gh-aw-workflows.json \
+              --output "$output" \
+              --upstream
+            python3 scripts/forge-gh-aw.py check \
+              --spec data/gh-aw-workflows.json \
+              --output "$output"
+            test "$(find "$output/workflows" -name '*.lock.yml' -type f | wc -l | tr -d ' ')" = "5"
+          done
+          diff -ru "$first" "$second"
 
   python-lint:
     name: Hook scripts (ruff + compile)

@@ -64,6 +64,9 @@ NATIVE_EVIDENCE_RE = re.compile(
 )
 UPSTREAM_METADATA_RE = re.compile(r"^# gh-aw-metadata: (?P<metadata>\{.*\})$", re.MULTILINE)
 UPSTREAM_MANIFEST_RE = re.compile(r"^# gh-aw-manifest: (?P<manifest>\{.*\})$", re.MULTILINE)
+JOB_HEADER_RE = re.compile(r"^  (?P<job>[a-z0-9][a-z0-9_-]*):\s*$", re.MULTILINE)
+PERMISSION_DECLARATION_RE = re.compile(r"^    permissions:(?:\s*(?P<inline>.*))?$")
+PERMISSION_ENTRY_RE = re.compile(r"^      (?P<name>[a-z0-9-]+):\s*(?P<value>[a-z]+)(?:\s+#.*)?$")
 
 
 class GhAwError(ValueError):
@@ -797,6 +800,74 @@ def _check_native_lock_evidence(output: Path, path: Path, manifest: Mapping[str,
             raise GhAwError(f"native lock contains an unpinned action: {path.name}")
 
 
+def _job_sections(text: str, path: Path) -> dict[str, str]:
+    jobs_match = re.search(r"^jobs:\s*$", text, re.MULTILINE)
+    if jobs_match is None:
+        raise GhAwError(f"lock is missing a jobs section: {path.name}")
+    headers = list(JOB_HEADER_RE.finditer(text, jobs_match.end()))
+    if not headers:
+        raise GhAwError(f"lock has no jobs: {path.name}")
+    sections: dict[str, str] = {}
+    for index, header in enumerate(headers):
+        job = header.group("job")
+        if job in sections:
+            raise GhAwError(f"lock contains a duplicate job: {path.name}")
+        end = headers[index + 1].start() if index + 1 < len(headers) else len(text)
+        sections[job] = text[header.end() : end]
+    return sections
+
+
+def _job_permissions(section: str, path: Path) -> dict[str, str]:
+    lines = section.splitlines()
+    permissions: dict[str, str] = {}
+    index = 0
+    while index < len(lines):
+        declaration = PERMISSION_DECLARATION_RE.fullmatch(lines[index])
+        if declaration is None:
+            index += 1
+            continue
+        inline = (declaration.group("inline") or "").strip()
+        if inline:
+            if inline != "{}":
+                raise GhAwError(f"unsupported job permissions declaration: {path.name}")
+            index += 1
+            continue
+        index += 1
+        while index < len(lines):
+            line = lines[index]
+            if not line.strip():
+                index += 1
+                continue
+            if not line.startswith("      "):
+                break
+            entry = PERMISSION_ENTRY_RE.fullmatch(line)
+            if entry is None:
+                raise GhAwError(f"invalid job permissions block: {path.name}")
+            permissions[entry.group("name")] = entry.group("value")
+            index += 1
+    return permissions
+
+
+def _check_lock_permission_boundary(text: str, path: Path, mode: str) -> dict[str, str]:
+    if re.search(r"^permissions:\s*\{\}\s*$", text, re.MULTILINE) is None:
+        raise GhAwError(f"lock top-level permissions are not empty: {path.name}")
+    jobs = _job_sections(text, path)
+    if "agent" not in jobs:
+        raise GhAwError(f"lock is missing the read-only agent job: {path.name}")
+    allowed_writer_jobs = {"safe_outputs"}
+    if mode == "upstream-gh-aw":
+        allowed_writer_jobs.add("conclusion")
+    for job, section in jobs.items():
+        writes = sorted(name for name, value in _job_permissions(section, path).items() if value == "write")
+        if not writes:
+            continue
+        if job == "agent":
+            raise GhAwError(f"agent job has write permissions: {path.name}")
+        if job not in allowed_writer_jobs:
+            raise GhAwError(f"job has write permissions outside safe-output boundary: {job} in {path.name}")
+    return jobs["agent"]
+
+
 def check_artifacts(repo: Path, spec_path: Path, output: Path) -> dict[str, Any]:
     manifest = _load_json(output / "manifest.json", "gh-aw manifest")
     with tempfile.TemporaryDirectory(prefix="forge-gh-aw-check-") as temporary:
@@ -831,8 +902,7 @@ def check_artifacts(repo: Path, spec_path: Path, output: Path) -> dict[str, Any]
             raise GhAwError(f"source-to-lock drift detected: {artifact['path']}")
     for path in sorted((output / "workflows").glob("*.lock.yml")):
         text = path.read_text(encoding="utf-8")
-        agent_match = re.search(r"^  agent:\n(?P<section>(?:(?!^  [a-z_]+:).*(?:\n|$))*)", text, re.MULTILINE)
-        agent_section = agent_match.group("section") if agent_match else ""
+        agent_section = _check_lock_permission_boundary(text, path, mode)
         if re.search(r"^\s+(contents|issues|pull-requests|actions): write\s*$", agent_section, re.MULTILINE):
             raise GhAwError(f"agent job has write permissions: {path.name}")
         secret_names = set(SECRET_REFERENCE_RE.findall(agent_section))

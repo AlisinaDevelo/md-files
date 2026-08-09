@@ -119,6 +119,66 @@ def test_check_rejects_artifact_drift(tmp_path):
         module.check_artifacts(REPO, SPEC_PATH, tmp_path)
 
 
+def test_check_rejects_nonempty_top_level_permissions(tmp_path):
+    module = load_module()
+    manifest = native_fixture(module, tmp_path)
+    path = tmp_path / "workflows/forge-ci-diagnosis.lock.yml"
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "permissions: {}\n",
+            "permissions:\n  contents: read\n",
+            1,
+        ),
+        encoding="utf-8",
+    )
+    artifact = next(item for item in manifest["artifacts"] if item["path"] == "workflows/forge-ci-diagnosis.lock.yml")
+    artifact["sha256"] = module.file_digest(path)
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(module.GhAwError, match="top-level permissions"):
+        module.check_artifacts(REPO, SPEC_PATH, tmp_path)
+
+
+def test_check_rejects_writes_outside_safe_output_boundary(tmp_path):
+    module = load_module()
+    manifest = module.compile_artifacts(REPO, SPEC_PATH, tmp_path)
+    path = tmp_path / "workflows/forge-ci-diagnosis.lock.yml"
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "    permissions: {}\n",
+            "    permissions:\n      contents: write\n",
+            1,
+        ),
+        encoding="utf-8",
+    )
+    artifact = next(item for item in manifest["artifacts"] if item["path"] == "workflows/forge-ci-diagnosis.lock.yml")
+    artifact["sha256"] = module.file_digest(path)
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(module.GhAwError, match="outside safe-output boundary"):
+        module.check_artifacts(REPO, SPEC_PATH, tmp_path)
+
+
+def test_check_rejects_scalar_job_permissions(tmp_path):
+    module = load_module()
+    manifest = module.compile_artifacts(REPO, SPEC_PATH, tmp_path)
+    path = tmp_path / "workflows/forge-ci-diagnosis.lock.yml"
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "    permissions: {}\n",
+            "    permissions: write-all\n",
+            1,
+        ),
+        encoding="utf-8",
+    )
+    artifact = next(item for item in manifest["artifacts"] if item["path"] == "workflows/forge-ci-diagnosis.lock.yml")
+    artifact["sha256"] = module.file_digest(path)
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    with pytest.raises(module.GhAwError, match="unsupported job permissions"):
+        module.check_artifacts(REPO, SPEC_PATH, tmp_path)
+
+
 def test_check_rejects_unknown_native_secret_reference(tmp_path):
     module = load_module()
     manifest = module.compile_artifacts(REPO, SPEC_PATH, tmp_path)
