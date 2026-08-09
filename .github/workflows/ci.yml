@@ -233,7 +233,7 @@ jobs:
         run: |
           set -euo pipefail
           version="$(jq -r '.version' plugins/forge/.claude-plugin/plugin.json)"
-          candidate="$(mktemp -d)"
+          candidate="$(mktemp -d "$RUNNER_TEMP/forge-codex-candidate.XXXXXX")"
           mkdir "$candidate/dist"
           epoch="$(git show -s --format=%ct HEAD)"
           python3 scripts/build_release.py \
