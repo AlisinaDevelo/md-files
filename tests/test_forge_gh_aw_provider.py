@@ -376,7 +376,7 @@ def test_plan_is_digest_only_and_does_not_consume_approval(tmp_path):
 
 def test_native_provider_requires_admission_and_accepts_history_suffix(tmp_path):
     module = load_module()
-    bridge, output, database, episode_id, request, effect, admission = native_dispatch_episode(
+    _bridge, output, database, episode_id, request, effect, admission = native_dispatch_episode(
         module, *prepare_native(module, tmp_path), tmp_path
     )
     approvals = tmp_path / "approvals.jsonl"
