@@ -25,8 +25,11 @@ DEFAULT_DB = REPO / ".forge" / "runtime.sqlite3"
 BRIDGE_REVISION = "forge-gh-aw-runtime-v1"
 ADMISSION_REVISION = "forge-gh-aw-admission-v1"
 ADMISSION_SCHEMA = "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw-admission/v1"
+HANDOFF_REVISION = "forge-gh-aw-worker-handoff-v1"
+HANDOFF_SCHEMA = "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw-worker-handoff/v1"
 SCHEMA_VERSION = 1
 ADMISSION_SCHEMA_VERSION = 1
+HANDOFF_SCHEMA_VERSION = 1
 REF_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 HISTORY_HASH_RE = re.compile(r"^[0-9a-f]{64}$")
 PROVIDER_REFERENCE_KEYS = ("provider_request_id", "resource_ref", "result_ref")
@@ -70,6 +73,22 @@ ADMISSION_CERTIFICATE_KEYS = {
     "safe_outputs",
     "history_sequence",
     "history_head",
+}
+HANDOFF_KEYS = {
+    "$schema",
+    "schema_version",
+    "contract_revision",
+    "handoff_id",
+    "admission_id",
+    "episode_id",
+    "dispatcher_workflow_id",
+    "effect_id",
+    "worker_id",
+    "effect_type",
+    "workflow_id",
+    "safe_output_type",
+    "request_ref",
+    "lease_generation",
 }
 ADMISSION_DEFINITION_FIELDS = (
     "workflow_id",
@@ -523,6 +542,267 @@ def verify_admission_certificate(
     if certificate != expected:
         raise GhAwRuntimeError("admission certificate does not match the current native runtime")
     return copy.deepcopy(certificate)
+
+
+def _handoff_effect_material(effect: Mapping[str, Any]) -> dict[str, str]:
+    effect_type = _text(effect.get("effect_type"), "effect_type")
+    payload = effect.get("payload")
+    if not isinstance(payload, Mapping):
+        raise GhAwRuntimeError("native worker effect payload is invalid")
+    if effect_type == SAFE_OUTPUT_EFFECT_TYPES["dispatch-workflow"]:
+        workflow_id = payload.get("worker_workflow_id")
+        safe_output_type = "dispatch-workflow"
+        request_ref = payload.get("request_digest")
+    else:
+        workflow_id = payload.get("workflow_id")
+        safe_output_type = payload.get("safe_output_type")
+        request_ref = payload.get("output_ref")
+    return {
+        "effect_type": effect_type,
+        "workflow_id": _text(workflow_id, "handoff.workflow_id", maximum=128),
+        "safe_output_type": _text(safe_output_type, "handoff.safe_output_type", maximum=64),
+        "request_ref": _ref(request_ref, "handoff.request_ref"),
+    }
+
+
+def _handoff_material(
+    admission_id: str,
+    episode_id: str,
+    dispatcher_id: str,
+    effect: Mapping[str, Any],
+    worker_id: str,
+) -> dict[str, Any]:
+    effect_id = _text(effect.get("effect_id"), "handoff.effect_id")
+    lease_generation = effect.get("lease_generation")
+    if isinstance(lease_generation, bool) or not isinstance(lease_generation, int) or lease_generation < 1:
+        raise GhAwRuntimeError("handoff.lease_generation must be a positive integer")
+    return {
+        "contract_revision": HANDOFF_REVISION,
+        "admission_id": _ref(admission_id, "handoff.admission_id"),
+        "episode_id": _text(episode_id, "handoff.episode_id", maximum=256),
+        "dispatcher_workflow_id": _text(dispatcher_id, "handoff.dispatcher_workflow_id", maximum=128),
+        "effect_id": effect_id,
+        "worker_id": _text(worker_id, "handoff.worker_id", maximum=128),
+        **_handoff_effect_material(effect),
+        "lease_generation": lease_generation,
+    }
+
+
+def _worker_handoff(material: Mapping[str, Any]) -> dict[str, Any]:
+    normalized = copy.deepcopy(dict(material))
+    return {
+        "$schema": HANDOFF_SCHEMA,
+        "schema_version": HANDOFF_SCHEMA_VERSION,
+        "contract_revision": HANDOFF_REVISION,
+        "handoff_id": _compiler().digest(normalized),
+        **normalized,
+    }
+
+
+def _load_worker_handoff(path: Path) -> dict[str, Any]:
+    try:
+        if path.is_symlink() or not path.is_file():
+            raise GhAwRuntimeError(f"worker handoff path is not a regular file: {path}")
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except GhAwRuntimeError:
+        raise
+    except (OSError, json.JSONDecodeError) as exc:
+        raise GhAwRuntimeError(f"cannot read worker handoff: {path}") from exc
+    if not isinstance(value, dict):
+        raise GhAwRuntimeError("worker handoff must contain an object")
+    missing = sorted(HANDOFF_KEYS - set(value))
+    unknown = sorted(set(value) - HANDOFF_KEYS)
+    if missing or unknown:
+        details = []
+        if missing:
+            details.append("missing " + ", ".join(missing))
+        if unknown:
+            details.append("unsupported " + ", ".join(unknown))
+        raise GhAwRuntimeError("worker handoff fields are invalid: " + "; ".join(details))
+    if value["$schema"] != HANDOFF_SCHEMA:
+        raise GhAwRuntimeError("worker handoff has the wrong schema URI")
+    if value["schema_version"] != HANDOFF_SCHEMA_VERSION:
+        raise GhAwRuntimeError("unsupported worker handoff schema version")
+    if value["contract_revision"] != HANDOFF_REVISION:
+        raise GhAwRuntimeError("unsupported worker handoff contract revision")
+    _ref(value["handoff_id"], "handoff_id")
+    _ref(value["admission_id"], "handoff.admission_id")
+    _text(value["episode_id"], "handoff.episode_id", maximum=256)
+    _text(value["dispatcher_workflow_id"], "handoff.dispatcher_workflow_id", maximum=128)
+    _text(value["effect_id"], "handoff.effect_id")
+    _text(value["worker_id"], "handoff.worker_id", maximum=128)
+    _text(value["effect_type"], "handoff.effect_type", maximum=128)
+    _text(value["workflow_id"], "handoff.workflow_id", maximum=128)
+    _text(value["safe_output_type"], "handoff.safe_output_type", maximum=64)
+    _ref(value["request_ref"], "handoff.request_ref")
+    if isinstance(value["lease_generation"], bool) or not isinstance(value["lease_generation"], int) or value["lease_generation"] < 1:
+        raise GhAwRuntimeError("handoff.lease_generation must be a positive integer")
+    return value
+
+
+def _write_worker_handoff(path: Path, handoff: Mapping[str, Any]) -> None:
+    serialized = json.dumps(handoff, indent=2, sort_keys=True, ensure_ascii=True) + "\n"
+    try:
+        if path.exists():
+            if path.is_symlink() or not path.is_file():
+                raise GhAwRuntimeError(f"worker handoff path is not a regular file: {path}")
+            if path.read_text(encoding="utf-8") != serialized:
+                raise GhAwRuntimeError(f"worker handoff path already contains a different handoff: {path}")
+            return
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(serialized, encoding="utf-8")
+    except GhAwRuntimeError:
+        raise
+    except OSError as exc:
+        raise GhAwRuntimeError(f"cannot write worker handoff: {path}") from exc
+
+
+def native_worker_handoff(
+    spec_path: Path,
+    output: Path,
+    database: Path,
+    dispatcher_id: str,
+    episode_id: str,
+    effect_id: str,
+    worker_id: str,
+    certificate_path: Path,
+    handoff_path: Path,
+    *,
+    request_ref: str | None = None,
+    now: str | None = None,
+) -> dict[str, Any]:
+    """Claim one native effect after admission and emit a provider-consumable handoff."""
+
+    context = _contract(spec_path, output)
+    if context["manifest"]["mode"] != "upstream-gh-aw":
+        raise GhAwRuntimeError("native worker handoff requires upstream native artifacts")
+    admission = verify_admission_certificate(
+        spec_path,
+        output,
+        database,
+        certificate_path,
+        episode_id=episode_id,
+        dispatcher_id=dispatcher_id,
+    )
+    runtime = _runtime()
+    effect_id = runtime._text(effect_id, "effect_id")
+    worker_id = runtime._identifier(worker_id, "worker_id")
+    if request_ref is not None:
+        request_ref = _ref(request_ref, "request_ref")
+    with runtime.RuntimeStore(database) as store:
+        _require_running(store, episode_id)
+        effects = [item for item in store.list_outbox(episode_id) if item["effect_id"] == effect_id]
+        if not effects:
+            raise GhAwRuntimeError(f"unknown episode effect: {effect_id}")
+        effect = effects[0]
+        effect_material = _handoff_effect_material(effect)
+        if request_ref is not None and effect_material["request_ref"] != request_ref:
+            raise GhAwRuntimeError("request_ref does not match the native effect")
+        if effect["status"] not in {"pending", "retry", "leased"}:
+            raise GhAwRuntimeError(f"native effect cannot be handed off: {effect['status']}")
+        claimed = store.claim_outbox(
+            worker_id,
+            limit=1,
+            run_id=episode_id,
+            effect_id=effect_id,
+            definition_descriptor=store.definition(episode_id),
+            now=now,
+        )
+        if claimed:
+            effect = claimed[0]
+        else:
+            current = [item for item in store.list_outbox(episode_id) if item["effect_id"] == effect_id]
+            if not current or current[0]["status"] != "leased":
+                raise GhAwRuntimeError("native effect was not claimed")
+            effect = current[0]
+        if effect.get("lease_owner") != worker_id:
+            raise GhAwRuntimeError("native effect lease belongs to another worker")
+        material = _handoff_material(
+            admission["admission_id"],
+            episode_id,
+            dispatcher_id,
+            effect,
+            worker_id,
+        )
+    current_admission = verify_admission_certificate(
+        spec_path,
+        output,
+        database,
+        certificate_path,
+        episode_id=episode_id,
+        dispatcher_id=dispatcher_id,
+    )
+    if current_admission["admission_id"] != admission["admission_id"]:
+        raise GhAwRuntimeError("native admission identity changed during handoff")
+    handoff = _worker_handoff(material)
+    _write_worker_handoff(handoff_path, handoff)
+    return copy.deepcopy(handoff)
+
+
+def verify_native_worker_handoff(
+    spec_path: Path,
+    output: Path,
+    database: Path,
+    handoff_path: Path,
+    certificate_path: Path,
+    *,
+    episode_id: str | None = None,
+    dispatcher_id: str | None = None,
+    effect_id: str | None = None,
+    worker_id: str | None = None,
+    lease_generation: int | None = None,
+    request_ref: str | None = None,
+) -> dict[str, Any]:
+    """Verify a native handoff against the live leased effect without external effects."""
+
+    handoff = _load_worker_handoff(handoff_path)
+    if episode_id is not None and handoff["episode_id"] != episode_id:
+        raise GhAwRuntimeError("worker handoff episode_id does not match the request")
+    if dispatcher_id is not None and handoff["dispatcher_workflow_id"] != dispatcher_id:
+        raise GhAwRuntimeError("worker handoff dispatcher does not match the request")
+    if effect_id is not None and handoff["effect_id"] != effect_id:
+        raise GhAwRuntimeError("worker handoff effect does not match the request")
+    if worker_id is not None and handoff["worker_id"] != worker_id:
+        raise GhAwRuntimeError("worker handoff worker does not match the request")
+    if lease_generation is not None and handoff["lease_generation"] != lease_generation:
+        raise GhAwRuntimeError("worker handoff lease generation does not match the request")
+    if request_ref is not None and handoff["request_ref"] != _ref(request_ref, "request_ref"):
+        raise GhAwRuntimeError("worker handoff request_ref does not match the request")
+    admission = verify_admission_certificate(
+        spec_path,
+        output,
+        database,
+        certificate_path,
+        episode_id=handoff["episode_id"],
+        dispatcher_id=handoff["dispatcher_workflow_id"],
+    )
+    if handoff["admission_id"] != admission["admission_id"]:
+        raise GhAwRuntimeError("worker handoff admission does not match the certificate")
+    runtime = _runtime()
+    with runtime.RuntimeStore(database) as store:
+        state = _require_running(store, handoff["episode_id"])
+        effects = [item for item in store.list_outbox(handoff["episode_id"]) if item["effect_id"] == handoff["effect_id"]]
+        if not effects:
+            raise GhAwRuntimeError(f"unknown episode effect: {handoff['effect_id']}")
+        effect = effects[0]
+        if effect["status"] != "leased":
+            raise GhAwRuntimeError(f"native worker handoff lease is not current: {effect['status']}")
+        if effect.get("lease_owner") != handoff["worker_id"]:
+            raise GhAwRuntimeError("native worker handoff lease owner changed")
+        expected = _worker_handoff(
+            _handoff_material(
+                admission["admission_id"],
+                handoff["episode_id"],
+                handoff["dispatcher_workflow_id"],
+                effect,
+                handoff["worker_id"],
+            )
+        )
+    if handoff != expected:
+        raise GhAwRuntimeError("worker handoff does not match the current native lease")
+    if state["status"] != "running":
+        raise GhAwRuntimeError("native worker handoff episode is not running")
+    return copy.deepcopy(handoff)
 
 
 def _episode_effect(
@@ -1150,6 +1430,16 @@ def main(argv: list[str] | None = None) -> int:
     _common(preflight_parser)
     preflight_parser.add_argument("--request-digest", required=True)
     preflight_parser.add_argument("--certificate", type=Path)
+    handoff_parser = subparsers.add_parser(
+        "native-handoff", help="claim one native effect and emit a verified worker handoff"
+    )
+    _common(handoff_parser)
+    handoff_parser.add_argument("--effect-id", required=True)
+    handoff_parser.add_argument("--worker-id", required=True)
+    handoff_parser.add_argument("--request-ref")
+    handoff_parser.add_argument("--certificate", type=Path, required=True)
+    handoff_parser.add_argument("--handoff", type=Path, required=True)
+    handoff_parser.add_argument("--now")
     inspect_parser = subparsers.add_parser("inspect", help="inspect a privacy-safe episode projection")
     _common(inspect_parser)
     try:
@@ -1266,6 +1556,20 @@ def main(argv: list[str] | None = None) -> int:
                 args.episode_id,
                 args.request_digest,
                 certificate_path=args.certificate,
+            )
+        elif args.command == "native-handoff":
+            result = native_worker_handoff(
+                args.spec,
+                args.output,
+                args.db,
+                args.dispatcher,
+                args.episode_id,
+                args.effect_id,
+                args.worker_id,
+                args.certificate,
+                args.handoff,
+                request_ref=args.request_ref,
+                now=args.now,
             )
         else:
             result = inspect_episode(args.spec, args.output, args.db, args.dispatcher, args.episode_id)

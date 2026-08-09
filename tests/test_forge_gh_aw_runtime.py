@@ -565,3 +565,162 @@ def test_native_admission_verifier_accepts_history_suffix_and_rejects_unknown_fi
             certificate_path,
             episode_id=started["episode_id"],
         )
+
+
+def test_native_worker_handoff_claims_one_effect_and_replays_same_lease(tmp_path):
+    module = load_module()
+    output, database = prepare_native(module, tmp_path)
+    started = module.start_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        REF_A,
+        occurred_at="2026-08-08T09:00:00Z",
+    )
+    certificate_path = tmp_path / "admission.json"
+    module.preflight_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        started["episode_id"],
+        REF_A,
+        certificate_path=certificate_path,
+    )
+    module.dispatch_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        started["episode_id"],
+        REF_A,
+        occurred_at="2026-08-08T09:01:00Z",
+    )
+    with module._runtime().RuntimeStore(database) as store:
+        target = next(
+            item for item in store.list_outbox(started["episode_id"])
+            if item["task_id"] == "forge-issue-triage"
+        )
+    handoff_path = tmp_path / "handoff.json"
+    first = module.native_worker_handoff(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        started["episode_id"],
+        target["effect_id"],
+        "native-worker",
+        certificate_path,
+        handoff_path,
+        request_ref=target["payload"]["request_digest"],
+        now="2026-08-08T09:02:00Z",
+    )
+    second = module.native_worker_handoff(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        started["episode_id"],
+        target["effect_id"],
+        "native-worker",
+        certificate_path,
+        handoff_path,
+        request_ref=target["payload"]["request_digest"],
+        now="2026-08-08T09:02:30Z",
+    )
+
+    assert first == second
+    assert json.loads(handoff_path.read_text(encoding="utf-8")) == first
+    assert first["safe_output_type"] == "dispatch-workflow"
+    assert first["workflow_id"] == "forge-issue-triage"
+    assert first["lease_generation"] == 1
+    assert "payload" not in json.dumps(first, sort_keys=True)
+    assert "runtime.sqlite" not in json.dumps(first, sort_keys=True)
+    verified = module.verify_native_worker_handoff(
+        SPEC_PATH,
+        output,
+        database,
+        handoff_path,
+        certificate_path,
+        episode_id=started["episode_id"],
+        dispatcher_id="forge-dispatcher",
+        effect_id=target["effect_id"],
+        worker_id="native-worker",
+        lease_generation=1,
+        request_ref=target["payload"]["request_digest"],
+    )
+    assert verified == first
+    with module._runtime().RuntimeStore(database) as store:
+        effects = store.list_outbox(started["episode_id"])
+    leased = [item for item in effects if item["status"] == "leased"]
+    assert len(leased) == 1
+    assert leased[0]["effect_id"] == target["effect_id"]
+    assert leased[0]["lease_owner"] == "native-worker"
+
+
+def test_native_worker_handoff_rejects_tampering_and_lease_owner_drift(tmp_path):
+    module = load_module()
+    output, database = prepare_native(module, tmp_path)
+    started = module.start_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        REF_A,
+        occurred_at="2026-08-08T09:10:00Z",
+    )
+    certificate_path = tmp_path / "admission.json"
+    module.preflight_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        started["episode_id"],
+        REF_A,
+        certificate_path=certificate_path,
+    )
+    module.dispatch_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        started["episode_id"],
+        REF_A,
+        occurred_at="2026-08-08T09:11:00Z",
+    )
+    with module._runtime().RuntimeStore(database) as store:
+        target = store.list_outbox(started["episode_id"])[0]
+    handoff_path = tmp_path / "handoff.json"
+    handoff = module.native_worker_handoff(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        started["episode_id"],
+        target["effect_id"],
+        "native-worker",
+        certificate_path,
+        handoff_path,
+        now="2026-08-08T09:12:00Z",
+    )
+    tampered = json.loads(handoff_path.read_text(encoding="utf-8"))
+    tampered["request_ref"] = REF_B
+    handoff_path.write_text(json.dumps(tampered, sort_keys=True) + "\n", encoding="utf-8")
+    with pytest.raises(module.GhAwRuntimeError, match="handoff does not match"):
+        module.verify_native_worker_handoff(
+            SPEC_PATH, output, database, handoff_path, certificate_path
+        )
+    handoff_path.write_text(json.dumps(handoff, sort_keys=True) + "\n", encoding="utf-8")
+
+    with module._runtime().RuntimeStore(database) as store:
+        store.claim_outbox(
+            "other-worker",
+            run_id=started["episode_id"],
+            effect_id=target["effect_id"],
+            now="2026-08-08T09:13:01Z",
+        )
+    with pytest.raises(module.GhAwRuntimeError, match="lease owner changed"):
+        module.verify_native_worker_handoff(
+            SPEC_PATH, output, database, handoff_path, certificate_path
+        )

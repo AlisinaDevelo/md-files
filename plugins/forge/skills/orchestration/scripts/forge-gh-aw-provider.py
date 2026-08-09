@@ -678,6 +678,7 @@ class _Prepared:
     policy_engine: Any
     policy_action: Any
     admission: dict[str, Any] | None
+    handoff: dict[str, Any] | None
     public: dict[str, Any]
 
 
@@ -751,6 +752,7 @@ def _prepare(
     approvals_path: Path,
     now: str | None,
     admission_path: Path | None,
+    handoff_path: Path | None,
 ) -> _Prepared:
     request = validate_request(raw_request)
     bridge = _bridge()
@@ -812,6 +814,26 @@ def _prepare(
     )
     if request["request_ref"] != expected_ref:
         raise GhAwProviderError("request_ref does not match the leased effect payload reference")
+    handoff = None
+    if handoff_path is not None:
+        if admission_path is None:
+            raise GhAwProviderError("worker handoff requires an admission certificate")
+        try:
+            handoff = bridge.verify_native_worker_handoff(
+                spec_path,
+                output,
+                database,
+                handoff_path,
+                admission_path,
+                episode_id=request["episode_id"],
+                dispatcher_id=dispatcher_id,
+                effect_id=effect_id,
+                worker_id=worker_id,
+                lease_generation=lease_generation,
+                request_ref=request["request_ref"],
+            )
+        except bridge.GhAwRuntimeError as exc:
+            raise GhAwProviderError(f"native worker handoff verification failed: {exc}") from exc
     workflow = bridge._workflow(context, request["workflow_id"])
     output_config = next(
         (
@@ -853,6 +875,8 @@ def _prepare(
     }
     if admission is not None:
         execution_material["admission_id"] = admission["admission_id"]
+    if handoff is not None:
+        execution_material["handoff_id"] = handoff["handoff_id"]
     execution_digest = digest(execution_material)
     public = {
         "schema_version": SCHEMA_VERSION,
@@ -890,6 +914,8 @@ def _prepare(
     }
     if admission is not None:
         public["admission_id"] = admission["admission_id"]
+    if handoff is not None:
+        public["handoff_id"] = handoff["handoff_id"]
     return _Prepared(
         bridge=bridge,
         runtime=runtime,
@@ -904,6 +930,7 @@ def _prepare(
         policy_engine=policy_engine,
         policy_action=policy_action,
         admission=admission,
+        handoff=handoff,
         public=public,
     )
 
@@ -919,6 +946,7 @@ def plan_effect(
     *,
     approvals_path: Path = DEFAULT_APPROVALS,
     admission_path: Path | None = None,
+    handoff_path: Path | None = None,
     now: str | None = None,
 ) -> dict[str, Any]:
     prepared = _prepare(
@@ -932,6 +960,7 @@ def plan_effect(
         approvals_path=approvals_path,
         now=now,
         admission_path=admission_path,
+        handoff_path=handoff_path,
     )
     return copy.deepcopy(prepared.public)
 
@@ -947,6 +976,7 @@ def issue_approval(
     *,
     approvals_path: Path = DEFAULT_APPROVALS,
     admission_path: Path | None = None,
+    handoff_path: Path | None = None,
     receipts_path: Path | None = None,
     ttl_seconds: int = 600,
     now: str | None = None,
@@ -962,6 +992,7 @@ def issue_approval(
         approvals_path=approvals_path,
         now=now,
         admission_path=admission_path,
+        handoff_path=handoff_path,
     )
     try:
         approval = prepared.policy_engine.issue_approval(
@@ -984,6 +1015,8 @@ def issue_approval(
     }
     if prepared.admission is not None:
         result["admission_id"] = prepared.admission["admission_id"]
+    if prepared.handoff is not None:
+        result["handoff_id"] = prepared.handoff["handoff_id"]
     return result
 
 
@@ -1576,6 +1609,33 @@ def _recheck_admission(
         raise GhAwProviderError("native admission verification failed: admission identity changed")
 
 
+def _recheck_handoff(
+    prepared: _Prepared, database: Path, admission_path: Path | None, handoff_path: Path | None
+) -> None:
+    if prepared.handoff is None:
+        return
+    if admission_path is None or handoff_path is None:
+        raise GhAwProviderError("native execution requires the admission and worker handoff")
+    try:
+        current = prepared.bridge.verify_native_worker_handoff(
+            prepared.spec_path,
+            prepared.output,
+            database,
+            handoff_path,
+            admission_path,
+            episode_id=prepared.request["episode_id"],
+            dispatcher_id=prepared.public["dispatcher_workflow_id"],
+            effect_id=prepared.effect["effect_id"],
+            worker_id=prepared.lease["worker_id"],
+            lease_generation=prepared.lease["lease_generation"],
+            request_ref=prepared.request["request_ref"],
+        )
+    except prepared.bridge.GhAwRuntimeError as exc:
+        raise GhAwProviderError(f"native worker handoff verification failed: {exc}") from exc
+    if current["handoff_id"] != prepared.handoff["handoff_id"]:
+        raise GhAwProviderError("native worker handoff identity changed")
+
+
 def execute_effect(
     spec_path: Path,
     output: Path,
@@ -1591,6 +1651,7 @@ def execute_effect(
     receipts_path: Path | None = None,
     journal_path: Path = DEFAULT_JOURNAL,
     admission_path: Path | None = None,
+    handoff_path: Path | None = None,
     transport: Any | None = None,
     now: str | None = None,
 ) -> dict[str, Any]:
@@ -1616,6 +1677,7 @@ def execute_effect(
         approvals_path=approvals_path,
         now=now,
         admission_path=admission_path,
+        handoff_path=handoff_path,
     )
     expected_login = _text(expected_login, "expected_login", maximum=128)
     provider = transport or GitHubTransport()
@@ -1625,6 +1687,7 @@ def execute_effect(
             f"authenticated GitHub login mismatch: expected {expected_login}, got {actual_login}"
         )
     _recheck_admission(prepared, database, admission_path)
+    _recheck_handoff(prepared, database, admission_path, handoff_path)
     journal = ProviderJournal(journal_path)
     evidence = journal.for_effect(effect_id, prepared.public["execution_digest"])
     if "succeeded" in evidence:
@@ -1824,6 +1887,7 @@ def reconcile_effect(
     receipts_path: Path | None = None,
     journal_path: Path = DEFAULT_JOURNAL,
     admission_path: Path | None = None,
+    handoff_path: Path | None = None,
     transport: Any | None = None,
     now: str | None = None,
 ) -> dict[str, Any]:
@@ -1854,6 +1918,7 @@ def reconcile_effect(
         approvals_path=approvals_path,
         now=now,
         admission_path=admission_path,
+        handoff_path=handoff_path,
     )
     expected_login = _text(expected_login, "expected_login", maximum=128)
     approval_id = _text(approval_id, "approval_id", maximum=128)
@@ -1864,6 +1929,7 @@ def reconcile_effect(
             f"authenticated GitHub login mismatch: expected {expected_login}, got {actual_login}"
         )
     _recheck_admission(prepared, database, admission_path)
+    _recheck_handoff(prepared, database, admission_path, handoff_path)
     journal = ProviderJournal(journal_path)
     evidence = journal.for_effect(effect_id, prepared.public["execution_digest"])
     authorized = evidence.get("authorized")
@@ -1970,6 +2036,7 @@ def _common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--lease-generation", type=int, required=True)
     parser.add_argument("--approvals", type=Path, default=DEFAULT_APPROVALS)
     parser.add_argument("--admission", type=Path)
+    parser.add_argument("--handoff", type=Path)
     parser.add_argument("--now")
 
 
@@ -2025,6 +2092,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.lease_generation,
                 approvals_path=args.approvals,
                 admission_path=args.admission,
+                handoff_path=args.handoff,
                 now=args.now,
             )
         elif args.command == "approve":
@@ -2038,6 +2106,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.lease_generation,
                 approvals_path=args.approvals,
                 admission_path=args.admission,
+                handoff_path=args.handoff,
                 receipts_path=args.receipts,
                 ttl_seconds=args.ttl_seconds,
                 now=args.now,
@@ -2057,6 +2126,7 @@ def main(argv: list[str] | None = None) -> int:
                 expected_login=args.expected_login,
                 approvals_path=args.approvals,
                 admission_path=args.admission,
+                handoff_path=args.handoff,
                 receipts_path=args.receipts,
                 journal_path=args.journal,
                 now=args.now,
@@ -2077,6 +2147,7 @@ def main(argv: list[str] | None = None) -> int:
                 expected_login=args.expected_login,
                 approvals_path=args.approvals,
                 admission_path=args.admission,
+                handoff_path=args.handoff,
                 receipts_path=args.receipts,
                 journal_path=args.journal,
                 now=args.now,

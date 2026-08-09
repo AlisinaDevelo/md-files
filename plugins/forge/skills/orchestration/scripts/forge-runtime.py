@@ -2643,6 +2643,7 @@ class RuntimeStore:
         heartbeat_seconds: int | None = None,
         policy_revisions: Mapping[str, Any] | None = None,
         run_id: str | None = None,
+        effect_id: str | None = None,
         definition_descriptor: Mapping[str, Any] | None = None,
         now: str | None = None,
     ) -> list[dict[str, Any]]:
@@ -2664,21 +2665,25 @@ class RuntimeStore:
         if heartbeat_seconds > max_lease_seconds:
             raise RuntimeStoreError("heartbeat_seconds must be at most max_lease_seconds")
         run_id = _identifier(run_id, "run_id") if run_id is not None else None
+        effect_id = _text(effect_id, "effect_id") if effect_id is not None else None
         now = _utc_timestamp(now or utc_now())
         lease_expires_at = _after_seconds(now, lease_seconds)
         lease_deadline_at = _after_seconds(now, max_lease_seconds)
         claimed: list[dict[str, Any]] = []
         with self._transaction():
             run_condition = " AND run_id = ?" if run_id is not None else ""
+            effect_condition = " AND effect_id = ?" if effect_id is not None else ""
             parameters: list[Any] = [now, now]
             if run_id is not None:
                 parameters.append(run_id)
+            if effect_id is not None:
+                parameters.append(effect_id)
             parameters.append(limit)
             rows = self.connection.execute(
                 "SELECT * FROM runtime_outbox WHERE "
                 "((status IN ('pending', 'retry') AND available_at <= ?) OR "
                 "(status = 'leased' AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?))"
-                f"{run_condition} ORDER BY available_at, effect_id LIMIT ?",
+                f"{run_condition}{effect_condition} ORDER BY available_at, effect_id LIMIT ?",
                 parameters,
             ).fetchall()
             for row in rows:

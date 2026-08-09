@@ -67,6 +67,7 @@ def test_release_surface_derives_metadata_and_install_inputs(tmp_path):
     assert (tmp_path / "claude/data/runtime-gh-aw.schema.json").is_file()
     assert (tmp_path / "claude/data/runtime-gh-aw-episode.schema.json").is_file()
     assert (tmp_path / "claude/data/runtime-gh-aw-admission.schema.json").is_file()
+    assert (tmp_path / "claude/data/runtime-gh-aw-worker-handoff.schema.json").is_file()
     assert (tmp_path / "codex/data/runtime-gh-aw-provider-request.schema.json").is_file()
     assert (
         tmp_path

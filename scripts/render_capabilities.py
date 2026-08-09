@@ -302,6 +302,7 @@ def render_release_surface(repo: Path, graph: dict[str, Any], output: Path) -> d
         "data/runtime-gh-aw.schema.json",
         "data/runtime-gh-aw-episode.schema.json",
         "data/runtime-gh-aw-admission.schema.json",
+        "data/runtime-gh-aw-worker-handoff.schema.json",
         "data/runtime-gh-aw-provider-request.schema.json",
         "data/gh-aw-workflows.json",
         "policies/gh-aw.json",

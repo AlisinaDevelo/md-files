@@ -37,3 +37,4 @@
 | 0033 | Verify native gh-aw supply-chain and job-graph admission | done | security-engineer | sonnet | 0032 |
 | 0034 | Add native gh-aw execution admission preflight | done | reliability-engineer | sonnet | 0033 |
 | 0035 | Consume native gh-aw admission in the fenced provider | done | security-engineer | sonnet | 0034 |
+| 0036 | Add native gh-aw worker handoff contract | done | reliability-engineer | sonnet | 0035 |

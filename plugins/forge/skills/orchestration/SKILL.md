@@ -275,6 +275,25 @@ ID and current Forge definition, and emits the digest-only certificate described
 `data/runtime-gh-aw-admission.schema.json`. It does not append runtime history or call GitHub;
 the fenced provider consumes the certificate and still passes lease authorization.
 
+Native workers claim one exact effect through the certificate-bound handoff contract:
+
+```bash
+python3 scripts/forge-gh-aw-runtime.py native-handoff \
+  --output build/gh-aw-native --db .forge/runtime.sqlite3 \
+  --dispatcher forge-dispatcher --episode-id EPISODE_ID \
+  --effect-id EFFECT_ID --worker-id gh-aw-native-worker \
+  --certificate .forge/gh-aw-admission.json \
+  --handoff .forge/gh-aw-worker-handoff.json \
+  --request-ref sha256:REQUEST_REF
+```
+
+The handoff is strict and digest-only: it binds admission, episode, effect, request reference,
+worker, and lease generation without carrying raw provider data or filesystem paths. It claims
+only the selected effect, is idempotent for the same live lease, and fails closed on owner,
+generation, request, or certificate drift. Pass `--handoff` alongside `--admission` to every
+provider `plan`, `approve`, `execute`, and `reconcile` stage. The handoff is an offline/local
+runtime contract; production deployment remains an explicit integration gate.
+
 For a live GitHub effect, keep the secret-free request envelope outside runtime history and use
 the fenced provider stages. Planning is no-effect; approval is one-use and bound to the exact
 effect/request/operation digests; execution additionally requires the expected `gh` login and an
@@ -284,21 +303,23 @@ explicit flag:
 python3 scripts/forge-gh-aw-provider.py plan \
   --request REQUEST.json --effect-id EFFECT_ID \
   --worker-id gh-aw-provider --lease-generation GENERATION \
-  --admission .forge/gh-aw-admission.json
+  --admission .forge/gh-aw-admission.json --handoff .forge/gh-aw-worker-handoff.json
 python3 scripts/forge-gh-aw-provider.py approve \
   --request REQUEST.json --effect-id EFFECT_ID \
   --worker-id gh-aw-provider --lease-generation GENERATION \
-  --admission .forge/gh-aw-admission.json
+  --admission .forge/gh-aw-admission.json --handoff .forge/gh-aw-worker-handoff.json
 python3 scripts/forge-gh-aw-provider.py execute \
   --request REQUEST.json --effect-id EFFECT_ID \
   --worker-id gh-aw-provider --lease-generation GENERATION \
   --approval-id APPROVAL_ID --expected-login LOGIN \
-  --admission .forge/gh-aw-admission.json --execute
+  --admission .forge/gh-aw-admission.json \
+  --handoff .forge/gh-aw-worker-handoff.json --execute
 python3 scripts/forge-gh-aw-provider.py reconcile \
   --request REQUEST.json --effect-id EFFECT_ID \
   --worker-id gh-aw-provider --lease-generation GENERATION \
   --approval-id APPROVAL_ID --expected-login LOGIN --run-id RUN_ID \
-  --admission .forge/gh-aw-admission.json --reconcile
+  --admission .forge/gh-aw-admission.json \
+  --handoff .forge/gh-aw-worker-handoff.json --reconcile
 ```
 
 The provider supports only the four compiled safe-output types. It revalidates title/label,

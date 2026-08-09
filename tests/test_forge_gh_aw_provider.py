@@ -72,6 +72,21 @@ class MutatingTransport(FakeTransport):
         return self.login
 
 
+class MutatingHandoffTransport(FakeTransport):
+    def __init__(self, handoff_path: Path) -> None:
+        super().__init__([])
+        self.handoff_path = handoff_path
+
+    def authenticated_login(self) -> str:
+        handoff = json.loads(self.handoff_path.read_text(encoding="utf-8"))
+        handoff["request_ref"] = REF_B
+        self.handoff_path.write_text(
+            json.dumps(handoff, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        return self.login
+
+
 def prepare(module, tmp_path: Path) -> tuple[Any, Path, Path]:
     bridge = module._bridge()
     output = tmp_path / "gh-aw"
@@ -448,6 +463,81 @@ def test_native_provider_requires_admission_and_accepts_history_suffix(tmp_path)
     assert episode_id == request["episode_id"]
 
 
+def test_native_provider_consumes_worker_handoff_before_effect(tmp_path):
+    module = load_module()
+    bridge, output, database, episode_id, request, effect, admission = native_dispatch_episode(
+        module, *prepare_native(module, tmp_path), tmp_path
+    )
+    handoff_path = tmp_path / "handoff.json"
+    handoff = bridge.native_worker_handoff(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        episode_id,
+        effect["effect_id"],
+        "provider-a",
+        admission,
+        handoff_path,
+        request_ref=request["request_ref"],
+        now="2026-08-08T11:02:30Z",
+    )
+    approvals = tmp_path / "approvals.jsonl"
+    plan = module.plan_effect(
+        SPEC_PATH,
+        output,
+        database,
+        request,
+        effect["effect_id"],
+        "provider-a",
+        handoff["lease_generation"],
+        approvals_path=approvals,
+        admission_path=admission,
+        handoff_path=handoff_path,
+        now="2026-08-08T11:02:35Z",
+    )
+    approval = module.issue_approval(
+        SPEC_PATH,
+        output,
+        database,
+        request,
+        effect["effect_id"],
+        "provider-a",
+        handoff["lease_generation"],
+        approvals_path=approvals,
+        admission_path=admission,
+        handoff_path=handoff_path,
+        receipts_path=tmp_path / "receipts.jsonl",
+        now="2026-08-08T11:02:40Z",
+    )
+    transport = FakeTransport(
+        [{"workflow_run_id": 31234567893, "html_url": "https://github.com/AlisinaDevelo/md-files/actions/runs/31234567893"}]
+    )
+    result = module.execute_effect(
+        SPEC_PATH,
+        output,
+        database,
+        request,
+        effect["effect_id"],
+        "provider-a",
+        handoff["lease_generation"],
+        approval["approval_id"],
+        expected_login="AlisinaDevelo",
+        approvals_path=approvals,
+        receipts_path=tmp_path / "receipts.jsonl",
+        journal_path=tmp_path / "provider.jsonl",
+        admission_path=admission,
+        handoff_path=handoff_path,
+        transport=transport,
+        now="2026-08-08T11:02:45Z",
+    )
+
+    assert plan["handoff_id"] == handoff["handoff_id"]
+    assert approval["handoff_id"] == handoff["handoff_id"]
+    assert result["status"] == "succeeded"
+    assert transport.calls[-1]["method"] == "POST"
+
+
 def test_native_provider_rechecks_admission_after_login_before_provider_call(tmp_path):
     module = load_module()
     bridge, output, database, _, request, effect, admission = native_dispatch_episode(
@@ -485,6 +575,59 @@ def test_native_provider_rechecks_admission_after_login_before_provider_call(tmp
 
     assert transport.calls == []
     assert bridge is not None
+
+
+def test_native_provider_rechecks_handoff_after_login_before_provider_call(tmp_path):
+    module = load_module()
+    bridge, output, database, episode_id, request, effect, admission = native_dispatch_episode(
+        module, *prepare_native(module, tmp_path), tmp_path
+    )
+    handoff_path = tmp_path / "handoff.json"
+    bridge.native_worker_handoff(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        episode_id,
+        effect["effect_id"],
+        "provider-a",
+        admission,
+        handoff_path,
+        request_ref=request["request_ref"],
+        now="2026-08-08T11:02:30Z",
+    )
+    approval_id = approve(
+        module,
+        output,
+        database,
+        request,
+        effect,
+        tmp_path,
+        worker_id="provider-a",
+        admission_path=admission,
+    )
+    transport = MutatingHandoffTransport(handoff_path)
+
+    with pytest.raises(module.GhAwProviderError, match="native worker handoff verification failed"):
+        module.execute_effect(
+            SPEC_PATH,
+            output,
+            database,
+            request,
+            effect["effect_id"],
+            "provider-a",
+            effect["lease_generation"],
+            approval_id,
+            expected_login="AlisinaDevelo",
+            approvals_path=tmp_path / "approvals.jsonl",
+            journal_path=tmp_path / "provider.jsonl",
+            admission_path=admission,
+            handoff_path=handoff_path,
+            transport=transport,
+            now="2026-08-08T11:02:30Z",
+        )
+
+    assert transport.calls == []
 
 
 def test_dispatch_execute_requires_login_approval_and_acks_run_details(tmp_path):
