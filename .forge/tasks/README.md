@@ -35,4 +35,4 @@
 | 0031 | Gate pinned native gh-aw compilation | done | devops-engineer | sonnet | 0026, 0030 |
 | 0032 | Enforce reproducible native gh-aw output | done | devops-engineer | sonnet | 0031 |
 | 0033 | Verify native gh-aw supply-chain and job-graph admission | done | security-engineer | sonnet | 0032 |
-| 0034 | Add native gh-aw execution admission preflight | review | reliability-engineer | sonnet | 0033 |
+| 0034 | Add native gh-aw execution admission preflight | done | reliability-engineer | sonnet | 0033 |

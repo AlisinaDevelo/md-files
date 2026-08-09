@@ -1,7 +1,7 @@
 ---
 id: 0034
 title: Add native gh-aw execution admission preflight
-status: review
+status: done
 agent: reliability-engineer
 model: sonnet
 depends_on: [0033]
@@ -27,7 +27,7 @@ and one verified runtime history boundary before it can consume a lease.
 - [x] Repeated generation is byte-stable; an existing path may only contain the same certificate.
 - [x] The certificate schema is included in Claude/Codex release surfaces and documented for the
       future native worker integration.
-- [ ] Focused tests, full local validation, and hosted CI pass for the pushed branch.
+- [x] Focused tests, full local validation, and hosted CI pass for the pushed branch.
 
 ## Context
 
@@ -44,3 +44,6 @@ certificate in a later task and still revalidate the current lease immediately b
   warning), and cross-host scenarios (`12/12`) pass.
 - Real local `gh-aw v0.85.4` native compilation, admission verification, and certificate emission
   pass without dispatching a workflow or calling GitHub.
+- Hosted CI run [31286286392](https://github.com/AlisinaDevelo/md-files/actions/runs/31286286392)
+  passes all applicable jobs, including native compiler/reproducibility and release-surface
+  validation; OpenSSF Scorecard is skipped on the feature branch.
