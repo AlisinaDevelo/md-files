@@ -1,7 +1,7 @@
 ---
 id: 0033
 title: Verify native gh-aw supply-chain and job-graph admission
-status: in_progress
+status: done
 agent: security-engineer
 model: sonnet
 depends_on: [0032]
@@ -25,7 +25,7 @@ roles must retain the pinned activation and safe-output topology.
       contract.
 - [x] Focused fixtures cover unlisted actions, unbound containers, list-form `uses`, and graph
       dependency drift.
-- [ ] Full local validation and hosted CI pass for the pushed branch.
+- [x] Full local validation and hosted CI pass for the pushed branch.
 
 ## Context
 
@@ -39,3 +39,9 @@ offline and does not dispatch, approve, or execute a workflow.
 - Focused gh-aw tests pass (`16 passed`).
 - Local real `gh-aw v0.85.4` compilation, admission verification, and two-run artifact comparison
   pass for all five workflows.
+- Full local pytest passes (`288 passed`); `scripts/validate.sh`, full Ruff, Markdownlint (`0`
+  issues across `198` files), ShellCheck, cross-host scenarios (`12/12`), and `git diff --check`
+  pass.
+- Hosted CI run [31285705892](https://github.com/AlisinaDevelo/md-files/actions/runs/31285705892)
+  passes all applicable jobs, including native admission and reproducible release gates; OpenSSF
+  Scorecard is skipped on the feature branch.

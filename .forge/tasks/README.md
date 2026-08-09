@@ -34,4 +34,4 @@
 | 0030 | Add operator-confirmed gh-aw dispatch reconciliation | done | reliability-engineer | sonnet | 0028 |
 | 0031 | Gate pinned native gh-aw compilation | done | devops-engineer | sonnet | 0026, 0030 |
 | 0032 | Enforce reproducible native gh-aw output | done | devops-engineer | sonnet | 0031 |
-| 0033 | Verify native gh-aw supply-chain and job-graph admission | in_progress | security-engineer | sonnet | 0032 |
+| 0033 | Verify native gh-aw supply-chain and job-graph admission | done | security-engineer | sonnet | 0032 |
