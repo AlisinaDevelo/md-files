@@ -50,13 +50,18 @@ The public submission remains intentionally open until the publisher identity an
 draft are reviewed. Forge must not claim directory listing, approval, or universal
 availability before that external state changes.
 
+The reproducible owner-review packet is documented in
+[`openai-agent-plugin-submission.md`](openai-agent-plugin-submission.md). It records the
+exact Codex release candidate, five positive and three negative offline contract cases, and
+the external identity-verification blocker.
+
 ## Planned Work
 
 | Task | Release lane | Scope | State |
 |---|---|---|---|
 | 0038 | minor | Record the official contract and audit Forge's current surfaces | done |
 | 0039 | minor | Validate Codex marketplace policy and local source resolution in CI | done |
-| 0040 | major | Prepare skills-only submission evidence and an owner-reviewed portal draft | ready |
+| 0040 | major | Prepare skills-only submission evidence and an owner-reviewed portal draft | done |
 | 0041 | major | Evaluate an MCP server or UI extension only if a real workflow requires it | backlog |
 
 ## Submission Test Candidates

@@ -352,6 +352,8 @@ scripts/               validation, installation, release, and marketplace checks
   publisher surfaces, asset policy, and submission smoke-test matrix
 - [OpenAI Agent Plugins compatibility](docs/openai-agent-plugins.md) — current universal
   plugin contract, Forge audit, submission boundary, and staged compatibility plan
+- [OpenAI submission packet](docs/openai-agent-plugin-submission.md) — reproducible candidate
+  archive evidence, five positive/three negative cases, and the external publication boundary
 - [Capability IR](docs/capability-ir.md) — body-aware graph, deterministic host renderer,
   adapter contract, migration workflow, and current compiler boundary
 - [Durable runtime](docs/runtime.md) — local SQLite/WAL history, deterministic replay,

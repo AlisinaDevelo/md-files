@@ -61,6 +61,8 @@ python3 scripts/verify_release.py \
   --manifest "$RUNNER_TEMP/forge-dist/forge-X.Y.Z-manifest.json" \
   --root "$RUNNER_TEMP/forge-dist" \
   --version X.Y.Z
+python3 scripts/build_openai_submission_evidence.py \
+  --output "$RUNNER_TEMP/openai-agent-plugin-submission.json"
 ```
 
 The CI host-validation job covers strict Claude validation, Codex marketplace policy and
