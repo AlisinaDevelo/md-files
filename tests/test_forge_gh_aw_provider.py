@@ -87,6 +87,50 @@ class MutatingHandoffTransport(FakeTransport):
         return self.login
 
 
+class CountingTransport(FakeTransport):
+    def __init__(self, responses: list[dict[str, Any]], *, login: str = "AlisinaDevelo") -> None:
+        super().__init__(responses, login=login)
+        self.login_calls = 0
+
+    def authenticated_login(self) -> str:
+        self.login_calls += 1
+        return super().authenticated_login()
+
+
+class ReclaimingTransport(CountingTransport):
+    def __init__(
+        self,
+        responses: list[dict[str, Any]],
+        runtime: Any,
+        database: Path,
+        episode_id: str,
+        effect_id: str,
+    ) -> None:
+        super().__init__(responses)
+        self.runtime = runtime
+        self.database = database
+        self.episode_id = episode_id
+        self.effect_id = effect_id
+
+    def request(
+        self,
+        method: str,
+        endpoint: str,
+        *,
+        body: dict[str, Any] | None = None,
+        paginate: bool = False,
+    ) -> dict[str, Any]:
+        response = super().request(method, endpoint, body=body, paginate=paginate)
+        with self.runtime.RuntimeStore(self.database) as store:
+            store.claim_outbox(
+                "other-worker",
+                run_id=self.episode_id,
+                effect_id=self.effect_id,
+                now="2026-08-08T10:04:00Z",
+            )
+        return response
+
+
 def prepare(module, tmp_path: Path) -> tuple[Any, Path, Path]:
     bridge = module._bridge()
     output = tmp_path / "gh-aw"
@@ -628,6 +672,83 @@ def test_native_provider_rechecks_handoff_after_login_before_provider_call(tmp_p
         )
 
     assert transport.calls == []
+
+
+def test_provider_heartbeats_before_external_transport_and_fails_closed(tmp_path, monkeypatch):
+    module = load_module()
+    bridge, output, database = prepare(module, tmp_path)
+    _, request, effect = dispatch_episode(module, bridge, output, database)
+    approval_id = approve(module, output, database, request, effect, tmp_path, worker_id="provider-a")
+    transport = CountingTransport(
+        [{"workflow_run_id": 31234567894, "html_url": "https://github.com/AlisinaDevelo/md-files/actions/runs/31234567894"}]
+    )
+
+    def lost_lease(*args, **kwargs):
+        raise module.GhAwProviderError("provider lease heartbeat failed: lease was reclaimed")
+
+    monkeypatch.setattr(module, "_heartbeat_lease", lost_lease)
+    with pytest.raises(module.GhAwProviderError, match="lease heartbeat failed"):
+        module.execute_effect(
+            SPEC_PATH,
+            output,
+            database,
+            request,
+            effect["effect_id"],
+            "provider-a",
+            effect["lease_generation"],
+            approval_id,
+            expected_login="AlisinaDevelo",
+            approvals_path=tmp_path / "approvals.jsonl",
+            journal_path=tmp_path / "provider.jsonl",
+            transport=transport,
+            now="2026-08-08T10:02:30Z",
+        )
+
+    assert transport.login_calls == 0
+    assert transport.calls == []
+
+
+def test_provider_keeps_recovery_evidence_when_lease_is_lost_after_call(tmp_path):
+    module = load_module()
+    bridge, output, database = prepare(module, tmp_path)
+    episode_id, request, effect = dispatch_episode(module, bridge, output, database)
+    approval_id = approve(module, output, database, request, effect, tmp_path, worker_id="provider-a")
+    journal_path = tmp_path / "provider.jsonl"
+    transport = ReclaimingTransport(
+        [{"workflow_run_id": 31234567895, "html_url": "https://github.com/AlisinaDevelo/md-files/actions/runs/31234567895"}],
+        bridge._runtime(),
+        database,
+        episode_id,
+        effect["effect_id"],
+    )
+
+    with pytest.raises(module.GhAwProviderError, match="lease heartbeat failed"):
+        module.execute_effect(
+            SPEC_PATH,
+            output,
+            database,
+            request,
+            effect["effect_id"],
+            "provider-a",
+            effect["lease_generation"],
+            approval_id,
+            expected_login="AlisinaDevelo",
+            approvals_path=tmp_path / "approvals.jsonl",
+            journal_path=journal_path,
+            transport=transport,
+            now="2026-08-08T10:02:30Z",
+        )
+
+    assert transport.login_calls == 1
+    assert [call["method"] for call in transport.calls] == ["POST"]
+    journal = [json.loads(line) for line in journal_path.read_text(encoding="utf-8").splitlines()]
+    assert [record["event_type"] for record in journal] == ["authorized"]
+    assert "31234567895" not in json.dumps(journal, sort_keys=True)
+    with bridge._runtime().RuntimeStore(database) as store:
+        current = next(item for item in store.list_outbox(episode_id) if item["effect_id"] == effect["effect_id"])
+    assert current["status"] == "leased"
+    assert current["lease_owner"] == "other-worker"
+    assert current["lease_generation"] == effect["lease_generation"] + 1
 
 
 def test_dispatch_execute_requires_login_approval_and_acks_run_details(tmp_path):

@@ -38,3 +38,4 @@
 | 0034 | Add native gh-aw execution admission preflight | done | reliability-engineer | sonnet | 0033 |
 | 0035 | Consume native gh-aw admission in the fenced provider | done | security-engineer | sonnet | 0034 |
 | 0036 | Add native gh-aw worker handoff contract | done | reliability-engineer | sonnet | 0035 |
+| 0037 | Add native gh-aw provider lease supervision | review | reliability-engineer | sonnet | 0036 |

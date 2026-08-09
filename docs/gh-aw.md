@@ -167,6 +167,23 @@ live lease is idempotent; a different owner, generation, effect, request, or cer
 closed. This is the local handoff contract, not a claim that a production runtime database or
 provider deployment is already available.
 
+Keep a long-running worker inside the pinned lease policy with a heartbeat bound to the same
+effect, worker, and generation:
+
+```bash
+python3 scripts/forge-gh-aw-runtime.py heartbeat \
+  --output build/gh-aw-native --db .forge/runtime.sqlite3 \
+  --dispatcher forge-dispatcher --episode-id EPISODE_ID \
+  --effect-id EFFECT_ID --worker-id gh-aw-native-worker \
+  --lease-generation GENERATION
+```
+
+The fenced provider performs this heartbeat before and after authenticated login and every GitHub
+transport request. A lost owner, generation, expiry, or deadline stops the next provider call.
+If a remote call returns after the lease is lost, the provider keeps only the prior authorization
+evidence and uses the existing journal recovery or explicit dispatch reconciliation path; it does
+not claim exactly-once external execution.
+
 ## Fenced provider worker
 
 The `forge-gh-aw-provider-v1` worker consumes a request file separately from runtime history.

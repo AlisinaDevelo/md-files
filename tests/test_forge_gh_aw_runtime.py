@@ -724,3 +724,91 @@ def test_native_worker_handoff_rejects_tampering_and_lease_owner_drift(tmp_path)
         module.verify_native_worker_handoff(
             SPEC_PATH, output, database, handoff_path, certificate_path
         )
+
+
+def test_native_heartbeat_extends_handoff_lease_and_fences_stale_workers(tmp_path):
+    module = load_module()
+    output, database = prepare_native(module, tmp_path)
+    started = module.start_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        REF_A,
+        occurred_at="2026-08-08T09:20:00Z",
+    )
+    certificate_path = tmp_path / "admission.json"
+    module.preflight_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        started["episode_id"],
+        REF_A,
+        certificate_path=certificate_path,
+    )
+    module.dispatch_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        started["episode_id"],
+        REF_A,
+        occurred_at="2026-08-08T09:21:00Z",
+    )
+    with module._runtime().RuntimeStore(database) as store:
+        target = store.list_outbox(started["episode_id"])[0]
+    handoff_path = tmp_path / "handoff.json"
+    handoff = module.native_worker_handoff(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        started["episode_id"],
+        target["effect_id"],
+        "native-worker",
+        certificate_path,
+        handoff_path,
+        now="2026-08-08T09:22:00Z",
+    )
+
+    module.heartbeat_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        started["episode_id"],
+        target["effect_id"],
+        "native-worker",
+        handoff["lease_generation"],
+        now="2026-08-08T09:22:30Z",
+    )
+    with module._runtime().RuntimeStore(database) as store:
+        current = store.list_outbox(started["episode_id"])[0]
+        assert current["lease"]["heartbeat_count"] == 1
+        assert current["lease"]["last_heartbeat_at"] == "2026-08-08T09:22:30.000Z"
+
+    with pytest.raises(module.GhAwRuntimeError, match="not leased to worker"):
+        module.heartbeat_episode(
+            SPEC_PATH,
+            output,
+            database,
+            "forge-dispatcher",
+            started["episode_id"],
+            target["effect_id"],
+            "other-worker",
+            handoff["lease_generation"],
+            now="2026-08-08T09:22:40Z",
+        )
+    with pytest.raises(module.GhAwRuntimeError, match="lease generation mismatch"):
+        module.heartbeat_episode(
+            SPEC_PATH,
+            output,
+            database,
+            "forge-dispatcher",
+            started["episode_id"],
+            target["effect_id"],
+            "native-worker",
+            handoff["lease_generation"] + 1,
+            now="2026-08-08T09:22:40Z",
+        )

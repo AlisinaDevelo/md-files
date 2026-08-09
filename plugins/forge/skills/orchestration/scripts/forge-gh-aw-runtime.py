@@ -1125,6 +1125,40 @@ def claim_episode(
         return {"episode": inspect_episode(spec_path, output, database, dispatcher_id, episode_id), "claimed": claimed}
 
 
+def heartbeat_episode(
+    spec_path: Path,
+    output: Path,
+    database: Path,
+    dispatcher_id: str,
+    episode_id: str,
+    effect_id: str,
+    worker_id: str,
+    lease_generation: int,
+    *,
+    now: str | None = None,
+) -> dict[str, Any]:
+    """Extend one current effect lease through the pinned runtime heartbeat policy."""
+
+    context = _contract(spec_path, output)
+    _workflow(context, dispatcher_id)
+    runtime = _runtime()
+    with runtime.RuntimeStore(database) as store:
+        _require_running(store, episode_id)
+        effects = [item for item in store.list_outbox(episode_id) if item["effect_id"] == effect_id]
+        if not effects:
+            raise GhAwRuntimeError(f"unknown episode effect: {effect_id}")
+        try:
+            store.heartbeat_outbox(
+                effect_id,
+                worker_id,
+                lease_generation=lease_generation,
+                now=now,
+            )
+        except runtime.RuntimeStoreError as exc:
+            raise GhAwRuntimeError(f"heartbeat transition failed: {exc}") from exc
+        return inspect_episode(spec_path, output, database, dispatcher_id, episode_id)
+
+
 def _normalize_receipt(receipt: Mapping[str, Any], episode_id: str, effect: Mapping[str, Any]) -> dict[str, Any]:
     unknown = sorted(str(key) for key in receipt if key not in RECEIPT_KEYS)
     if unknown:
@@ -1407,6 +1441,14 @@ def main(argv: list[str] | None = None) -> int:
     claim_parser.add_argument("--worker-id", required=True)
     claim_parser.add_argument("--limit", type=int, default=1)
     claim_parser.add_argument("--now")
+    heartbeat_parser = subparsers.add_parser(
+        "heartbeat", help="extend one current effect lease through its pinned heartbeat policy"
+    )
+    _common(heartbeat_parser)
+    heartbeat_parser.add_argument("--effect-id", required=True)
+    heartbeat_parser.add_argument("--worker-id", required=True)
+    heartbeat_parser.add_argument("--lease-generation", type=int, required=True)
+    heartbeat_parser.add_argument("--now")
     ack_parser = subparsers.add_parser("ack", help="acknowledge a safe output with a bounded receipt")
     _common(ack_parser)
     ack_parser.add_argument("--effect-id", required=True)
@@ -1507,6 +1549,18 @@ def main(argv: list[str] | None = None) -> int:
                 args.episode_id,
                 args.worker_id,
                 limit=args.limit,
+                now=args.now,
+            )
+        elif args.command == "heartbeat":
+            result = heartbeat_episode(
+                args.spec,
+                args.output,
+                args.db,
+                args.dispatcher,
+                args.episode_id,
+                args.effect_id,
+                args.worker_id,
+                args.lease_generation,
                 now=args.now,
             )
         elif args.command == "ack":

@@ -1,6 +1,6 @@
 # Runtime Roadmap
 
-Last reviewed: 2026-08-07.
+Last reviewed: 2026-08-09.
 
 This roadmap is the execution plan for Forge's durable runtime. The event history is the
 source of truth for a run; receipts, task ledgers, provider sessions, MCP Tasks, GitHub
@@ -108,9 +108,10 @@ intentionally separate from the local-first runtime contract.
   effects, protected-path validation, a hosted gate for pinned native upstream compilation and
   byte-identical reruns, structural permission and supply-chain admission, a pinned native job
   graph, a digest-only native execution admission certificate, a fenced provider worker, and
-  operator-confirmed dispatch reconciliation. Live execution remains opt-in; the remaining work
-  is native upstream worker consumption of the certificate and production deployment rather than
-  treating the workflow lock as canonical history.
+  operator-confirmed dispatch reconciliation, certificate-bound worker handoff, and
+  generation-fenced provider lease supervision. Live execution remains opt-in; the remaining
+  work is production deployment and an external durable control plane rather than treating the
+  workflow lock as canonical history.
 - [#22 Adaptive model routing](https://github.com/AlisinaDevelo/md-files/issues/22) now has a
   deterministic capability filter, digest-only decision contract, pins/budgets/fallbacks, and
   offline replay gate. Live adaptive activation and provider integrations remain gated follow-up

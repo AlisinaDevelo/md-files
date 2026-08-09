@@ -294,6 +294,21 @@ generation, request, or certificate drift. Pass `--handoff` alongside `--admissi
 provider `plan`, `approve`, `execute`, and `reconcile` stage. The handoff is an offline/local
 runtime contract; production deployment remains an explicit integration gate.
 
+Keep a long-running native worker inside the pinned lease policy with the same owner and
+generation:
+
+```bash
+python3 scripts/forge-gh-aw-runtime.py heartbeat \
+  --output build/gh-aw-native --db .forge/runtime.sqlite3 \
+  --dispatcher forge-dispatcher --episode-id EPISODE_ID \
+  --effect-id EFFECT_ID --worker-id gh-aw-native-worker \
+  --lease-generation GENERATION
+```
+
+The fenced provider also heartbeats before and after authenticated login and every GitHub
+transport request. Lease loss fails closed; a call that returns after loss is recovered through
+the journal/reconciliation path rather than retried blindly.
+
 For a live GitHub effect, keep the secret-free request envelope outside runtime history and use
 the fenced provider stages. Planning is no-effect; approval is one-use and bound to the exact
 effect/request/operation digests; execution additionally requires the expected `gh` login and an

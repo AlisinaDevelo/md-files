@@ -1297,6 +1297,58 @@ class GitHubTransport:
             raise GhAwProviderError("GitHub provider returned invalid JSON") from exc
 
 
+def _heartbeat_lease(prepared: _Prepared, database: Path, *, now: str | None) -> None:
+    try:
+        with prepared.runtime.RuntimeStore(database) as store:
+            store.heartbeat_outbox(
+                prepared.effect["effect_id"],
+                prepared.lease["worker_id"],
+                lease_generation=prepared.lease["lease_generation"],
+                now=now,
+            )
+    except prepared.runtime.RuntimeStoreError as exc:
+        raise GhAwProviderError(f"provider lease heartbeat failed: {exc}") from exc
+
+
+class _LeaseGuard:
+    """Fence every provider boundary with the current runtime lease generation."""
+
+    def __init__(
+        self,
+        transport: Any,
+        prepared: _Prepared,
+        database: Path,
+        *,
+        now: str | None,
+    ) -> None:
+        self.transport = transport
+        self.prepared = prepared
+        self.database = database
+        self.now = now
+
+    def _heartbeat(self) -> None:
+        _heartbeat_lease(self.prepared, self.database, now=self.now)
+
+    def authenticated_login(self) -> str:
+        self._heartbeat()
+        login = self.transport.authenticated_login()
+        self._heartbeat()
+        return login
+
+    def request(
+        self,
+        method: str,
+        endpoint: str,
+        *,
+        body: dict[str, Any] | None = None,
+        paginate: bool = False,
+    ) -> Any:
+        self._heartbeat()
+        response = self.transport.request(method, endpoint, body=body, paginate=paginate)
+        self._heartbeat()
+        return response
+
+
 def _items(value: Any) -> list[dict[str, Any]]:
     if isinstance(value, list):
         flattened: list[Any] = []
@@ -1680,7 +1732,7 @@ def execute_effect(
         handoff_path=handoff_path,
     )
     expected_login = _text(expected_login, "expected_login", maximum=128)
-    provider = transport or GitHubTransport()
+    provider = _LeaseGuard(transport or GitHubTransport(), prepared, database, now=now)
     actual_login = provider.authenticated_login()
     if actual_login.casefold() != expected_login.casefold():
         raise GhAwProviderError(
@@ -1922,7 +1974,7 @@ def reconcile_effect(
     )
     expected_login = _text(expected_login, "expected_login", maximum=128)
     approval_id = _text(approval_id, "approval_id", maximum=128)
-    provider = transport or GitHubTransport()
+    provider = _LeaseGuard(transport or GitHubTransport(), prepared, database, now=now)
     actual_login = provider.authenticated_login()
     if actual_login.casefold() != expected_login.casefold():
         raise GhAwProviderError(
