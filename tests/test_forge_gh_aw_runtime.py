@@ -32,6 +32,18 @@ def prepare(module, tmp_path: Path) -> tuple[Path, Path]:
     return output, tmp_path / "runtime.sqlite3"
 
 
+def prepare_native(module, tmp_path: Path) -> tuple[Path, Path]:
+    fixture_path = REPO / "tests/test_forge_gh_aw.py"
+    fixture_spec = importlib.util.spec_from_file_location("forge_gh_aw_native_fixture", fixture_path)
+    assert fixture_spec and fixture_spec.loader
+    fixture_module = importlib.util.module_from_spec(fixture_spec)
+    sys.modules[fixture_spec.name] = fixture_module
+    fixture_spec.loader.exec_module(fixture_module)
+    output = tmp_path / "gh-aw-native"
+    fixture_module.native_fixture(module._compiler(), output)
+    return output, tmp_path / "runtime.sqlite3"
+
+
 def receipt(module, effect: dict, *, result_ref: str = REF_C) -> dict[str, str]:
     payload = effect["payload"]
     return {
@@ -351,4 +363,148 @@ def test_receipts_are_strictly_bounded_to_references(tmp_path):
             "dispatcher-provider",
             effect["lease_generation"],
             invalid,
+        )
+
+
+def test_native_preflight_is_deterministic_and_does_not_advance_episode(tmp_path):
+    module = load_module()
+    output, database = prepare_native(module, tmp_path)
+    started = module.start_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        REF_A,
+        occurred_at="2026-08-08T08:00:00Z",
+    )
+    episode_id = started["episode_id"]
+    with module._runtime().RuntimeStore(database) as store:
+        before = store.state(episode_id)
+
+    first = module.preflight_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        episode_id,
+        REF_A,
+    )
+    second = module.preflight_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        episode_id,
+        REF_A,
+    )
+
+    assert first == second
+    assert first["$schema"] == module.ADMISSION_SCHEMA
+    assert first["mode"] == "upstream-gh-aw"
+    assert first["admission_id"].startswith("sha256:")
+    assert first["history_sequence"] == before["sequence"]
+    assert first["history_head"] == started["history_head"]
+    assert first["artifacts"]["lock"]["path"] == "workflows/forge-dispatcher.lock.yml"
+    assert first["native_job_roles"] == [
+        "activation",
+        "agent",
+        "conclusion",
+        "detection",
+        "safe_outputs",
+    ]
+    assert "prompt" not in json.dumps(first, sort_keys=True).lower()
+    with module._runtime().RuntimeStore(database) as store:
+        after = store.state(episode_id)
+    assert after["sequence"] == before["sequence"]
+    assert after["status"] == before["status"]
+
+
+def test_native_preflight_rejects_preview_artifacts(tmp_path):
+    module = load_module()
+    output, database = prepare(module, tmp_path)
+    started = module.start_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        REF_A,
+        occurred_at="2026-08-08T08:10:00Z",
+    )
+
+    with pytest.raises(module.GhAwRuntimeError, match="requires upstream native artifacts"):
+        module.preflight_episode(
+            SPEC_PATH,
+            output,
+            database,
+            "forge-dispatcher",
+            started["episode_id"],
+            REF_A,
+        )
+
+
+def test_native_preflight_rejects_request_bound_episode_mismatch(tmp_path):
+    module = load_module()
+    output, database = prepare_native(module, tmp_path)
+    started = module.start_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        REF_A,
+        occurred_at="2026-08-08T08:20:00Z",
+    )
+
+    with pytest.raises(module.GhAwRuntimeError, match="episode_id is not bound to request_digest"):
+        module.preflight_episode(
+            SPEC_PATH,
+            output,
+            database,
+            "forge-dispatcher",
+            started["episode_id"],
+            REF_B,
+        )
+
+
+def test_native_preflight_writes_only_the_same_certificate(tmp_path):
+    module = load_module()
+    output, database = prepare_native(module, tmp_path)
+    started = module.start_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        REF_A,
+        occurred_at="2026-08-08T08:30:00Z",
+    )
+    certificate_path = tmp_path / "admission.json"
+    first = module.preflight_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        started["episode_id"],
+        REF_A,
+        certificate_path=certificate_path,
+    )
+    assert json.loads(certificate_path.read_text(encoding="utf-8")) == first
+    second = module.preflight_episode(
+        SPEC_PATH,
+        output,
+        database,
+        "forge-dispatcher",
+        started["episode_id"],
+        REF_A,
+        certificate_path=certificate_path,
+    )
+    assert second == first
+    certificate_path.write_text("{}\n", encoding="utf-8")
+    with pytest.raises(module.GhAwRuntimeError, match="certificate path already contains"):
+        module.preflight_episode(
+            SPEC_PATH,
+            output,
+            database,
+            "forge-dispatcher",
+            started["episode_id"],
+            REF_A,
+            certificate_path=certificate_path,
         )

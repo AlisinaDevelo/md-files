@@ -72,6 +72,7 @@ or publish generated files.
 - `data/gh-aw-workflows.json` is the reviewed workflow specification.
 - `data/runtime-gh-aw.schema.json` defines the adapter schema and pinned upstream contract.
 - `data/runtime-gh-aw-episode.schema.json` defines the privacy-safe durable episode projection.
+- `data/runtime-gh-aw-admission.schema.json` defines the digest-only native execution admission certificate.
 - `data/runtime-gh-aw-provider-request.schema.json` defines the secret-free provider envelope.
 - `policies/gh-aw.json` constrains the external effect boundary.
 - `plugins/forge/skills/orchestration/scripts/forge-gh-aw.py` owns validation and rendering.
@@ -117,6 +118,31 @@ The projection returned by `inspect` is defined by
 digests, task/effect summaries, provider reference IDs, and receipt digests, not raw outbox
 payloads or receipt bodies. The bridge remains the Forge runtime boundary; the provider worker
 does not become a second source of truth.
+
+## Native execution admission
+
+Before a native upstream worker is allowed to consume a durable episode, run the read-only
+preflight against the exact native artifact directory:
+
+```bash
+python3 scripts/forge-gh-aw-runtime.py preflight \
+  --spec data/gh-aw-workflows.json \
+  --output build/gh-aw-native \
+  --db .forge/runtime.sqlite3 \
+  --dispatcher forge-dispatcher \
+  --episode-id EPISODE_ID \
+  --request-digest sha256:REQUEST_DIGEST \
+  --certificate .forge/gh-aw-admission.json
+```
+
+`preflight` requires `mode=upstream-gh-aw`, re-runs artifact verification, enforces the
+deterministic request-bound episode ID, compares the pinned Forge runtime definition, and
+rechecks the dispatcher source and native lock hashes. The resulting certificate binds the
+upstream version/schema, native job roles, declared safe outputs, and verified history head to
+one episode without storing prompts, provider content, credentials, or GitHub objects. Repeating
+the command is byte-stable; an existing certificate may only be replaced by the exact same
+certificate. It writes no runtime event and performs no GitHub call. A future native worker must
+consume this certificate and revalidate the current lease before any provider effect.
 
 ## Fenced provider worker
 

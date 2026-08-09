@@ -259,6 +259,22 @@ terminal cancellation protocol. `inspect` returns the privacy-safe projection de
 `data/runtime-gh-aw-episode.schema.json`; it never includes effect payloads or raw provider
 receipts. The bridge is local-first and does not call GitHub itself.
 
+For native worker admission, run the read-only preflight after `start` and before any external
+effect:
+
+```bash
+python3 scripts/forge-gh-aw-runtime.py preflight \
+  --output build/gh-aw-native --db .forge/runtime.sqlite3 \
+  --dispatcher forge-dispatcher --episode-id EPISODE_ID \
+  --request-digest sha256:REQUEST_DIGEST \
+  --certificate .forge/gh-aw-admission.json
+```
+
+It requires verified `upstream-gh-aw` artifacts, binds the deterministic request-derived episode
+ID and current Forge definition, and emits the digest-only certificate described by
+`data/runtime-gh-aw-admission.schema.json`. It does not append runtime history or call GitHub;
+the eventual native worker must consume the certificate and still pass lease authorization.
+
 For a live GitHub effect, keep the secret-free request envelope outside runtime history and use
 the fenced provider stages. Planning is no-effect; approval is one-use and bound to the exact
 effect/request/operation digests; execution additionally requires the expected `gh` login and an

@@ -23,7 +23,10 @@ DEFAULT_SPEC = REPO / "data" / "gh-aw-workflows.json"
 DEFAULT_OUTPUT = REPO / "build" / "gh-aw"
 DEFAULT_DB = REPO / ".forge" / "runtime.sqlite3"
 BRIDGE_REVISION = "forge-gh-aw-runtime-v1"
+ADMISSION_REVISION = "forge-gh-aw-admission-v1"
+ADMISSION_SCHEMA = "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw-admission/v1"
 SCHEMA_VERSION = 1
+ADMISSION_SCHEMA_VERSION = 1
 REF_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 PROVIDER_REFERENCE_KEYS = ("provider_request_id", "resource_ref", "result_ref")
 RECEIPT_KEYS = {
@@ -191,13 +194,7 @@ def _runtime_definition(context: Mapping[str, Any], workflow_id: str) -> dict[st
     )
 
 
-def _episode_id(context: Mapping[str, Any], dispatcher_id: str, request_digest: str, supplied: str | None) -> str:
-    runtime = _runtime()
-    if supplied is not None:
-        episode_id = runtime._identifier(supplied, "episode_id")
-        if not episode_id.startswith("gh-aw:"):
-            raise GhAwRuntimeError("episode_id must use the gh-aw: prefix")
-        return episode_id
+def _derived_episode_id(context: Mapping[str, Any], dispatcher_id: str, request_digest: str) -> str:
     material = {
         "adapter_revision": BRIDGE_REVISION,
         "dispatcher_workflow_id": dispatcher_id,
@@ -206,6 +203,148 @@ def _episode_id(context: Mapping[str, Any], dispatcher_id: str, request_digest: 
         "upstream": context["manifest"]["upstream"],
     }
     return f"gh-aw:{dispatcher_id}:{context['compiler'].digest(material)[7:39]}"
+
+
+def _episode_id(context: Mapping[str, Any], dispatcher_id: str, request_digest: str, supplied: str | None) -> str:
+    runtime = _runtime()
+    request_digest = _ref(request_digest, "request_digest")
+    derived = _derived_episode_id(context, dispatcher_id, request_digest)
+    if supplied is not None:
+        episode_id = runtime._identifier(supplied, "episode_id")
+        if not episode_id.startswith("gh-aw:"):
+            raise GhAwRuntimeError("episode_id must use the gh-aw: prefix")
+        if episode_id != derived:
+            raise GhAwRuntimeError("episode_id is not bound to request_digest")
+        return episode_id
+    return derived
+
+
+def _manifest_artifact(context: Mapping[str, Any], kind: str, path: str) -> dict[str, str]:
+    artifacts = [
+        item
+        for item in context["manifest"]["artifacts"]
+        if item.get("kind") == kind and item.get("path") == path
+    ]
+    if len(artifacts) != 1:
+        raise GhAwRuntimeError(f"manifest must contain one {kind} artifact: {path}")
+    artifact_path = context["output"] / path
+    try:
+        actual_digest = context["compiler"].file_digest(artifact_path)
+    except OSError as exc:
+        raise GhAwRuntimeError(f"cannot read admitted artifact: {path}") from exc
+    expected_digest = _ref(artifacts[0].get("sha256"), f"manifest artifact digest for {path}")
+    if actual_digest != expected_digest:
+        raise GhAwRuntimeError(f"admitted artifact digest is stale: {path}")
+    return {"kind": kind, "path": path, "sha256": actual_digest}
+
+
+def _write_admission(path: Path, certificate: Mapping[str, Any]) -> None:
+    serialized = json.dumps(certificate, indent=2, sort_keys=True, ensure_ascii=True) + "\n"
+    try:
+        if path.exists():
+            if path.is_symlink() or not path.is_file():
+                raise GhAwRuntimeError(f"certificate path is not a regular file: {path}")
+            if path.read_text(encoding="utf-8") != serialized:
+                raise GhAwRuntimeError(f"certificate path already contains a different certificate: {path}")
+            return
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(serialized, encoding="utf-8")
+    except GhAwRuntimeError:
+        raise
+    except OSError as exc:
+        raise GhAwRuntimeError(f"cannot write admission certificate: {path}") from exc
+
+
+def preflight_episode(
+    spec_path: Path,
+    output: Path,
+    database: Path,
+    dispatcher_id: str,
+    episode_id: str,
+    request_digest: str,
+    *,
+    certificate_path: Path | None = None,
+) -> dict[str, Any]:
+    """Admit one verified native lock to one durable episode without external effects."""
+
+    context = _contract(spec_path, output)
+    if context["manifest"]["mode"] != "upstream-gh-aw":
+        raise GhAwRuntimeError("native execution requires upstream native artifacts")
+    request_digest = _ref(request_digest, "request_digest")
+    dispatcher = _workflow(context, dispatcher_id)
+    episode_id = _episode_id(context, dispatcher_id, request_digest, episode_id)
+    manifest_workflow = _manifest_workflow(context, dispatcher_id)
+    definition = _runtime_definition(context, dispatcher_id)
+    source_path = f"workflows/{dispatcher_id}.md"
+    lock_path = f"workflows/{dispatcher_id}.lock.yml"
+    artifacts = {
+        "source": _manifest_artifact(context, "source", source_path),
+        "lock": _manifest_artifact(context, "lock", lock_path),
+    }
+    if not database.is_file():
+        raise GhAwRuntimeError(f"runtime database is missing: {database}")
+    runtime = _runtime()
+    with runtime.RuntimeStore(database) as store:
+        state = _require_running(store, episode_id)
+        if state["workflow_id"] != definition["workflow_id"]:
+            raise GhAwRuntimeError("episode workflow does not match the pinned runtime definition")
+        definition_fields = (
+            "workflow_id",
+            "definition_version",
+            "workflow_code_digest",
+            "workflow_schema_digest",
+            "worker_build_id",
+            "policy_revision",
+            "policy_digest",
+            "feature_flags_digest",
+            "compatibility_revision",
+            "step_identity_revision",
+            "compatible_definition_digests",
+            "definition_digest",
+        )
+        if any(state.get(field) != definition.get(field) for field in definition_fields):
+            raise GhAwRuntimeError("episode runtime definition does not match native admission")
+        history = store.history(episode_id)
+        if not history or state["sequence"] != len(history):
+            raise GhAwRuntimeError("episode history is not at a verified admission boundary")
+        history_sequence = state["sequence"]
+        history_head = history[-1]["event_hash"]
+
+    safe_outputs = [
+        {"type": item["type"], "max": item["max"]}
+        for item in dispatcher["safe_outputs"]
+    ]
+    material = {
+        "contract_revision": ADMISSION_REVISION,
+        "mode": context["manifest"]["mode"],
+        "repository": context["spec"]["defaults"]["repository"],
+        "episode_id": episode_id,
+        "request_digest": request_digest,
+        "dispatcher_workflow_id": dispatcher_id,
+        "dispatcher_source_workflow": dispatcher["source_workflow"],
+        "runtime_definition_digest": _ref(state["definition_digest"], "runtime definition digest"),
+        "gh_aw_definition_digest": _ref(manifest_workflow["definition_digest"], "gh-aw definition digest"),
+        "graph_digest": _ref(context["manifest"]["graph_digest"], "graph digest"),
+        "spec_digest": _ref(context["manifest"]["spec_digest"], "spec digest"),
+        "effect_set_digest": _ref(manifest_workflow["effect_set_digest"], "effect set digest"),
+        "upstream": copy.deepcopy(context["manifest"]["upstream"]),
+        "artifacts": artifacts,
+        "native_job_roles": sorted(context["compiler"].NATIVE_JOB_NEEDS),
+        "dispatch_targets": sorted(dispatcher["dispatches"]),
+        "safe_outputs": safe_outputs,
+        "history_sequence": history_sequence,
+        "history_head": history_head,
+    }
+    certificate = {
+        "$schema": ADMISSION_SCHEMA,
+        "schema_version": ADMISSION_SCHEMA_VERSION,
+        "contract_revision": ADMISSION_REVISION,
+        "admission_id": context["compiler"].digest(material),
+        **material,
+    }
+    if certificate_path is not None:
+        _write_admission(certificate_path, certificate)
+    return certificate
 
 
 def _episode_effect(
@@ -827,6 +966,12 @@ def main(argv: list[str] | None = None) -> int:
     cancel_parser.add_argument("--authorization-context-digest", required=True)
     cancel_parser.add_argument("--reason-ref", required=True)
     cancel_parser.add_argument("--occurred-at")
+    preflight_parser = subparsers.add_parser(
+        "preflight", help="admit a pinned native lock to one durable episode without effects"
+    )
+    _common(preflight_parser)
+    preflight_parser.add_argument("--request-digest", required=True)
+    preflight_parser.add_argument("--certificate", type=Path)
     inspect_parser = subparsers.add_parser("inspect", help="inspect a privacy-safe episode projection")
     _common(inspect_parser)
     try:
@@ -933,6 +1078,16 @@ def main(argv: list[str] | None = None) -> int:
                 args.authorization_context_digest,
                 args.reason_ref,
                 occurred_at=args.occurred_at,
+            )
+        elif args.command == "preflight":
+            result = preflight_episode(
+                args.spec,
+                args.output,
+                args.db,
+                args.dispatcher,
+                args.episode_id,
+                args.request_digest,
+                certificate_path=args.certificate,
             )
         else:
             result = inspect_episode(args.spec, args.output, args.db, args.dispatcher, args.episode_id)
