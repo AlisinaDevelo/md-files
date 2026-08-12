@@ -1,6 +1,6 @@
 # OpenAI Agent Plugins Compatibility
 
-Last reviewed: 2026-08-09
+Last reviewed: 2026-08-12
 
 Forge is a skills-only OpenAI Agent Plugin candidate. Its local and repository Codex
 marketplace installs are supported today; public listing in the universal ChatGPT and
@@ -18,6 +18,10 @@ and publish in ChatGPT and Codex. A package can contain:
 Skills-only is a supported shape. Forge does not need an MCP server or custom UI merely to
 be a valid plugin. Hooks and other capabilities may remain surface-specific, so the Claude
 plugin and the Codex plugin are intentionally not identical archives.
+
+The follow-up evaluation is complete: Forge has no current workflow that requires a remote
+MCP server or visual interaction. The evidence-backed deferral and reopen criteria are in
+[`openai-mcp-ui-decision.md`](openai-mcp-ui-decision.md).
 
 ## Current Contract
 
@@ -62,7 +66,7 @@ the external identity-verification blocker.
 | 0038 | minor | Record the official contract and audit Forge's current surfaces | done |
 | 0039 | minor | Validate Codex marketplace policy and local source resolution in CI | done |
 | 0040 | major | Prepare skills-only submission evidence and an owner-reviewed portal draft | done |
-| 0041 | major | Evaluate an MCP server or UI extension only if a real workflow requires it | backlog |
+| 0041 | major | Evaluate an MCP server or UI extension only if a real workflow requires it | done; deferred |
 
 ## Submission Test Candidates
 
