@@ -16,6 +16,7 @@ from typing import Any
 SCHEMA_VERSION = 1
 STATUSES = ("pass", "warn", "fail", "unknown")
 PLUGIN = Path("plugins/forge")
+PROFILE_RELATIVE = Path("data/doctor-profiles.json")
 
 
 @dataclass
@@ -39,9 +40,10 @@ class Check:
 
 
 class Doctor:
-    def __init__(self, repo: Path, offline: bool = False) -> None:
+    def __init__(self, repo: Path, offline: bool = False, profile: str = "auto") -> None:
         self.repo = repo.resolve()
         self.offline = offline
+        self.profile = profile
         self.checks: list[Check] = []
         self._remote: tuple[str, str] | None = None
 
@@ -76,6 +78,7 @@ class Doctor:
 
     def run(self) -> dict[str, Any]:
         self.check_repo()
+        self.check_profile()
         self.check_worktree()
         self.check_manifests()
         self.check_catalog()
@@ -102,6 +105,235 @@ class Doctor:
             "summary": counts,
             "checks": [check.as_dict() for check in self.checks],
         }
+
+    def _profile_source(self) -> Path | None:
+        candidates = [self.repo / PROFILE_RELATIVE]
+        package_root = Path(__file__).resolve().parents[5]
+        candidates.append(package_root / PROFILE_RELATIVE)
+        for path in candidates:
+            if path.is_file():
+                return path
+        return None
+
+    def _origin(self) -> tuple[str, str] | None:
+        if self._remote is not None:
+            return self._remote
+        result = self.command(["git", "remote", "get-url", "origin"])
+        if result.returncode:
+            return None
+        return parse_github_remote(result.stdout.strip())
+
+    def _profile_match(
+        self, profile: dict[str, Any]
+    ) -> tuple[str, list[str], tuple[str, str] | None] | None:
+        repository_aliases = profile.get("repository_aliases")
+        if not isinstance(repository_aliases, dict):
+            return None
+        workspace_aliases = {
+            str(alias).casefold()
+            for alias in profile.get("workspace_aliases", [])
+            if isinstance(alias, str)
+        }
+        owners = {
+            str(owner).casefold()
+            for owner in profile.get("remote_owners", [])
+            if isinstance(owner, str)
+        }
+        workspace_matches = [
+            parent.name
+            for parent in self.repo.parents
+            if parent.name.casefold() in workspace_aliases
+        ]
+        remote = self._origin()
+        remote_owner_match = bool(remote and remote[0].casefold() in owners)
+        repository_name = self.repo.name.casefold()
+        for canonical, aliases in repository_aliases.items():
+            names = {str(canonical).casefold()}
+            names.update(
+                str(alias).casefold()
+                for alias in aliases
+                if isinstance(alias, str)
+            )
+            local_match = repository_name in names
+            remote_match = bool(remote_owner_match and remote and remote[1].casefold() in names)
+            if (local_match and workspace_matches) or remote_match:
+                return str(canonical), workspace_matches, remote
+        return None
+
+    def _tracked_files(self) -> list[Path]:
+        result = self.command(["git", "ls-files", "-z"], timeout=10)
+        if result.returncode == 0:
+            return [Path(item) for item in result.stdout.split("\0") if item]
+        return sorted(
+            path.relative_to(self.repo)
+            for path in self.repo.rglob("*")
+            if path.is_file() and ".git" not in path.parts
+        )
+
+    def check_profile(self) -> None:
+        if self.profile == "none":
+            return
+        source = self._profile_source()
+        if source is None:
+            if self.profile != "auto":
+                self.add(
+                    "forge.profile",
+                    "fail",
+                    "requested doctor profile data is unavailable",
+                    [str(PROFILE_RELATIVE)],
+                    "Restore data/doctor-profiles.json before using an explicit profile.",
+                )
+            return
+        try:
+            document = json.loads(source.read_text(encoding="utf-8"))
+            if document.get("schema_version") != 1 or not isinstance(document.get("profiles"), list):
+                raise ValueError("profile document must use schema_version 1 and contain profiles")
+            profiles = [item for item in document["profiles"] if isinstance(item, dict)]
+        except (OSError, json.JSONDecodeError, TypeError, ValueError) as exc:
+            self.add(
+                "forge.profile",
+                "fail",
+                "doctor profile data is invalid",
+                [str(exc), str(source)],
+                "Repair the profile document before using profile preflight detection.",
+            )
+            return
+
+        selected: dict[str, Any] | None = None
+        match: tuple[str, list[str], tuple[str, str] | None] | None = None
+        if self.profile == "auto":
+            for candidate in profiles:
+                candidate_match = self._profile_match(candidate)
+                if candidate_match:
+                    selected = candidate
+                    match = candidate_match
+                    break
+            if selected is None:
+                return
+        else:
+            selected = next(
+                (candidate for candidate in profiles if candidate.get("id") == self.profile),
+                None,
+            )
+            if selected is None:
+                self.add(
+                    "forge.profile",
+                    "fail",
+                    "requested doctor profile is not registered",
+                    [self.profile],
+                    "Use a profile id from data/doctor-profiles.json or omit --profile for auto detection.",
+                )
+                return
+            match = self._profile_match(selected)
+            if match is None:
+                self.add(
+                    "forge.profile",
+                    "fail",
+                    "requested doctor profile does not match this repository",
+                    [f"profile {self.profile}", self.repo.name],
+                    "Run the requested profile from its declared workspace or repository remote.",
+                )
+                return
+
+        canonical, workspace_matches, remote = match
+        boundaries = selected.get("boundaries")
+        expected_boundaries = {
+            "execution": "read-only",
+            "security": "defensive-only",
+            "external_authority": "none",
+        }
+        if boundaries != expected_boundaries:
+            self.add(
+                "forge.profile",
+                "fail",
+                "doctor profile boundary is broader than the read-only contract",
+                [f"profile {selected.get('id', 'unknown')}", json.dumps(boundaries, sort_keys=True)],
+                "Keep profile detection read-only, defensive-only, and without external authority.",
+            )
+            return
+
+        matrix = selected.get("language_matrix")
+        repository_languages = selected.get("repository_languages")
+        expected_languages = repository_languages.get(canonical, []) if isinstance(repository_languages, dict) else None
+        if (
+            not isinstance(matrix, dict)
+            or not isinstance(expected_languages, list)
+            or not all(isinstance(language, str) for language in expected_languages)
+        ):
+            self.add(
+                "forge.profile",
+                "fail",
+                "doctor profile language matrix is invalid",
+                [f"profile {selected.get('id', 'unknown')}"] ,
+                "Declare a language matrix and repository language expectations as string arrays.",
+            )
+            return
+
+        markers: dict[str, set[str]] = {}
+        for language, values in matrix.items():
+            if (
+                not isinstance(language, str)
+                or not isinstance(values, list)
+                or not all(isinstance(value, str) for value in values)
+            ):
+                self.add(
+                    "forge.profile",
+                    "fail",
+                    "doctor profile language matrix contains invalid entries",
+                    [f"profile {selected.get('id', 'unknown')}", str(language)],
+                    "Use language names mapped to string extension or filename arrays.",
+                )
+                return
+            markers[language] = {value.casefold() for value in values}
+
+        counts = {language: 0 for language in markers}
+        unknown: set[str] = set()
+        for path in self._tracked_files():
+            filename = path.name.casefold()
+            suffix = path.suffix.casefold()
+            language = next(
+                (
+                    candidate
+                    for candidate, values in markers.items()
+                    if filename in values or suffix in values
+                ),
+                None,
+            )
+            if language is None:
+                if suffix:
+                    unknown.add(suffix)
+                continue
+            counts[language] += 1
+
+        missing = [language for language in expected_languages if counts.get(language, 0) == 0]
+        status = "pass" if not missing and not unknown else "warn"
+        language_evidence = [
+            f"{language}={counts[language]}"
+            for language in markers
+            if counts[language]
+        ]
+        evidence = [
+            f"profile {selected.get('id', 'unknown')}",
+            f"repository alias {canonical}",
+            f"workspace aliases matched: {', '.join(workspace_matches) if workspace_matches else 'remote only'}",
+            f"language matrix: {', '.join(language_evidence) if language_evidence else 'no recognized files'}",
+            "execution=read-only",
+            "security=defensive-only",
+            "external_authority=none",
+        ]
+        if remote:
+            evidence.append(f"remote {remote[0]}/{remote[1]}")
+        if missing:
+            evidence.append("missing expected languages: " + ", ".join(missing))
+        if unknown:
+            evidence.append("unclassified extensions: " + ", ".join(sorted(unknown)))
+        self.add(
+            "forge.profile",
+            status,
+            f"{selected.get('name', selected.get('id', 'Forge'))} profile recognized",
+            evidence,
+            "Review the repository language matrix before relying on cross-repository comparisons." if status == "warn" else None,
+        )
 
     def check_repo(self) -> None:
         git_dir = self.repo / ".git"
@@ -556,6 +788,7 @@ def parse_github_remote(remote: str) -> tuple[str, str] | None:
     patterns = (
         r"^https://github\.com/([^/]+)/([^/]+?)(?:\.git)?$",
         r"^git@github\.com:([^/]+)/([^/]+?)(?:\.git)?$",
+        r"^git@github-[^:]+:([^/]+)/([^/]+?)(?:\.git)?$",
         r"^ssh://git@github\.com/([^/]+)/([^/]+?)(?:\.git)?$",
     )
     for pattern in patterns:
@@ -592,10 +825,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repo", type=Path, default=Path.cwd(), help="repository to inspect (default: current directory)")
     parser.add_argument("--json", action="store_true", help="emit the schema-versioned JSON report")
     parser.add_argument("--offline", action="store_true", help="skip all network-backed GitHub checks")
+    parser.add_argument("--profile", default="auto", help="doctor profile id or 'auto'/'none' (default: auto)")
     parser.add_argument("--strict", action="store_true", help="return failure for warnings or unknown checks")
     args = parser.parse_args(argv)
 
-    report = Doctor(args.repo, offline=args.offline).run()
+    report = Doctor(args.repo, offline=args.offline, profile=args.profile).run()
     if args.json:
         print(json.dumps(report, indent=2))
     else:

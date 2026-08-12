@@ -43,3 +43,4 @@
 | 0039 | Add strict Codex marketplace contract validation | done | test-engineer | sonnet | 0038 |
 | 0040 | Prepare OpenAI skills-only submission evidence | done | docs-writer | sonnet | 0038, 0039 |
 | 0041 | Evaluate optional OpenAI MCP and UI extension | done | architect | opus | 0038 |
+| 0042 | Add generic constellation integration bundle | done | architect | opus | 0038, 0041 |

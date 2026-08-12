@@ -39,6 +39,7 @@ def test_release_surface_derives_metadata_and_install_inputs(tmp_path):
     assert any(item["resolved_components"] for item in bundles["bundles"])
     assert any(item["resolved_steps"] for item in workflows["workflows"])
     assert (tmp_path / "claude/data/runtime-events.schema.json").is_file()
+    assert (tmp_path / "claude/data/doctor-profiles.json").is_file()
     assert (tmp_path / "codex/data/runtime-state.schema.json").is_file()
     assert (tmp_path / "claude/data/runtime-outbox.schema.json").is_file()
     assert (tmp_path / "codex/data/runtime-inbox.schema.json").is_file()
@@ -80,7 +81,13 @@ def test_release_surface_derives_metadata_and_install_inputs(tmp_path):
     assert (tmp_path / "agentskills/zed/install.sh").stat().st_mode & 0o111
     manifest = json.loads((tmp_path / "codex/data/projection-manifest.json").read_text(encoding="utf-8"))
     assert manifest["hosts"]["codex"]["components"] == 25
-    assert manifest["metadata"]["bundles"]["count"] == 6
+    assert manifest["metadata"]["bundles"]["count"] == 7
+    constellation = next(item for item in bundles["bundles"] if item["id"] == "constellation-integration")
+    assert constellation["boundaries"] == {
+        "execution": "read-only",
+        "security": "defensive-only",
+        "external_authority": "none",
+    }
 
 
 def test_release_surface_is_byte_deterministic(tmp_path):

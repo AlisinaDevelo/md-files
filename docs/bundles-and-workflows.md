@@ -77,6 +77,25 @@ For user-facing product work.
 - `code-reviewer`
 - `test-engineer`
 
+### Constellation Integration
+
+For read-only coordination across a private multi-repository constellation.
+
+- `architect`
+- `orchestration`
+- `task-ledger`
+- `code-reviewer`
+- `threat-modeling`
+- `doctor`
+- `dependency-auditor`
+- `incident-responder`
+- `technical-writing`
+
+This bundle is a routing preset, not a permission grant. Its profile detects workspace
+aliases and repository language evidence, but does not authorize security actions,
+GitHub mutations, deployments, or production changes. Use the policy and approval
+boundaries already defined by the selected host before any external effect.
+
 ## Workflows
 
 ### Ship a Feature

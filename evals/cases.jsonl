@@ -11,3 +11,7 @@
 {"id": "stack-engine-contract", "type": "contract", "target": "file:plugins/forge/skills/stacked-changes/scripts/forge-stack.py", "must_include": ["plan only", "--force-with-lease", "gh stack submit", "gh stack merge --yes --squash"], "must_not_include": ["subprocess.run(command", "shell=true"]}
 {"id": "stack-aware-pr-contract", "type": "contract", "target": "command:pr", "must_include": [".forge/stack.json", "immediate parent", "git diff <base>...head"]}
 {"id": "orchestration-stack-contract", "type": "contract", "target": "skill:orchestration", "must_include": ["choose the review topology", "stacked-changes", ".forge/stack.json"]}
+{"id": "constellation-capability-claim-honesty", "type": "contract", "target": "file:docs/constellation-integration.md", "must_include": ["evidence", "does not certify", "README"], "must_not_include": ["guaranteed secure"]}
+{"id": "constellation-issue-dependency-completeness", "type": "contract", "target": "file:docs/constellation-integration.md", "must_include": ["depends_on", "conflict", "plan again"], "must_not_include": ["overwrite without conflict resolution"]}
+{"id": "constellation-secret-hygiene", "type": "contract", "target": "file:docs/constellation-integration.md", "must_include": ["Never log secrets", "credentials", "privacy-safe"], "must_not_include": ["write credentials to public artifacts"]}
+{"id": "constellation-ci-evidence", "type": "contract", "target": "file:docs/constellation-integration.md", "must_include": ["CI", "commit", "run", "actual"], "must_not_include": ["claim CI passed without a run"]}

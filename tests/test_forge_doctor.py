@@ -28,6 +28,7 @@ def load_module():
     [
         ("https://github.com/AlisinaDevelo/md-files.git", ("AlisinaDevelo", "md-files")),
         ("git@github.com:AlisinaDevelo/md-files", ("AlisinaDevelo", "md-files")),
+        ("git@github-personal:AlisinaDevelo/md-files.git", ("AlisinaDevelo", "md-files")),
         ("ssh://git@github.com/AlisinaDevelo/md-files.git", ("AlisinaDevelo", "md-files")),
         ("https://gitlab.com/example/project.git", None),
     ],
@@ -64,6 +65,26 @@ def test_offline_mode_never_calls_github_api(monkeypatch):
     monkeypatch.setattr(instance, "github_api", forbidden)
     report = instance.run()
     assert report["summary"]["unknown"] == 4
+
+
+def test_local_constellation_profile_reports_aliases_language_matrix_and_boundaries(tmp_path):
+    doctor = load_module()
+    repo = tmp_path / "workspace" / "repository"
+    repo.mkdir(parents=True)
+    for name in ("README.md", "config.json", "check.py", "policy.yaml", "run.sh"):
+        (repo / name).write_text("fixture\n")
+    instance = doctor.Doctor(repo, offline=True, profile="local-constellation")
+    instance.check_profile()
+
+    assert len(instance.checks) == 1
+    finding = instance.checks[0]
+    assert finding.check_id == "forge.profile"
+    assert finding.status == "pass"
+    assert any("repository alias repository" in item for item in finding.evidence)
+    assert any("language matrix:" in item and "markdown=" in item for item in finding.evidence)
+    assert "execution=read-only" in finding.evidence
+    assert "security=defensive-only" in finding.evidence
+    assert "external_authority=none" in finding.evidence
 
 
 def test_manifest_drift_is_a_failure(tmp_path):
