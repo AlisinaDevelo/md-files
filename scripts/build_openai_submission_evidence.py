@@ -92,6 +92,25 @@ def _read_archive(path: Path) -> dict[str, bytes]:
     return files
 
 
+def _read_installed_tree(root: Path) -> dict[str, bytes]:
+    files: dict[str, bytes] = {}
+    for path in sorted(root.rglob("*")):
+        if path.is_symlink():
+            raise SubmissionEvidenceError(f"installed candidate contains a symlink: {path.relative_to(root)}")
+        if path.is_dir():
+            continue
+        if not path.is_file():
+            raise SubmissionEvidenceError(f"installed candidate contains an unsupported entry: {path.relative_to(root)}")
+        relative = path.relative_to(root).as_posix()
+        files[f"forge/{relative}"] = path.read_bytes()
+    return files
+
+
+def _json_sha256(value: Any) -> str:
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def _contains(files: dict[str, bytes], path: str, *needles: str) -> tuple[bool, list[str]]:
     data = files.get(path)
     if data is None:
@@ -189,7 +208,7 @@ def _submission_metadata(repo: Path, version: str) -> dict[str, Any]:
     }
 
 
-def _run_cases(repo: Path, files: dict[str, bytes], validator: Any) -> list[dict[str, Any]]:
+def _run_cases(files: dict[str, bytes], release_policy: dict[str, Any], validator: Any) -> list[dict[str, Any]]:
     manifest_path = "forge/.codex-plugin/plugin.json"
     orchestration = "forge/skills/orchestration/SKILL.md"
     solve_loop = "forge/skills/iterate-to-done/SKILL.md"
@@ -244,7 +263,6 @@ def _run_cases(repo: Path, files: dict[str, bytes], validator: Any) -> list[dict
         )
     )
 
-    release_policy = _load_json(repo / "policies/release.json")
     rules = release_policy.get("rules", [])
     release_effect = next((rule for rule in rules if rule.get("id") == "release-effect"), None)
     if release_policy.get("default_decision") != "deny" or not isinstance(release_effect, dict) or release_effect.get("decision") != "require_approval":
@@ -287,6 +305,62 @@ def _run_cases(repo: Path, files: dict[str, bytes], validator: Any) -> list[dict
     return results
 
 
+def _install_and_replay(
+    archive: Path,
+    archive_files: dict[str, bytes],
+    archive_sha256: str,
+    version: str,
+    release_policy: dict[str, Any],
+    validator: Any,
+) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any]]:
+    with tempfile.TemporaryDirectory(prefix="forge-openai-install-") as directory:
+        try:
+            installed_root = validator.extract_archive(archive, Path(directory))
+        except (OSError, tarfile.TarError, ValueError) as exc:
+            raise SubmissionEvidenceError(f"candidate installation failed: {exc}") from exc
+        validation_errors = validator.validate_plugin(installed_root, version)
+        if validation_errors:
+            raise SubmissionEvidenceError("installed candidate failed Codex validation: " + "; ".join(validation_errors))
+        installed_files = _read_installed_tree(installed_root)
+        if installed_files != archive_files:
+            raise SubmissionEvidenceError("installed candidate does not match the release archive byte for byte")
+
+        first_cases = _run_cases(installed_files, release_policy, validator)
+        second_cases = _run_cases(installed_files, release_policy, validator)
+        first_digest = _json_sha256(first_cases)
+        second_digest = _json_sha256(second_cases)
+        if first_digest != second_digest or first_cases != second_cases:
+            raise SubmissionEvidenceError("installed candidate contract replay is not deterministic")
+
+        manifest = json.loads(installed_files["forge/.codex-plugin/plugin.json"].decode("utf-8"))
+        skill_paths = [path for path in installed_files if path.startswith("forge/skills/") and path.endswith("/SKILL.md")]
+        tree_inventory = {path: hashlib.sha256(data).hexdigest() for path, data in sorted(installed_files.items())}
+        installation = {
+            "status": "pass",
+            "mode": "isolated-offline-archive",
+            "source_archive_sha256": archive_sha256,
+            "manifest_version": manifest.get("version"),
+            "installed_files": len(installed_files),
+            "installed_skills": len(skill_paths),
+            "tree_sha256": _json_sha256(tree_inventory),
+            "archive_bytes_match": True,
+            "strict_validation": "pass",
+        }
+        replay = {
+            "status": "pass",
+            "mode": "deterministic-installed-contract",
+            "attempts": 2,
+            "case_count": len(first_cases),
+            "case_set_sha256": first_digest,
+            "identical": True,
+            "source_inputs": {
+                "release_policy": "policies/release.json",
+                "release_policy_sha256": _json_sha256(release_policy),
+            },
+        }
+    return first_cases, installation, replay
+
+
 def build_submission_evidence(repo: Path, output: Path | None = None, *, allow_dirty: bool = False) -> dict[str, Any]:
     repo = repo.resolve()
     manifest = _load_json(repo / "plugins/forge/.claude-plugin/plugin.json")
@@ -296,6 +370,7 @@ def build_submission_evidence(repo: Path, output: Path | None = None, *, allow_d
     commit = _git(repo, "rev-parse", "HEAD")
     source_epoch = int(_git(repo, "show", "-s", "--format=%ct", commit))
     metadata = _submission_metadata(repo, version)
+    release_policy = _load_json(repo / "policies/release.json")
     builder = _load_script_module("build_release")
     validator = _load_script_module("validate_codex_plugin")
     verifier = _load_script_module("verify_release")
@@ -318,7 +393,15 @@ def build_submission_evidence(repo: Path, output: Path | None = None, *, allow_d
         if validation_errors:
             raise SubmissionEvidenceError("candidate archive failed Codex validation: " + "; ".join(validation_errors))
         files = _read_archive(archive)
-        cases = _run_cases(repo, files, validator)
+        archive_sha256 = _sha256(archive)
+        cases, installation, replay = _install_and_replay(
+            archive,
+            files,
+            archive_sha256,
+            version,
+            release_policy,
+            validator,
+        )
         report = {
             "$schema": EVIDENCE_SCHEMA,
             "schema_version": SCHEMA_VERSION,
@@ -329,15 +412,19 @@ def build_submission_evidence(repo: Path, output: Path | None = None, *, allow_d
                 "source_commit": commit,
                 "source_date_epoch": source_epoch,
                 "archive": archive.name,
-                "archive_sha256": _sha256(archive),
+                "archive_sha256": archive_sha256,
                 "release_manifest": release_manifest.name,
                 "release_manifest_sha256": _sha256(release_manifest),
                 "reproduction": "python3 scripts/build_openai_submission_evidence.py --output PATH",
+                "installation": installation,
+                "replay": replay,
             },
             "submission_materials": metadata,
             "checks": [
                 {"id": "listing-fields", "status": "pass", "observations": ["listing, publisher, support, privacy, terms, starter prompts, release notes, and availability fields are represented"]},
                 {"id": "candidate-package", "status": "pass", "observations": ["release manifest, SHA-256 inventory, SPDX metadata, and Codex archive verify offline"]},
+                {"id": "candidate-installation", "status": "pass", "observations": ["the exact Codex archive installs into an isolated tree, matches byte for byte, and passes strict validation"]},
+                {"id": "contract-replay", "status": "pass", "observations": ["five positive and three negative cases replay twice against the installed candidate and bound release policy with one stable digest"]},
             ],
             "cases": cases,
             "external_blockers": [
@@ -346,6 +433,7 @@ def build_submission_evidence(repo: Path, output: Path | None = None, *, allow_d
             ],
             "limitations": [
                 "These are deterministic release-candidate contract checks, not a claim of OpenAI portal approval.",
+                "The isolated offline archive installation is distinct from a host CLI marketplace lifecycle test.",
                 "Skills-only remains the intended package shape; MCP and custom UI are outside this task.",
             ],
         }

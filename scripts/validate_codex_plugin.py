@@ -267,7 +267,9 @@ def validate_marketplace(marketplace_path: Path, root: Path | None = None) -> li
     return errors
 
 
-def _extract_archive(archive_path: Path, destination: Path) -> Path:
+def extract_archive(archive_path: Path, destination: Path) -> Path:
+    """Safely install a Codex plugin archive into an existing directory."""
+
     root_name = "forge"
     seen: set[str] = set()
     with tarfile.open(archive_path, "r:gz") as archive:
@@ -292,7 +294,7 @@ def _extract_archive(archive_path: Path, destination: Path) -> Path:
 def validate_archive(archive_path: Path, expected_version: str | None = None) -> list[str]:
     with tempfile.TemporaryDirectory(prefix="forge-codex-validate-") as directory:
         try:
-            root = _extract_archive(archive_path.resolve(), Path(directory))
+            root = extract_archive(archive_path.resolve(), Path(directory))
         except (OSError, tarfile.TarError, ValueError) as exc:
             return [str(exc)]
         return validate_plugin(root, expected_version)

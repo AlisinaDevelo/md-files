@@ -6,6 +6,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[1]
 SCRIPT = REPO / "scripts/build_openai_submission_evidence.py"
 
@@ -30,7 +32,29 @@ def test_submission_evidence_has_five_positive_and_three_negative_cases(tmp_path
     assert all(item["status"] == "pass" for item in report["cases"])
     assert report["execution_mode"] == "offline-release-candidate-contract"
     assert report["submission_materials"]["publication"]["status"] == "not_submitted"
-    assert report["candidate"]["archive_sha256"]
+    candidate = report["candidate"]
+    assert candidate["archive_sha256"]
+    assert candidate["installation"]["status"] == "pass"
+    assert candidate["installation"]["mode"] == "isolated-offline-archive"
+    assert candidate["installation"]["source_archive_sha256"] == candidate["archive_sha256"]
+    assert candidate["installation"]["manifest_version"] == report["plugin"]["version"]
+    assert candidate["installation"]["installed_files"] > 0
+    assert candidate["installation"]["installed_skills"] >= 20
+    assert candidate["installation"]["archive_bytes_match"] is True
+    assert candidate["installation"]["strict_validation"] == "pass"
+    assert candidate["installation"]["tree_sha256"]
+    assert candidate["replay"]["status"] == "pass"
+    assert candidate["replay"]["mode"] == "deterministic-installed-contract"
+    assert candidate["replay"]["attempts"] == 2
+    assert candidate["replay"]["case_count"] == len(report["cases"])
+    assert candidate["replay"]["case_set_sha256"]
+    assert candidate["replay"]["identical"] is True
+    assert candidate["replay"]["source_inputs"]["release_policy"] == "policies/release.json"
+    assert candidate["replay"]["source_inputs"]["release_policy_sha256"]
+    assert {item["id"] for item in report["checks"]} >= {
+        "candidate-installation",
+        "contract-replay",
+    }
     assert (tmp_path / "evidence.json").is_file()
 
 
@@ -41,3 +65,18 @@ def test_submission_evidence_is_deterministic_for_same_source(tmp_path):
     second = module.build_submission_evidence(REPO, tmp_path / "second.json", allow_dirty=True)
 
     assert first == second
+
+
+def test_submission_evidence_rejects_installed_bytes_that_do_not_match_archive(tmp_path, monkeypatch):
+    module = load()
+    read_archive = module._read_archive
+
+    def tampered_archive(path):
+        files = read_archive(path)
+        files["forge/LICENSE"] += b"tampered"
+        return files
+
+    monkeypatch.setattr(module, "_read_archive", tampered_archive)
+
+    with pytest.raises(module.SubmissionEvidenceError, match="does not match the release archive byte for byte"):
+        module.build_submission_evidence(REPO, tmp_path / "evidence.json", allow_dirty=True)

@@ -14,10 +14,15 @@ python3 scripts/build_openai_submission_evidence.py \
 ```
 
 The runner builds the exact Codex release candidate, verifies the release manifest, SBOM,
-hash inventory, and archive, validates the strict plugin contract, checks the submission
-fields, and runs five positive plus three negative offline contract cases. The JSON report
-records the source commit, source epoch, archive name, archive digest, manifest digest,
-observations, and external blockers.
+hash inventory, and archive, then installs that archive into an isolated temporary tree. It
+requires the installed files to match the archive byte for byte and reruns strict plugin
+validation after installation. Five positive plus three negative contract cases then replay
+twice against the installed bytes and the source release policy; both the policy input and
+case set are bound by stable digests.
+
+The JSON report records the source commit, source epoch, archive and manifest digests,
+installed file and skill counts, installed-tree digest, replay digest, observations, and
+external blockers.
 
 ## Submission fields
 
@@ -50,6 +55,21 @@ observations, and external blockers.
 
 These cases are offline release-candidate contracts. They are useful evidence for the
 submission packet, but they are not a substitute for the platform portal's own test run.
+
+## Evidence boundary
+
+The report's installation is an isolated offline extraction of the exact release archive. It
+proves package contents and deterministic contract replay, but it does not claim a Codex or
+Claude CLI marketplace lifecycle. Run the separate host smoke when those CLIs are available:
+
+```bash
+./scripts/marketplace-smoke.sh "$PWD"
+```
+
+That smoke uses isolated Claude and Codex homes to install, reinstall, inspect resources,
+remove Forge, and verify removal. CI runs both the reproducible packet builder and this host
+lifecycle smoke. Neither check can complete publisher identity verification or OpenAI portal
+review.
 
 ## Owner blocker
 
