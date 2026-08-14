@@ -803,6 +803,15 @@ def _statement(
     }
 
 
+def _assert_policy_revision_matches_lineage(manifest: Mapping[str, Any], policy_revision: str) -> None:
+    revisions = {run["policy_revision"] for run in manifest["runs"]}
+    if revisions != {policy_revision}:
+        rendered = ", ".join(sorted(revisions)) or "<none>"
+        raise ProvenanceError(
+            f"policy_revision does not match lineage evidence: expected {policy_revision}, found {rendered}"
+        )
+
+
 def export_bundle(
     database: Path,
     *,
@@ -829,6 +838,7 @@ def export_bundle(
     lineage = _lineage_module()
     manifest = lineage.export_manifest(Path(database), Path(receipts_path) if receipts_path is not None else None)
     lineage.verify_manifest(manifest)
+    _assert_policy_revision_matches_lineage(manifest, policy_revision)
     incoming = parse_trace_context(traceparent, tracestate)
     trace_context = {
         "schema_version": 1,
@@ -974,6 +984,7 @@ def _verify_provenance(
     _assert_known_fields(external, EXTERNAL_PARAMETER_FIELDS, "provenance.externalParameters")
     source_revision = _bounded_text(external.get("source_revision"), "provenance.source_revision") or ""
     policy_revision = _bounded_text(external.get("policy_revision"), "provenance.policy_revision") or ""
+    _assert_policy_revision_matches_lineage(manifest, policy_revision)
     if expected_source_revision is not None and source_revision != expected_source_revision:
         raise ProvenanceError("source revision does not match expected value")
     if expected_policy_revision is not None and policy_revision != expected_policy_revision:

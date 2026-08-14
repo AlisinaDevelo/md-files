@@ -97,14 +97,22 @@ def write_key_and_policy(tmp_path, module, *, key_id="key-a", key=b"forge-proven
     return key_path, policy_path
 
 
-def export_bundle(tmp_path, *, key_id="key-a", key=b"forge-provenance-test-key-0001", status="active", **kwargs):
+def export_bundle(
+    tmp_path,
+    *,
+    key_id="key-a",
+    key=b"forge-provenance-test-key-0001",
+    status="active",
+    policy_revision="policy-v1",
+    **kwargs,
+):
     module, database = prepared_runtime(tmp_path)
     key_path, policy_path = write_key_and_policy(tmp_path, module, key_id=key_id, key=key, status=status)
     database_before = database.read_bytes()
     bundle = module.export_bundle(
         database,
         source_revision="git:source-v1",
-        policy_revision="policy-v1",
+        policy_revision=policy_revision,
         signing_key_path=key_path,
         trust_policy_path=policy_path,
         key_id=key_id,
@@ -198,6 +206,30 @@ def test_tampering_fails_after_bundle_digest_is_recomputed(tmp_path):
     changed["provenance"]["predicate"]["buildDefinition"]["externalParameters"]["source_revision"] = "git:other"
     redigest_bundle(module, changed)
     with pytest.raises(module.ProvenanceError, match="signature|invocation"):
+        module.verify_bundle(changed, policy_path)
+
+
+def test_policy_revision_is_bound_to_lineage(tmp_path):
+    module, _database, key_path, policy_path, bundle, _database_before = export_bundle(tmp_path / "valid")
+
+    mismatch_root = tmp_path / "export-mismatch"
+    mismatch_module, mismatch_database = prepared_runtime(mismatch_root)
+    mismatch_key_path, mismatch_policy_path = write_key_and_policy(mismatch_root, mismatch_module)
+    with pytest.raises(module.ProvenanceError, match="policy_revision does not match lineage"):
+        module.export_bundle(
+            mismatch_database,
+            source_revision="git:source-v1",
+            policy_revision="policy-v2",
+            signing_key_path=mismatch_key_path,
+            trust_policy_path=mismatch_policy_path,
+            key_id="key-a",
+        )
+
+    changed = copy.deepcopy(bundle)
+    changed["provenance"]["predicate"]["buildDefinition"]["externalParameters"]["policy_revision"] = "policy-v2"
+    changed["signature"] = module._signature(changed["provenance"], "key-a", key_path.read_bytes())
+    redigest_bundle(module, changed)
+    with pytest.raises(module.ProvenanceError, match="policy_revision does not match lineage"):
         module.verify_bundle(changed, policy_path)
 
     changed = copy.deepcopy(bundle)
