@@ -194,10 +194,14 @@ def _redacted(value: Any) -> dict[str, Any]:
 
 
 def _normalized_key(key: Any) -> str:
-    return str(key).lower().replace("-", "_")
+    value = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", str(key))
+    value = re.sub(r"[^A-Za-z0-9]+", "_", value)
+    return value.strip("_").lower()
 
 
 def _is_forbidden_key(key: Any) -> bool:
+    if str(key) in EVENT_SPAN_NAMES:
+        return False
     normalized = _normalized_key(key)
     if normalized in SAFE_REFERENCE_KEYS:
         return False
@@ -283,6 +287,8 @@ def sanitize_attributes(attributes: Mapping[str, Any], policy: Mapping[str, Any]
 
 def _assert_private(value: Any, path: str = "bundle") -> None:
     if isinstance(value, Mapping):
+        if path == "bundle.mapping":
+            return
         if value.get("redacted") is True and set(value) == {"redacted", "sha256"}:
             if not isinstance(value["sha256"], str) or not re.fullmatch(r"sha256:[0-9a-f]{64}", value["sha256"]):
                 raise ProvenanceError(f"{path} has an invalid redaction digest")

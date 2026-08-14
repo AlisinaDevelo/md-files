@@ -185,6 +185,15 @@ def test_privacy_defaults_to_digest_and_requires_explicit_export_policy():
     assert safe["status"] == "ok"
     assert safe["prompt"]["redacted"] is True
 
+    variant_keys = module.sanitize_attributes(
+        {
+            "toolArguments": "must stay private",
+            "apiKey": "credential",
+            "provider.response": "raw provider output",
+        }
+    )
+    assert all(value["redacted"] is True for value in variant_keys.values())
+
     policy = {
         "schema_version": 1,
         "allow_content": True,
