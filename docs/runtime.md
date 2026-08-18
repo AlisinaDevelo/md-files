@@ -60,7 +60,8 @@ python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 submit-input \
   --input-schema-digest sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
   --authorization-context-digest sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 python3 scripts/forge-mcp-tasks.py --db .forge/runtime.sqlite3 get \
-  --run-id run-demo --wait-id approval-1
+  --run-id run-demo --wait-id approval-1 \
+  --authorization-context-digest sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 
 python3 scripts/forge-lineage.py export \
   --db .forge/runtime.sqlite3 --output .forge/lineage.json
@@ -85,6 +86,7 @@ The database schemas are versioned in [`data/runtime-events.schema.json`](../dat
 [`data/runtime-restore.schema.json`](../data/runtime-restore.schema.json), and
 [`data/runtime-migrations.schema.json`](../data/runtime-migrations.schema.json), and
 [`data/runtime-waits.schema.json`](../data/runtime-waits.schema.json),
+[`data/runtime-mcp-tasks.schema.json`](../data/runtime-mcp-tasks.schema.json),
 [`data/runtime-backend.schema.json`](../data/runtime-backend.schema.json), and
 [`data/runtime-backend-evidence.schema.json`](../data/runtime-backend-evidence.schema.json), and
 [`data/runtime-conformance.schema.json`](../data/runtime-conformance.schema.json),
@@ -136,9 +138,48 @@ policy; no wall-clock read can silently change the outcome.
 
 Cancellation records request, acknowledgement, and terminal cancellation evidence. A
 terminal cancellation is sticky: late task completion, input, expiry, or provider callbacks
-cannot resurrect the run. The MCP Tasks adapter in `scripts/forge-mcp-tasks.py` is a view over
-this state. Its task IDs, TTL, polling hints, result references, and cancellation operations
-map to Forge identifiers; notifications are best-effort and never canonical.
+cannot resurrect the run.
+
+### MCP Tasks 2026-07-28 adapter
+
+The reference-only adapter in `scripts/forge-mcp-tasks.py` negotiates the final
+`2026-07-28` protocol revision and the `io.modelcontextprotocol/tasks` extension. It projects
+canonical Forge history through `tasks/get`, `tasks/update`, and `tasks/cancel`; it is not a
+hosted MCP server, does not implement `server/discover`, and does not persist raw
+`inputResponses`.
+
+Inspect the negotiated profile before using the adapter:
+
+```bash
+python3 scripts/forge-mcp-tasks.py profile \
+  --protocol-version 2026-07-28 \
+  --extension io.modelcontextprotocol/tasks
+```
+
+Every read and mutation proves the wait's authorization-context digest. `tasks/get` returns an
+opaque, authorization-bound `forge-task-v1` handle. If a caller supplies a request-identity
+digest, the handle is stable across reconnects; without one, the adapter adds a random nonce so
+handles cannot be enumerated. `inputRequests` contains only a schema digest and a digest-only
+input-request key. Submit a digest reference, never raw input:
+
+```bash
+python3 scripts/forge-mcp-tasks.py --db .forge/runtime.sqlite3 update-by-id \
+  --task-id TASK_HANDLE \
+  --authorization-context-digest sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
+  --input-digest sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc \
+  --input-schema-digest sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+  --input-request-id INPUT_REQUEST_ID
+```
+
+The update and cancellation acknowledgements are empty results, as required by the Tasks
+extension. Poll the same handle with `get-by-id`; repeated updates are idempotent only when the
+persisted event payload matches exactly. A later input round receives a new request key, so a
+stale response fails closed. Notifications remain a best-effort legacy convenience and are not
+the canonical history.
+
+This boundary follows the [MCP 2026-07-28 release](https://blog.modelcontextprotocol.io/posts/2026-07-28/),
+the [Tasks extension](https://modelcontextprotocol.io/extensions/tasks/overview), and the
+[TypeScript SDK migration guidance](https://ts.sdk.modelcontextprotocol.io/v2/migration/support-2026-07-28).
 
 ## Checkpointed recovery
 

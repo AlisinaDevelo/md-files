@@ -68,7 +68,7 @@ the project-level approval evidence and public-availability boundary.
 | 0039 | minor | Validate Codex marketplace policy and local source resolution in CI | done |
 | 0040 | major | Prepare skills-only submission evidence and an owner-reviewed portal draft | done; project approval recorded; public availability unverified |
 | 0041 | major | Evaluate an MCP server or UI extension only if a real workflow requires it | done; deferred |
-| 0044 | minor | Define the MCP 2026-07-28 Tasks adapter contract | planned |
+| 0044 | minor | Define the MCP 2026-07-28 Tasks adapter contract | done; reference-only, hosted server deferred |
 | 0045 | minor | Verify DSSE and SLSA v1.2 release attestations | planned |
 | 0046 | minor | Add trajectory and agentic-security regression evidence | planned |
 | 0047 | major | Bind agent identity and delegated authority | planned |

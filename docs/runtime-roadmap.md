@@ -35,7 +35,7 @@ workflows, and telemetry remain adapters or evidence surfaces.
 | Activities and effects | Temporal and AWS assume retries or duplicate delivery and require idempotent activities, stable keys, and an atomic outbox boundary. | Keep at-least-once delivery explicit; make adapter idempotency and provider request references mandatory. |
 | Worker ownership | Chubby uses a lock generation sequencer that protected services validate, closing the stale-client write window. | A lease claim must issue a monotonic generation or fencing token; owner and generation are required for heartbeat, completion, failure, and protected effect submission. |
 | Recovery | LangGraph, Microsoft Agent Framework, and Dapr persist checkpoints and durable retry state, including successful work that can be resumed after a sibling failure. | Add hashed checkpoints, suffix replay, crash recovery, and reviewed fail-closed migrations before calling the runtime durable at scale. |
-| Human interaction | The final MCP 2026-07-28 specification makes the core stateless and places long-running work in the Tasks extension, including `input_required`, TTL, polling hints, cancellation, and authorization expectations. | Keep waits and signals in Forge history, then implement the versioned, digest-only adapter in [#85](https://github.com/AlisinaDevelo/md-files/issues/85). |
+| Human interaction | The final MCP 2026-07-28 specification makes the core stateless and places long-running work in the Tasks extension, including `input_required`, TTL, polling hints, cancellation, and authorization expectations. | Keep waits and signals in Forge history; the versioned, digest-only adapter in [#85](https://github.com/AlisinaDevelo/md-files/issues/85) is now locally verified. |
 | Evidence | OpenTelemetry provides versioned agent/workflow/tool vocabulary; W3C Trace Context carries portable correlation; SLSA and in-toto bind evidence to immutable subjects and resolved inputs. | Add a privacy-safe, digest-bound episode lineage and receipt verifier with pinned mappings, without replacing canonical history or GitHub release attestations. |
 | GitHub delivery | GitHub Merge Queue validates checks on the latest target plus queued changes and requires `merge_group` reporting. | Preserve SHA-bound stack plans, queue-event correlation, explicit approval, and indeterminate stop states. |
 | Definition rollout | AWS durable execution pins qualified versions and requires deterministic replay; Temporal uses worker-version compatibility and reachability signals. | Pin every run to an immutable definition/build digest; aliases affect new runs only, and incompatible replay fails closed or crosses an explicit continue-as-new boundary. |
@@ -109,9 +109,9 @@ intentionally separate from the local-first runtime contract.
 
 The next release lane is deliberately outside the completed runtime baseline:
 
-- [#85 MCP Tasks adapter](https://github.com/AlisinaDevelo/md-files/issues/85) must add request
-  identity, handle isolation, bounded input rounds, and legacy-version rejection before any
-  live protocol claim.
+- [#85 MCP Tasks adapter](https://github.com/AlisinaDevelo/md-files/issues/85) is locally complete
+  at the reference-only contract boundary. A live protocol claim still requires separate hosted
+  transport and discovery evidence.
 - [#86 release attestations](https://github.com/AlisinaDevelo/md-files/issues/86) must verify
   portable DSSE/SLSA v1.2 statements without overstating local HMAC evidence as public-key
   provenance.

@@ -52,6 +52,10 @@ All notable changes to this project are documented here. The format is based on
   checks, staged policy effects, deterministic preview locks, and optional native compilation
   through the official `gh aw` extension, plus a durable Forge episode bridge for staged dispatch,
   worker lifecycle, receipts, cancellation, and replay-safe inspection.
+- **MCP Tasks 2026-07-28 adapter** - added a versioned, digest-only projection with opaque
+  authorization-bound handles, bounded input rounds, stale-response rejection, idempotent
+  update/cancel acknowledgements, expiry mapping, and a machine-readable contract schema. Live
+  MCP hosting and raw input persistence remain out of scope.
 
 ## [3.6.0] — 2026-08-03
 

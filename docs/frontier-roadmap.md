@@ -14,8 +14,9 @@ reproducible across providers.
 - The Claude, Codex, and Agent Skills packages are installable and validated. The OpenAI
   project portal shows Forge 3.6.0 as **Approved** in owner-provided evidence dated
   2026-08-18. This confirms project-level review state, not public directory discoverability.
-- Forge has a reference-only MCP Tasks projection, but it is not a hosted MCP server and does
-  not yet claim the final 2026-07-28 protocol contract.
+- Forge now has a versioned, reference-only MCP Tasks projection for the final 2026-07-28
+  contract. It is not a hosted MCP server, does not implement `server/discover`, and keeps raw
+  `inputResponses` outside durable state.
 - GitHub-native stacked delivery is a maintained strength. Forge should reconcile native state
   and protect the mutation boundary rather than compete with hosted review UIs.
 
@@ -23,7 +24,7 @@ reproducible across providers.
 
 | Signal | What changed | Forge implication |
 | --- | --- | --- |
-| MCP interoperability | The 2026-07-28 MCP specification makes the core stateless and moves long-running work into the Tasks extension. | Version the adapter profile, support bounded `input_required` rounds, bind request and authorization context, and reject legacy ambiguity. |
+| MCP interoperability | The 2026-07-28 MCP specification makes the core stateless and moves long-running work into the Tasks extension. | Completed the versioned digest-only adapter profile; keep live server support and MRTR payload handling as explicit future integrations. |
 | Agent runtime quality | The OpenAI Agents SDK treats guardrails, handoffs, sessions, usage, and traces as first-class runtime concerns. | Record trajectory and guardrail evidence without persisting prompts, credentials, or provider bodies. |
 | Agent identity | NIST's agent standards work and OWASP's agentic guidance make identity, delegated authority, least agency, and non-repudiation central controls. | Bind the principal, delegation chain, policy decision, approval, action, and receipt to one verifiable contract. |
 | Supply-chain evidence | SLSA v1.2 and DSSE provide portable, signed statements about artifact subjects, build definitions, and resolved inputs. | Keep the local HMAC profile for offline development, then add explicit public-key and GitHub attestation verification. |
@@ -36,10 +37,10 @@ reproducible across providers.
 ### v3.7 minor: interoperability and evidence
 
 1. [#85 MCP 2026-07-28 Tasks adapter contract](https://github.com/AlisinaDevelo/md-files/issues/85)
-   Define a versioned, digest-only adapter profile for `tasks/get`, `tasks/update`, and
-   `tasks/cancel`. Cover stateless retries, bounded multi-round input, authorization mismatch,
-   expiry, cancellation, handle isolation, and legacy-version rejection. Do not ship a hosted
-   MCP server or MCP Apps UI as part of this task.
+   Implemented and locally verified as a versioned, digest-only adapter for `tasks/get`,
+   `tasks/update`, and `tasks/cancel`. It covers stateless retries, bounded multi-round input,
+   authorization mismatch, expiry, cancellation, handle isolation, and legacy-version rejection.
+   A hosted MCP server and MCP Apps UI remain out of scope.
 2. [#86 DSSE and SLSA v1.2 artifact attestation verification](https://github.com/AlisinaDevelo/md-files/issues/86)
    Verify portable public-key statements for release archives and SBOMs, bind them to source,
    build, policy, and inputs, and keep trust-root rotation and revocation explicit.
