@@ -21,6 +21,22 @@ HEX_COLOR_RE = re.compile(r"^#[0-9A-F]{6}$", re.IGNORECASE)
 TODO_MARKER = "[TODO:"
 MARKETPLACE_INSTALLATION = {"NOT_AVAILABLE", "AVAILABLE", "INSTALLED_BY_DEFAULT"}
 MARKETPLACE_AUTHENTICATION = {"ON_INSTALL", "ON_USE"}
+CODEX_INTERFACE_CATEGORIES = {
+    "Productivity",
+    "Creativity",
+    "Developer Tools",
+    "Business & Operations",
+    "Data & Analytics",
+    "Communication",
+    "Education & Research",
+    "Security",
+    "Finance",
+    "Healthcare",
+    "Travel",
+    "Entertainment",
+    "Other",
+}
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
 def _https(value: Any) -> bool:
@@ -73,6 +89,24 @@ def _archive_path(root: Path, raw: Any, field: str, errors: list[str]) -> Path |
         errors.append(f"{field} points to a missing file")
         return None
     return resolved
+
+
+def _png_dimensions(path: Path) -> tuple[int, int] | None:
+    try:
+        with path.open("rb") as handle:
+            if handle.read(8) != PNG_SIGNATURE:
+                return None
+            length = handle.read(4)
+            chunk_type = handle.read(4)
+            dimensions = handle.read(8)
+    except OSError:
+        return None
+    if len(length) != 4 or chunk_type != b"IHDR" or len(dimensions) != 8:
+        return None
+    return (
+        int.from_bytes(dimensions[:4], "big"),
+        int.from_bytes(dimensions[4:], "big"),
+    )
 
 
 def _validate_skill(skill_root: Path, errors: list[str]) -> None:
@@ -152,6 +186,9 @@ def validate_plugin(plugin_root: Path, expected_version: str | None = None) -> l
     for field in ("displayName", "shortDescription", "longDescription", "developerName", "category"):
         if not isinstance(interface.get(field), str) or not interface[field].strip():
             errors.append(f"plugin.json interface.{field} must be a non-empty string")
+    category = interface.get("category")
+    if isinstance(category, str) and category.strip() and category not in CODEX_INTERFACE_CATEGORIES:
+        errors.append("plugin.json interface.category must use a supported Codex category")
     prompts = interface.get("defaultPrompt", interface.get("default_prompt"))
     if not isinstance(prompts, list) or not prompts or len(prompts) > 3 or not all(isinstance(item, str) and item.strip() and len(item) <= 128 for item in prompts):
         errors.append("plugin.json interface.defaultPrompt must contain one to three short strings")
@@ -165,7 +202,15 @@ def validate_plugin(plugin_root: Path, expected_version: str | None = None) -> l
         errors.append("plugin.json interface.brandColor must use #RRGGBB")
     for field in ("composerIcon", "logo", "logoDark"):
         if field in interface:
-            _archive_path(plugin_root, interface[field], f"interface.{field}", errors)
+            path = _archive_path(plugin_root, interface[field], f"interface.{field}", errors)
+            if path and path.suffix.lower() == ".png":
+                dimensions = _png_dimensions(path)
+                if dimensions is None:
+                    errors.append(f"interface.{field} must be a valid PNG file")
+                elif dimensions[0] != dimensions[1]:
+                    errors.append(
+                        f"interface.{field} must be square (got {dimensions[0]}x{dimensions[1]})"
+                    )
     screenshots = interface.get("screenshots", [])
     if not isinstance(screenshots, list):
         errors.append("plugin.json interface.screenshots must be an array")
