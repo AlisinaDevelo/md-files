@@ -145,6 +145,19 @@ def _policy() -> Any:
     )
 
 
+def _host_admission() -> Any:
+    return _load_module(
+        "forge_gh_aw_provider_host_admission",
+        REPO
+        / "plugins"
+        / "forge"
+        / "skills"
+        / "policy"
+        / "scripts"
+        / "forge-host-admission.py",
+    )
+
+
 def canonical_json(value: Any) -> str:
     try:
         return json.dumps(
@@ -592,6 +605,7 @@ def _policy_context(
     approvals_path: Path,
     now: str | None,
     admission_id: str | None = None,
+    host_admission_id: str | None = None,
 ) -> tuple[Any, Any, Any]:
     policy = _policy()
     profile_name = context["spec"]["defaults"]["policy_profile"]
@@ -630,6 +644,8 @@ def _policy_context(
     }
     if admission_id is not None:
         arguments["admission_id"] = admission_id
+    if host_admission_id is not None:
+        arguments["host_admission_id"] = host_admission_id
     action = policy.ActionEnvelope.from_mapping(
         {
             "schema_version": 1,
@@ -679,6 +695,12 @@ class _Prepared:
     policy_action: Any
     admission: dict[str, Any] | None
     handoff: dict[str, Any] | None
+    host_admission: dict[str, Any] | None
+    host_admission_path: Path | None
+    host_ref: str | None
+    host_audience_ref: str | None
+    host_workspace_ref: str | None
+    now: str | None
     public: dict[str, Any]
 
 
@@ -686,6 +708,73 @@ def _paths(spec_path: Path, output: Path) -> tuple[Path, Path]:
     spec_path = spec_path if spec_path.is_absolute() else REPO / spec_path
     output = output if output.is_absolute() else REPO / output
     return spec_path, output
+
+
+def _host_lease_ref(host_module: Any, effect: Mapping[str, Any], lease: Mapping[str, Any]) -> str:
+    return host_module.digest_ref(
+        {
+            "provider_revision": PROVIDER_REVISION,
+            "effect_id": effect["effect_id"],
+            "worker_id": lease["worker_id"],
+            "lease_generation": lease["lease_generation"],
+        }
+    )
+
+
+def _host_provider_operation_ref(
+    host_module: Any, request: Mapping[str, Any], effect: Mapping[str, Any]
+) -> str:
+    return host_module.digest_ref(
+        {
+            "provider_revision": PROVIDER_REVISION,
+            "effect_id": effect["effect_id"],
+            "request_ref": request["request_ref"],
+            "safe_output_type": request["safe_output_type"],
+        }
+    )
+
+
+def _host_admission_for_effect(
+    request: Mapping[str, Any],
+    effect: Mapping[str, Any],
+    lease: Mapping[str, Any],
+    admission_path: Path | None,
+    *,
+    host_ref: str | None,
+    host_audience_ref: str | None,
+    host_workspace_ref: str | None,
+    now: str | None,
+) -> dict[str, Any] | None:
+    if admission_path is None:
+        return None
+    if not host_ref or not host_audience_ref or not host_workspace_ref:
+        raise GhAwProviderError(
+            "host admission requires --host-ref, --host-audience, and --host-workspace"
+        )
+    host_module = _host_admission()
+    expected_scope_refs = [
+        "scope:github.safe-output",
+        f"scope:github.{request['safe_output_type']}",
+    ]
+    try:
+        return host_module.verify_file(
+            admission_path,
+            expected_audience_ref=host_audience_ref,
+            expected_workspace_ref=host_workspace_ref,
+            expected_resource_ref=f"resource:repo/{request['repository']}",
+            expected_request_ref=request["request_ref"],
+            expected_host_ref=host_ref,
+            expected_scope_refs=expected_scope_refs,
+            expected_bindings={
+                "lease_ref": _host_lease_ref(host_module, effect, lease),
+                "provider_operation_ref": _host_provider_operation_ref(
+                    host_module, request, effect
+                ),
+            },
+            at=_timestamp(now),
+        )
+    except host_module.HostAdmissionError as exc:
+        raise GhAwProviderError(f"host admission verification failed: {exc}") from exc
 
 
 def _admission_for_request(
@@ -753,6 +842,10 @@ def _prepare(
     now: str | None,
     admission_path: Path | None,
     handoff_path: Path | None,
+    host_admission_path: Path | None,
+    host_ref: str | None,
+    host_audience_ref: str | None,
+    host_workspace_ref: str | None,
 ) -> _Prepared:
     request = validate_request(raw_request)
     bridge = _bridge()
@@ -800,6 +893,16 @@ def _prepare(
         raise GhAwProviderError(f"runtime lease authorization failed: {exc}") from exc
     if state["status"] != "running":
         raise GhAwProviderError(f"episode is not running: {state['status']}")
+    host_admission = _host_admission_for_effect(
+        request,
+        effect,
+        lease,
+        host_admission_path,
+        host_ref=host_ref,
+        host_audience_ref=host_audience_ref,
+        host_workspace_ref=host_workspace_ref,
+        now=now,
+    )
     dispatcher_id = state["workflow_id"].removeprefix("gh-aw:")
     if admission is not None and admission["dispatcher_workflow_id"] != dispatcher_id:
         raise GhAwProviderError("native admission dispatcher does not match the runtime episode")
@@ -862,6 +965,9 @@ def _prepare(
         approvals_path=approvals_path,
         now=now,
         admission_id=admission["admission_id"] if admission is not None else None,
+        host_admission_id=(
+            host_admission["admission_id"] if host_admission is not None else None
+        ),
     )
     evaluation = policy_engine.evaluate(policy_action)
     authorization_digest = "sha256:" + evaluation.decision.action_digest
@@ -877,6 +983,8 @@ def _prepare(
         execution_material["admission_id"] = admission["admission_id"]
     if handoff is not None:
         execution_material["handoff_id"] = handoff["handoff_id"]
+    if host_admission is not None:
+        execution_material["host_admission_id"] = host_admission["admission_id"]
     execution_digest = digest(execution_material)
     public = {
         "schema_version": SCHEMA_VERSION,
@@ -916,6 +1024,8 @@ def _prepare(
         public["admission_id"] = admission["admission_id"]
     if handoff is not None:
         public["handoff_id"] = handoff["handoff_id"]
+    if host_admission is not None:
+        public["host_admission_id"] = host_admission["admission_id"]
     return _Prepared(
         bridge=bridge,
         runtime=runtime,
@@ -931,6 +1041,12 @@ def _prepare(
         policy_action=policy_action,
         admission=admission,
         handoff=handoff,
+        host_admission=host_admission,
+        host_admission_path=host_admission_path,
+        host_ref=host_ref,
+        host_audience_ref=host_audience_ref,
+        host_workspace_ref=host_workspace_ref,
+        now=now,
         public=public,
     )
 
@@ -947,6 +1063,10 @@ def plan_effect(
     approvals_path: Path = DEFAULT_APPROVALS,
     admission_path: Path | None = None,
     handoff_path: Path | None = None,
+    host_admission_path: Path | None = None,
+    host_ref: str | None = None,
+    host_audience_ref: str | None = None,
+    host_workspace_ref: str | None = None,
     now: str | None = None,
 ) -> dict[str, Any]:
     prepared = _prepare(
@@ -961,6 +1081,10 @@ def plan_effect(
         now=now,
         admission_path=admission_path,
         handoff_path=handoff_path,
+        host_admission_path=host_admission_path,
+        host_ref=host_ref,
+        host_audience_ref=host_audience_ref,
+        host_workspace_ref=host_workspace_ref,
     )
     return copy.deepcopy(prepared.public)
 
@@ -977,6 +1101,10 @@ def issue_approval(
     approvals_path: Path = DEFAULT_APPROVALS,
     admission_path: Path | None = None,
     handoff_path: Path | None = None,
+    host_admission_path: Path | None = None,
+    host_ref: str | None = None,
+    host_audience_ref: str | None = None,
+    host_workspace_ref: str | None = None,
     receipts_path: Path | None = None,
     ttl_seconds: int = 600,
     now: str | None = None,
@@ -993,6 +1121,10 @@ def issue_approval(
         now=now,
         admission_path=admission_path,
         handoff_path=handoff_path,
+        host_admission_path=host_admission_path,
+        host_ref=host_ref,
+        host_audience_ref=host_audience_ref,
+        host_workspace_ref=host_workspace_ref,
     )
     try:
         approval = prepared.policy_engine.issue_approval(
@@ -1017,6 +1149,8 @@ def issue_approval(
         result["admission_id"] = prepared.admission["admission_id"]
     if prepared.handoff is not None:
         result["handoff_id"] = prepared.handoff["handoff_id"]
+    if prepared.host_admission is not None:
+        result["host_admission_id"] = prepared.host_admission["admission_id"]
     return result
 
 
@@ -1688,6 +1822,23 @@ def _recheck_handoff(
         raise GhAwProviderError("native worker handoff identity changed")
 
 
+def _recheck_host_admission(prepared: _Prepared) -> None:
+    if prepared.host_admission is None:
+        return
+    current = _host_admission_for_effect(
+        prepared.request,
+        prepared.effect,
+        prepared.lease,
+        prepared.host_admission_path,
+        host_ref=prepared.host_ref,
+        host_audience_ref=prepared.host_audience_ref,
+        host_workspace_ref=prepared.host_workspace_ref,
+        now=prepared.now,
+    )
+    if current is None or current["admission_id"] != prepared.host_admission["admission_id"]:
+        raise GhAwProviderError("host admission verification failed: admission identity changed")
+
+
 def execute_effect(
     spec_path: Path,
     output: Path,
@@ -1704,6 +1855,10 @@ def execute_effect(
     journal_path: Path = DEFAULT_JOURNAL,
     admission_path: Path | None = None,
     handoff_path: Path | None = None,
+    host_admission_path: Path | None = None,
+    host_ref: str | None = None,
+    host_audience_ref: str | None = None,
+    host_workspace_ref: str | None = None,
     transport: Any | None = None,
     now: str | None = None,
 ) -> dict[str, Any]:
@@ -1730,6 +1885,10 @@ def execute_effect(
         now=now,
         admission_path=admission_path,
         handoff_path=handoff_path,
+        host_admission_path=host_admission_path,
+        host_ref=host_ref,
+        host_audience_ref=host_audience_ref,
+        host_workspace_ref=host_workspace_ref,
     )
     expected_login = _text(expected_login, "expected_login", maximum=128)
     provider = _LeaseGuard(transport or GitHubTransport(), prepared, database, now=now)
@@ -1738,6 +1897,7 @@ def execute_effect(
         raise GhAwProviderError(
             f"authenticated GitHub login mismatch: expected {expected_login}, got {actual_login}"
         )
+    _recheck_host_admission(prepared)
     _recheck_admission(prepared, database, admission_path)
     _recheck_handoff(prepared, database, admission_path, handoff_path)
     journal = ProviderJournal(journal_path)
@@ -1940,6 +2100,10 @@ def reconcile_effect(
     journal_path: Path = DEFAULT_JOURNAL,
     admission_path: Path | None = None,
     handoff_path: Path | None = None,
+    host_admission_path: Path | None = None,
+    host_ref: str | None = None,
+    host_audience_ref: str | None = None,
+    host_workspace_ref: str | None = None,
     transport: Any | None = None,
     now: str | None = None,
 ) -> dict[str, Any]:
@@ -1971,6 +2135,10 @@ def reconcile_effect(
         now=now,
         admission_path=admission_path,
         handoff_path=handoff_path,
+        host_admission_path=host_admission_path,
+        host_ref=host_ref,
+        host_audience_ref=host_audience_ref,
+        host_workspace_ref=host_workspace_ref,
     )
     expected_login = _text(expected_login, "expected_login", maximum=128)
     approval_id = _text(approval_id, "approval_id", maximum=128)
@@ -1980,6 +2148,7 @@ def reconcile_effect(
         raise GhAwProviderError(
             f"authenticated GitHub login mismatch: expected {expected_login}, got {actual_login}"
         )
+    _recheck_host_admission(prepared)
     _recheck_admission(prepared, database, admission_path)
     _recheck_handoff(prepared, database, admission_path, handoff_path)
     journal = ProviderJournal(journal_path)
@@ -2089,6 +2258,10 @@ def _common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--approvals", type=Path, default=DEFAULT_APPROVALS)
     parser.add_argument("--admission", type=Path)
     parser.add_argument("--handoff", type=Path)
+    parser.add_argument("--host-admission", type=Path)
+    parser.add_argument("--host-ref")
+    parser.add_argument("--host-audience")
+    parser.add_argument("--host-workspace")
     parser.add_argument("--now")
 
 
@@ -2145,6 +2318,10 @@ def main(argv: list[str] | None = None) -> int:
                 approvals_path=args.approvals,
                 admission_path=args.admission,
                 handoff_path=args.handoff,
+                host_admission_path=args.host_admission,
+                host_ref=args.host_ref,
+                host_audience_ref=args.host_audience,
+                host_workspace_ref=args.host_workspace,
                 now=args.now,
             )
         elif args.command == "approve":
@@ -2159,6 +2336,10 @@ def main(argv: list[str] | None = None) -> int:
                 approvals_path=args.approvals,
                 admission_path=args.admission,
                 handoff_path=args.handoff,
+                host_admission_path=args.host_admission,
+                host_ref=args.host_ref,
+                host_audience_ref=args.host_audience,
+                host_workspace_ref=args.host_workspace,
                 receipts_path=args.receipts,
                 ttl_seconds=args.ttl_seconds,
                 now=args.now,
@@ -2179,6 +2360,10 @@ def main(argv: list[str] | None = None) -> int:
                 approvals_path=args.approvals,
                 admission_path=args.admission,
                 handoff_path=args.handoff,
+                host_admission_path=args.host_admission,
+                host_ref=args.host_ref,
+                host_audience_ref=args.host_audience,
+                host_workspace_ref=args.host_workspace,
                 receipts_path=args.receipts,
                 journal_path=args.journal,
                 now=args.now,
@@ -2200,6 +2385,10 @@ def main(argv: list[str] | None = None) -> int:
                 approvals_path=args.approvals,
                 admission_path=args.admission,
                 handoff_path=args.handoff,
+                host_admission_path=args.host_admission,
+                host_ref=args.host_ref,
+                host_audience_ref=args.host_audience,
+                host_workspace_ref=args.host_workspace,
                 receipts_path=args.receipts,
                 journal_path=args.journal,
                 now=args.now,

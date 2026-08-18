@@ -72,6 +72,7 @@ the project-level approval evidence and public-availability boundary.
 | 0045 | minor | Verify DSSE and SLSA v1.2 release attestations | done; local public-key/HMAC contract, GitHub receipt boundary |
 | 0046 | minor | Add trajectory and agentic-security regression evidence | done; local deterministic corpus and release-gate evidence |
 | 0047 | major | Bind agent identity and delegated authority | done; local offline contract, adversarial corpus, and release-gate evidence |
+| 0048 | major | Add host-authenticated admission evidence for connected effects | done; external cryptographic verification remains a host responsibility; local gate passed |
 
 ## Submission Test Candidates
 

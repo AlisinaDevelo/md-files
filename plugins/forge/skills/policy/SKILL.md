@@ -53,6 +53,23 @@ Connected execution must call the verifier again immediately before its effect. 
 records digest-only bindings; authentication is the host's responsibility and is not
 inferred from model output or self-description.
 
+### Host-authenticated admission
+
+Connected hosts may provide a `forge-host-admission-v1` proof for one exact effect. The host
+must validate its OAuth, DPoP, mTLS, SPIFFE, or JWS cryptography before creating the proof.
+Forge validates the versioned shape and binds the host, audience, workspace, resource, request,
+authority, policy decision, approval, lease, runtime episode, provider operation, provenance,
+scopes, and policy revision. It also enforces a short lifetime, generation, nonce replay
+protection, sender-constrained versus bearer semantics, and exclusion of raw credentials.
+The proof is evidence of the host boundary, not a local cryptographic verification of the host.
+
+The deterministic corpus exercises the positive and replay-threat paths:
+
+```bash
+python3 scripts/forge-host-admission.py evaluate \
+  --corpus tests/fixtures/host-admission/v1.jsonl --json
+```
+
 ## Profiles
 
 Profiles live in `policies/` and are intentionally readable during review:

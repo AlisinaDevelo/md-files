@@ -1399,3 +1399,175 @@ def test_request_rejects_unknown_fields_credentials_and_identity_drift(tmp_path)
     unknown["surprise"] = True
     with pytest.raises(module.GhAwProviderError, match="unsupported fields"):
         module.validate_request(unknown)
+
+
+def host_admission_for_effect(module, request, effect, path: Path, *, worker_id: str) -> dict[str, Any]:
+    host_module = module._host_admission()
+    lease = {
+        "worker_id": worker_id,
+        "lease_generation": effect["lease_generation"],
+    }
+    material = {
+        "host_ref": "host:codex",
+        "audience_ref": "audience:github",
+        "workspace_ref": "workspace:md-files",
+        "resource_ref": f"resource:repo/{request['repository']}",
+        "request_ref": request["request_ref"],
+        "authority_ref": REF_A,
+        "action_ref": REF_B,
+        "policy_decision_ref": REF_A,
+        "approval_ref": REF_B,
+        "lease_ref": module._host_lease_ref(host_module, effect, lease),
+        "runtime_episode_ref": REF_A,
+        "provider_operation_ref": module._host_provider_operation_ref(
+            host_module, request, effect
+        ),
+        "provenance_ref": REF_B,
+        "policy_revision_ref": REF_A,
+        "scope_refs": [
+            "scope:github.safe-output",
+            f"scope:github.{request['safe_output_type']}",
+        ],
+        "auth": {
+            "scheme": "dpop",
+            "key_ref": "key:codex-host",
+            "proof_ref": REF_A,
+            "verification_ref": REF_B,
+            "replay_protection": "sender-constrained",
+        },
+        "issued_at": "2026-08-08T10:02:00Z",
+        "expires_at": "2026-08-08T10:07:00Z",
+        "nonce": "nonce:provider-host-admission",
+        "generation": 1,
+    }
+    value = host_module.make_admission(material)
+    path.write_text(
+        json.dumps(value, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return value
+
+
+def test_provider_binds_host_admission_and_rechecks_before_effect(tmp_path):
+    module = load_module()
+    bridge, output, database = prepare(module, tmp_path)
+    _, request, effect = dispatch_episode(module, bridge, output, database)
+    host_path = tmp_path / "host-admission.json"
+    host_value = host_admission_for_effect(
+        module, request, effect, host_path, worker_id="provider-a"
+    )
+    common = {
+        "host_admission_path": host_path,
+        "host_ref": "host:codex",
+        "host_audience_ref": "audience:github",
+        "host_workspace_ref": "workspace:md-files",
+    }
+    plan = module.plan_effect(
+        SPEC_PATH,
+        output,
+        database,
+        request,
+        effect["effect_id"],
+        "provider-a",
+        effect["lease_generation"],
+        **common,
+        now="2026-08-08T10:02:30Z",
+    )
+    approval = module.issue_approval(
+        SPEC_PATH,
+        output,
+        database,
+        request,
+        effect["effect_id"],
+        "provider-a",
+        effect["lease_generation"],
+        approvals_path=tmp_path / "approvals.jsonl",
+        receipts_path=tmp_path / "receipts.jsonl",
+        **common,
+        now="2026-08-08T10:02:35Z",
+    )
+    result = module.execute_effect(
+        SPEC_PATH,
+        output,
+        database,
+        request,
+        effect["effect_id"],
+        "provider-a",
+        effect["lease_generation"],
+        approval["approval_id"],
+        expected_login="AlisinaDevelo",
+        approvals_path=tmp_path / "approvals.jsonl",
+        receipts_path=tmp_path / "receipts.jsonl",
+        journal_path=tmp_path / "provider.jsonl",
+        transport=FakeTransport(
+            [
+                {
+                    "workflow_run_id": 31234567896,
+                    "html_url": "https://github.com/AlisinaDevelo/md-files/actions/runs/31234567896",
+                }
+            ]
+        ),
+        **common,
+        now="2026-08-08T10:02:40Z",
+    )
+    assert plan["host_admission_id"] == host_value["admission_id"]
+    assert approval["host_admission_id"] == host_value["admission_id"]
+    assert result["status"] == "succeeded"
+
+
+def test_provider_blocks_host_admission_drift_after_login(tmp_path):
+    module = load_module()
+    bridge, output, database = prepare(module, tmp_path)
+    _, request, effect = dispatch_episode(module, bridge, output, database)
+    host_path = tmp_path / "host-admission.json"
+    host_admission_for_effect(module, request, effect, host_path, worker_id="provider-a")
+    common = {
+        "host_admission_path": host_path,
+        "host_ref": "host:codex",
+        "host_audience_ref": "audience:github",
+        "host_workspace_ref": "workspace:md-files",
+    }
+    approval = module.issue_approval(
+        SPEC_PATH,
+        output,
+        database,
+        request,
+        effect["effect_id"],
+        "provider-a",
+        effect["lease_generation"],
+        approvals_path=tmp_path / "approvals.jsonl",
+        receipts_path=tmp_path / "receipts.jsonl",
+        **common,
+        now="2026-08-08T10:02:35Z",
+    )
+
+    class MutatingHostTransport(FakeTransport):
+        def authenticated_login(self) -> str:
+            value = json.loads(host_path.read_text(encoding="utf-8"))
+            value["generation"] = 2
+            host_path.write_text(
+                json.dumps(value, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            return self.login
+
+    transport = MutatingHostTransport([])
+    with pytest.raises(module.GhAwProviderError, match="host admission verification failed"):
+        module.execute_effect(
+            SPEC_PATH,
+            output,
+            database,
+            request,
+            effect["effect_id"],
+            "provider-a",
+            effect["lease_generation"],
+            approval["approval_id"],
+            expected_login="AlisinaDevelo",
+            approvals_path=tmp_path / "approvals.jsonl",
+            receipts_path=tmp_path / "receipts.jsonl",
+            journal_path=tmp_path / "provider.jsonl",
+            transport=transport,
+            **common,
+            now="2026-08-08T10:02:40Z",
+        )
+    assert transport.calls == []

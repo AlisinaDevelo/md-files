@@ -49,3 +49,4 @@
 | 0045 | Add DSSE and SLSA v1.2 artifact attestation verification | done | security-auditor | opus | 0022, 0033 |
 | 0046 | Add trajectory and agentic-security regression harness | done | test-engineer | sonnet | 0024, 0025 |
 | 0047 | Add agent identity and delegated authority contract | done | architect | opus | 0018, 0022, 0025 |
+| 0048 | Add host-authenticated admission evidence for connected effects | done | security-engineer | standard | 0047 |

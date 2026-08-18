@@ -66,6 +66,9 @@ or publish generated files.
 - The optional Forge provider worker is no-effect by default. Live execution requires the
   current fenced lease, an exact one-use approval, an expected authenticated GitHub login, and
   an explicit `--execute` acknowledgement.
+- A connected host may add a digest-only host admission proof. Forge checks its audience,
+  resource, scope, lifetime, generation, nonce, and effect bindings; the host remains
+  responsible for validating OAuth, DPoP, mTLS, SPIFFE, or JWS cryptography.
 
 ## Canonical inputs
 
@@ -73,6 +76,7 @@ or publish generated files.
 - `data/runtime-gh-aw.schema.json` defines the adapter schema and pinned upstream contract.
 - `data/runtime-gh-aw-episode.schema.json` defines the privacy-safe durable episode projection.
 - `data/runtime-gh-aw-admission.schema.json` defines the digest-only native execution admission certificate.
+- `data/runtime-host-admission.schema.json` defines the digest-only host-authenticated admission proof.
 - `data/runtime-gh-aw-provider-request.schema.json` defines the secret-free provider envelope.
 - `policies/gh-aw.json` constrains the external effect boundary.
 - `plugins/forge/skills/orchestration/scripts/forge-gh-aw.py` owns validation and rendering.
@@ -118,6 +122,31 @@ The projection returned by `inspect` is defined by
 digests, task/effect summaries, provider reference IDs, and receipt digests, not raw outbox
 payloads or receipt bodies. The bridge remains the Forge runtime boundary; the provider worker
 does not become a second source of truth.
+
+### Host-authenticated admission
+
+A connected host can write a `forge-host-admission-v1` proof containing references only. The
+proof binds the host, audience, workspace, resource, request, authority, policy decision,
+approval, lease, runtime episode, provider operation, provenance, scopes, and policy revision.
+Forge enforces those bindings, short lifetime, generation, nonce replay protection, and
+credential exclusion. The host remains responsible for the actual OAuth, DPoP, mTLS, SPIFFE, or
+JWS verification.
+
+For an explicit connected execution, pass the host proof and its context:
+
+```bash
+python3 scripts/forge-gh-aw-provider.py plan \
+  --request /secure/path/provider-request.json \
+  --effect-id EFFECT_ID --worker-id gh-aw-provider --lease-generation GENERATION \
+  --host-admission /secure/path/host-admission.json \
+  --host-ref host:codex \
+  --host-audience audience:github \
+  --host-workspace workspace:md-files
+```
+
+The provider verifies the proof while staging and rechecks it after `gh api user` succeeds,
+before the first GitHub request. Omitting `--host-admission` preserves the explicit legacy
+provider contract; it does not make a host-authentication claim.
 
 ## Native execution admission
 

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/host-admission/v1",
+  "title": "Forge Host-Authenticated Admission Contract",
+  "description": "Digest-only evidence that a host verified an external authentication proof for one exact connected effect.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schema_version", "contract_revision", "admission_id", "host_ref", "audience_ref",
+    "workspace_ref", "resource_ref", "request_ref", "authority_ref", "action_ref", "policy_decision_ref",
+    "approval_ref", "lease_ref", "runtime_episode_ref", "provider_operation_ref", "provenance_ref",
+    "policy_revision_ref", "scope_refs", "auth", "issued_at", "expires_at", "nonce", "generation"
+  ],
+  "properties": {
+    "$schema": {"const": "https://github.com/AlisinaDevelo/md-files/schema/runtime/host-admission/v1"},
+    "schema_version": {"const": 1},
+    "contract_revision": {"const": "forge-host-admission-v1"},
+    "admission_id": {"$ref": "#/$defs/ref"},
+    "host_ref": {"$ref": "#/$defs/opaque"},
+    "audience_ref": {"$ref": "#/$defs/opaque"},
+    "workspace_ref": {"$ref": "#/$defs/opaque"},
+    "resource_ref": {"$ref": "#/$defs/opaque"},
+    "request_ref": {"$ref": "#/$defs/ref"},
+    "authority_ref": {"$ref": "#/$defs/ref"},
+    "action_ref": {"$ref": "#/$defs/ref"},
+    "policy_decision_ref": {"$ref": "#/$defs/ref"},
+    "approval_ref": {"$ref": "#/$defs/ref"},
+    "lease_ref": {"$ref": "#/$defs/ref"},
+    "runtime_episode_ref": {"$ref": "#/$defs/ref"},
+    "provider_operation_ref": {"$ref": "#/$defs/ref"},
+    "provenance_ref": {"$ref": "#/$defs/ref"},
+    "policy_revision_ref": {"$ref": "#/$defs/ref"},
+    "scope_refs": {"type": "array", "minItems": 1, "maxItems": 64, "items": {"$ref": "#/$defs/opaque"}},
+    "auth": {"$ref": "#/$defs/auth"},
+    "issued_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "nonce": {"type": "string", "pattern": "^nonce:[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"},
+    "generation": {"type": "integer", "minimum": 1}
+  },
+  "$defs": {
+    "ref": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "opaque": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,31}:[A-Za-z0-9][A-Za-z0-9._:/@-]{0,191}$"},
+    "auth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scheme", "key_ref", "proof_ref", "verification_ref", "replay_protection"],
+      "properties": {
+        "scheme": {"enum": ["dpop", "mtls", "spiffe-svid", "jws", "oauth2-bearer"]},
+        "key_ref": {"type": "string", "pattern": "^key:[A-Za-z0-9][A-Za-z0-9._:/@-]{0,127}$"},
+        "proof_ref": {"$ref": "#/$defs/ref"},
+        "verification_ref": {"$ref": "#/$defs/ref"},
+        "replay_protection": {"enum": ["sender-constrained", "nonce-cache", "provider-bound"]}
+      }
+    }
+  }
+}
