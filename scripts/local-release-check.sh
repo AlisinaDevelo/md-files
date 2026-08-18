@@ -71,6 +71,13 @@ jq -e '.status == "passed" and .case_count == 4 and .threat_cases == 2 and .judg
   "$TMP_ROOT/trajectory.log" >/dev/null
 printf 'trajectory-evals=passed cases=4 threat_cases=2\n'
 
+run_logged "Authority contract corpus" "$TMP_ROOT/authority.log" \
+  "$PYTHON_BIN" scripts/forge-authority.py evaluate \
+  --corpus tests/fixtures/authority/v1.jsonl --json
+jq -e '.status == "passed" and .case_count == 11 and .threat_cases == 5 and .deterministic == true and .authentication_boundary == "external-reference"' \
+  "$TMP_ROOT/authority.log" >/dev/null
+printf 'authority-contract=passed cases=11 threat_cases=5\n'
+
 run_logged "Cross-host scenarios" "$TMP_ROOT/scenarios.log" \
   "$PYTHON_BIN" evals/run_scenarios.py --adapter all --no-receipts --output "$TMP_ROOT/scenarios.json"
 jq -e '.summary.failed == 0 and .summary.flaky == 0 and .summary.passed > 0' \
@@ -106,6 +113,7 @@ PYTHON_LINT_TARGETS=(
   scripts/build_release.py
   scripts/forge-attestation.py
   scripts/forge-trajectory-evals.py
+  scripts/forge-authority.py
   scripts/build_openai_submission_evidence.py
   scripts/compile_capabilities.py
   scripts/render_capabilities.py

@@ -26,7 +26,7 @@ reproducible across providers.
 | --- | --- | --- |
 | MCP interoperability | The 2026-07-28 MCP specification makes the core stateless and moves long-running work into the Tasks extension. | Completed the versioned digest-only adapter profile; keep live server support and MRTR payload handling as explicit future integrations. |
 | Agent runtime quality | OpenAI trace grading evaluates end-to-end decisions and tool calls; the Agents SDK exposes traces and guardrails; OpenTelemetry defines agent/workflow/tool span vocabulary. | Record deterministic trajectory and guardrail evidence without persisting prompts, credentials, or provider bodies. |
-| Agent identity | NIST's agent standards work and OWASP's agentic guidance make identity, delegated authority, least agency, and non-repudiation central controls. | Bind the principal, delegation chain, policy decision, approval, action, and receipt to one verifiable contract. |
+| Agent identity | NIST's updated 2026 initiative emphasizes agent authentication and identity infrastructure; current MCP authorization requires resource-specific audience validation; OAuth security guidance adds sender-constrained and replay-resistant tokens; OWASP's skill checklist calls for publisher identity, immutable hashes, explicit permissions, and pre-mutation evidence. | Implemented `forge-authority-v1`: bind the actor, delegation chain, policy revision, policy decision, approval, worker lease, action, runtime, provider, and provenance refs; keep host authentication and proof-of-possession outside the local contract. |
 | Supply-chain evidence | SLSA v1.2 defines build provenance around subjects, builder, build definition, external parameters, and resolved dependencies; in-toto recommends DSSE envelopes; GitHub documents offline bundle and trusted-root verification. | Completed a strict Forge DSSE/SLSA contract with Ed25519, local HMAC, explicit trust-root rotation/revocation, and a separate GitHub receipt boundary. Never claim a SLSA build level from a laptop. |
 | Delivery topology | GitHub native Stacked Pull Requests are in public preview and GitHub now exposes native issue dependencies. | Import provider state into Forge evidence while keeping the ledger and branch ancestry distinct. |
 | Telemetry | OpenTelemetry's GenAI conventions now cover agent, workflow, plan, and tool spans. | Emit stable, privacy-safe correlations and schema versions rather than treating telemetry as runtime state. |
@@ -57,8 +57,10 @@ reproducible across providers.
 ### v4.0 major: authority and connected execution
 
 1. [#88 agent identity and delegated authority](https://github.com/AlisinaDevelo/md-files/issues/88)
-   Define versioned principals, parent delegation, audience, scopes, expiry, nonce, revocation,
-   and binding to policy, approval, action, runtime, and provenance evidence.
+   Implemented locally as `forge-authority-v1`: versioned principals, parent delegation,
+   audience, scopes, expiry, nonce, revocation generations, legacy migration, and binding to
+   policy revision, approval, worker lease, action, runtime, provider, and provenance evidence. Hosted identity and
+   proof-of-possession remain adapter responsibilities.
 2. [#21 GitHub Agentic Workflows](https://github.com/AlisinaDevelo/md-files/issues/21)
    Move the existing pinned adapter from local admission evidence toward a reviewed external
    control plane without making a workflow lock the canonical Forge history.

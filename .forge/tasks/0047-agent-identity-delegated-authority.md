@@ -1,7 +1,7 @@
 ---
 id: 0047
 title: Add agent identity and delegated authority contract
-status: planned
+status: review
 agent: architect
 model: opus
 depends_on: [0018, 0022, 0025]
@@ -15,19 +15,27 @@ workflows, providers, and human approvals.
 
 ## Acceptance criteria
 
-- [ ] The descriptor binds issuer, subject, build, audience, scopes, parent delegation, expiry,
+- [x] The descriptor binds issuer, subject, build, audience, scopes, parent delegation, expiry,
       nonce, revocation state, and policy revision.
-- [ ] Action requests bind the identity, delegation chain, authorization decision, approval,
-      runtime episode, provider operation, and provenance receipt.
-- [ ] Least-agency, audience, expiry, replay, revocation, and scope-escalation failures are
+- [x] Action requests bind the identity, delegation chain, authorization decision, approval,
+      worker lease, runtime episode, provider operation, and provenance receipt.
+- [x] Least-agency, audience, expiry, replay, revocation, and scope-escalation failures are
       deterministic and fail closed.
-- [ ] Offline verification supports a legacy principal profile without weakening the new
+- [x] Offline verification supports a legacy principal profile without weakening the new
       contract and emits digest-only evidence.
-- [ ] Connected execution remains opt-in until identity and authority evidence is verified.
+- [x] Connected execution remains opt-in until identity and authority evidence is verified.
 
 ## Scope boundary
 
 Do not build a hosted identity provider or treat model self-description as authority.
+
+## Verification
+
+- `python3 -m pytest tests/test_forge_authority.py tests/test_forge_policy.py`: 26 passed.
+- The checked-in authority corpus reports 11 deterministic cases with 5 explicit threat cases.
+- Policy action, decision, approval, and receipt evidence preserve optional authority references
+  while legacy actions retain their previous shape.
+- The full local release gate is the required final verification boundary and is still pending.
 
 ## Primary sources
 

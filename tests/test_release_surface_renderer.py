@@ -51,6 +51,7 @@ def test_release_surface_derives_metadata_and_install_inputs(tmp_path):
     assert (tmp_path / "claude/data/runtime-mcp-tasks.schema.json").is_file()
     assert (tmp_path / "claude/data/release-attestation.schema.json").is_file()
     assert (tmp_path / "claude/data/trajectory-evals.schema.json").is_file()
+    assert (tmp_path / "claude/data/runtime-authority.schema.json").is_file()
     assert (tmp_path / "codex/plugins/forge/skills/orchestration/scripts/forge-mcp-tasks.py").is_file()
     assert (tmp_path / "claude/data/runtime-receipts.schema.json").is_file()
     assert (tmp_path / "codex/data/runtime-lineage.schema.json").is_file()

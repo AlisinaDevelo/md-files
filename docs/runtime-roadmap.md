@@ -118,8 +118,10 @@ The next release lane is deliberately outside the completed runtime baseline:
 - [#87 trajectory evaluations](https://github.com/AlisinaDevelo/md-files/issues/87) now has a
   verified digest-only corpus contract; deterministic safety and replay checks stay ahead of
   optional model-based judging.
-- [#88 delegated authority](https://github.com/AlisinaDevelo/md-files/issues/88) must bind
-  identity, policy, approval, action, runtime, and provenance before connected execution grows.
+- [#88 delegated authority](https://github.com/AlisinaDevelo/md-files/issues/88) now has a locally
+  verified `forge-authority-v1` contract binding identity, policy revision, approval, worker
+  lease, action, runtime, provider, and provenance. Connected execution remains opt-in until a
+  host adapter supplies and verifies its authentication/proof-of-possession boundary.
 
 No hosted MCP server or external control plane is required for the current runtime release.
 

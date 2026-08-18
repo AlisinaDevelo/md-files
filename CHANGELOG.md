@@ -64,6 +64,11 @@ All notable changes to this project are documented here. The format is based on
   deterministic scope, delegation, approval, guardrail, replay, privacy, unsafe-action, and
   terminal-outcome checks; bounded quality/cost/latency/failure/approval comparisons; and an
   explicitly non-authoritative optional external judge boundary.
+- **Identity and delegated authority** - added a versioned offline authority bundle with explicit
+  host-proof and local-HMAC boundaries, scope/resource/tool/intent narrowing, audience and
+  workspace binding, expiry, revocation generations, nonce replay checks, legacy-principal
+  migration, policy-revision and worker-lease binding, and policy/approval/runtime/provider/
+  provenance digest bindings.
 
 ## [3.6.0] — 2026-08-03
 
