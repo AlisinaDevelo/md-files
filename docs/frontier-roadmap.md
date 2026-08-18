@@ -25,7 +25,7 @@ reproducible across providers.
 | Signal | What changed | Forge implication |
 | --- | --- | --- |
 | MCP interoperability | The 2026-07-28 MCP specification makes the core stateless and moves long-running work into the Tasks extension. | Completed the versioned digest-only adapter profile; keep live server support and MRTR payload handling as explicit future integrations. |
-| Agent runtime quality | The OpenAI Agents SDK treats guardrails, handoffs, sessions, usage, and traces as first-class runtime concerns. | Record trajectory and guardrail evidence without persisting prompts, credentials, or provider bodies. |
+| Agent runtime quality | OpenAI trace grading evaluates end-to-end decisions and tool calls; the Agents SDK exposes traces and guardrails; OpenTelemetry defines agent/workflow/tool span vocabulary. | Record deterministic trajectory and guardrail evidence without persisting prompts, credentials, or provider bodies. |
 | Agent identity | NIST's agent standards work and OWASP's agentic guidance make identity, delegated authority, least agency, and non-repudiation central controls. | Bind the principal, delegation chain, policy decision, approval, action, and receipt to one verifiable contract. |
 | Supply-chain evidence | SLSA v1.2 defines build provenance around subjects, builder, build definition, external parameters, and resolved dependencies; in-toto recommends DSSE envelopes; GitHub documents offline bundle and trusted-root verification. | Completed a strict Forge DSSE/SLSA contract with Ed25519, local HMAC, explicit trust-root rotation/revocation, and a separate GitHub receipt boundary. Never claim a SLSA build level from a laptop. |
 | Delivery topology | GitHub native Stacked Pull Requests are in public preview and GitHub now exposes native issue dependencies. | Import provider state into Forge evidence while keeping the ledger and branch ancestry distinct. |
@@ -47,9 +47,9 @@ reproducible across providers.
    host-verified boundary are explicit. Hosted signing and public transparency remain provider
    responsibilities.
 3. [#87 trajectory and agentic-security regression harness](https://github.com/AlisinaDevelo/md-files/issues/87)
-   Compare digest-only agent trajectories for least agency, approval, scope, replay, leakage,
-   unsafe action, cost, latency, and outcome regressions. A live judge remains optional and
-   cannot replace deterministic checks.
+   Implemented locally: compare digest-only agent trajectories for least agency, approval, scope,
+   replay, leakage, unsafe action, cost, latency, and outcome regressions. A live judge remains
+   optional and cannot replace deterministic checks.
 4. Finish review and merge of the implemented [#65 provenance bridge](https://github.com/AlisinaDevelo/md-files/issues/65)
    and [#66 chaos shrinking](https://github.com/AlisinaDevelo/md-files/issues/66) slices before
    treating the evidence layer as release-complete.

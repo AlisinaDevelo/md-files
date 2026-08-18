@@ -64,6 +64,13 @@ run_logged "Full pytest suite" "$TMP_ROOT/pytest.log" "$PYTHON_BIN" -m pytest te
 run_logged "Static evals" "$TMP_ROOT/evals.log" "$PYTHON_BIN" evals/run.py
 grep -Eq 'Static eval: .*0 failures' "$TMP_ROOT/evals.log"
 
+run_logged "Trajectory security corpus" "$TMP_ROOT/trajectory.log" \
+  "$PYTHON_BIN" scripts/forge-trajectory-evals.py evaluate \
+  --corpus tests/fixtures/trajectories/v1.jsonl --json
+jq -e '.status == "passed" and .case_count == 4 and .threat_cases == 2 and .judge.release_oracle == "deterministic" and .metrics.replay_stability == 1' \
+  "$TMP_ROOT/trajectory.log" >/dev/null
+printf 'trajectory-evals=passed cases=4 threat_cases=2\n'
+
 run_logged "Cross-host scenarios" "$TMP_ROOT/scenarios.log" \
   "$PYTHON_BIN" evals/run_scenarios.py --adapter all --no-receipts --output "$TMP_ROOT/scenarios.json"
 jq -e '.summary.failed == 0 and .summary.flaky == 0 and .summary.passed > 0' \
@@ -98,6 +105,7 @@ PYTHON_LINT_TARGETS=(
   plugins/forge/skills/orchestration/scripts
   scripts/build_release.py
   scripts/forge-attestation.py
+  scripts/forge-trajectory-evals.py
   scripts/build_openai_submission_evidence.py
   scripts/compile_capabilities.py
   scripts/render_capabilities.py

@@ -2648,7 +2648,8 @@
       "resources": [
         "scripts/forge-lineage.py",
         "scripts/forge-provenance.py",
-        "scripts/forge-receipts.py"
+        "scripts/forge-receipts.py",
+        "scripts/forge-trajectory-evals.py"
       ],
       "risk": "safe",
       "host_projections": {
@@ -2697,7 +2698,8 @@
       "scripts": [
         "scripts/forge-lineage.py",
         "scripts/forge-provenance.py",
-        "scripts/forge-receipts.py"
+        "scripts/forge-receipts.py",
+        "scripts/forge-trajectory-evals.py"
       ],
       "evals": [
         "receipt-redaction"

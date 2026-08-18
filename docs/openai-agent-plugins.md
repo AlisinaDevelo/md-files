@@ -70,7 +70,7 @@ the project-level approval evidence and public-availability boundary.
 | 0041 | major | Evaluate an MCP server or UI extension only if a real workflow requires it | done; deferred |
 | 0044 | minor | Define the MCP 2026-07-28 Tasks adapter contract | done; reference-only, hosted server deferred |
 | 0045 | minor | Verify DSSE and SLSA v1.2 release attestations | done; local public-key/HMAC contract, GitHub receipt boundary |
-| 0046 | minor | Add trajectory and agentic-security regression evidence | planned |
+| 0046 | minor | Add trajectory and agentic-security regression evidence | done; local deterministic corpus and release-gate evidence |
 | 0047 | major | Bind agent identity and delegated authority | planned |
 
 ## Submission Test Candidates

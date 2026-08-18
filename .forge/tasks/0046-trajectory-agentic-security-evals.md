@@ -1,7 +1,7 @@
 ---
 id: 0046
 title: Add trajectory and agentic-security regression harness
-status: planned
+status: done
 agent: test-engineer
 model: sonnet
 depends_on: [0024, 0025]
@@ -13,16 +13,35 @@ issue: 87
 Add a bounded, digest-only regression harness for agent trajectories, guardrails, handoffs,
 tool calls, approvals, and outcomes.
 
+## Implementation contract
+
+- The canonical corpus is JSONL and uses `forge-trajectory-v1`; every event is ordered,
+  reference-based, and rejects raw prompts, credentials, provider bodies, and tool content.
+- The deterministic evaluator reports per-case checks plus aggregate quality, cost, latency,
+  failure, approval-burden, and replay-stability metrics.
+- Baseline comparison is thresholded and digest-bound. An optional external judge may contribute
+  separately labeled evidence, but cannot change the deterministic release result.
+- The release gate runs a small offline corpus and emits only counts, digests, statuses, and
+  metric summaries.
+
 ## Acceptance criteria
 
-- [ ] The trajectory format versions agent, workflow, tool, guardrail, handoff, approval, and
+- [x] The trajectory format versions agent, workflow, tool, guardrail, handoff, approval, and
       outcome events without storing prompts, credentials, raw tool content, or provider bodies.
-- [ ] Deterministic checks cover least agency, authorization scope, approval ordering, replay,
+- [x] Deterministic checks cover least agency, authorization scope, approval ordering, replay,
       leakage, unsafe action, and terminal outcome invariants.
-- [ ] Baseline and candidate reports compare quality, cost, latency, failure, approval burden,
+- [x] Baseline and candidate reports compare quality, cost, latency, failure, approval burden,
       and replay stability with bounded thresholds.
-- [ ] Optional model-based judging is isolated, labeled, and never the sole release oracle.
-- [ ] A small offline corpus runs locally and integrates with the existing release gate.
+- [x] Optional model-based judging is isolated, labeled, and never the sole release oracle.
+- [x] A small offline corpus runs locally and integrates with the existing release gate.
+
+## Verification
+
+- `python3 -m pytest tests/test_forge_trajectory.py`: 10 passed.
+- The checked-in corpus reports 4 passed cases: 2 positive/near-miss and 2 expected threat
+  failures; replay stability is 1.0 and the deterministic evaluator is the release oracle.
+- The configured local release gate passed on the implementation commit with the full test,
+  static-eval, cross-host, packaging, installation, replay, and attestation checks.
 
 ## Scope boundary
 

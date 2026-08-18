@@ -286,6 +286,7 @@ def render_release_surface(repo: Path, graph: dict[str, Any], output: Path) -> d
         "data/runtime-waits.schema.json",
         "data/runtime-mcp-tasks.schema.json",
         "data/release-attestation.schema.json",
+        "data/trajectory-evals.schema.json",
         "data/runtime-receipts.schema.json",
         "data/runtime-lineage.schema.json",
         "data/runtime-provenance.schema.json",

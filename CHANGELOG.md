@@ -60,6 +60,10 @@ All notable changes to this project are documented here. The format is based on
   release archives and SBOM subjects, explicit Ed25519 and local-HMAC trust profiles with
   rotation/revocation, digest-only GitHub verification receipts, and deterministic tamper cases
   in the local release gate. This does not claim a SLSA build level for local builds.
+- **Trajectory security evidence** - added a versioned digest-only agent trajectory corpus with
+  deterministic scope, delegation, approval, guardrail, replay, privacy, unsafe-action, and
+  terminal-outcome checks; bounded quality/cost/latency/failure/approval comparisons; and an
+  explicitly non-authoritative optional external judge boundary.
 
 ## [3.6.0] — 2026-08-03
 
