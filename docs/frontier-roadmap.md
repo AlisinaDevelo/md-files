@@ -53,8 +53,8 @@ reproducible across providers.
    replay, leakage, unsafe action, cost, latency, and outcome regressions. A live judge remains
    optional and cannot replace deterministic checks.
 4. [#93 A2A Agent Card trust projection](https://github.com/AlisinaDevelo/md-files/issues/93)
-   In progress: validate secure, versioned discovery metadata and project it into explicit
-   Forge context without fetching remote cards or claiming signature verification.
+   Implemented locally: validate secure, versioned discovery metadata and project it into
+   explicit Forge context without fetching remote cards or claiming signature verification.
 5. Finish review and merge of the implemented [#65 provenance bridge](https://github.com/AlisinaDevelo/md-files/issues/65)
    and [#66 chaos shrinking](https://github.com/AlisinaDevelo/md-files/issues/66) slices before
    treating the evidence layer as release-complete.

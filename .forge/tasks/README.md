@@ -50,4 +50,4 @@
 | 0046 | Add trajectory and agentic-security regression harness | done | test-engineer | sonnet | 0024, 0025 |
 | 0047 | Add agent identity and delegated authority contract | done | architect | opus | 0018, 0022, 0025 |
 | 0048 | Add host-authenticated admission evidence for connected effects | done | security-engineer | standard | 0047 |
-| 0049 | Validate signed A2A Agent Cards as bounded delegation evidence | in_progress | security-engineer | standard | 0048 |
+| 0049 | Validate signed A2A Agent Cards as bounded delegation evidence | done | security-engineer | standard | 0048 |
