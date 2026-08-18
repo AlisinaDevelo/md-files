@@ -97,6 +97,7 @@ PYTHON_LINT_TARGETS=(
   plugins/forge/skills/task-ledger/scripts
   plugins/forge/skills/orchestration/scripts
   scripts/build_release.py
+  scripts/forge-attestation.py
   scripts/build_openai_submission_evidence.py
   scripts/compile_capabilities.py
   scripts/render_capabilities.py
@@ -171,6 +172,17 @@ for release_dir in "$TMP_ROOT/release-first" "$TMP_ROOT/release-second"; do
 done
 run_logged "Codex marketplace validation" "$TMP_ROOT/codex-marketplace.log" \
   "$PYTHON_BIN" scripts/validate_codex_plugin.py --marketplace .agents/plugins/marketplace.json --root .
+
+run_logged "Release attestation verification" "$TMP_ROOT/attestation.log" \
+  "$PYTHON_BIN" scripts/forge-attestation.py self-test \
+  --manifest "$TMP_ROOT/release-first/forge-$version-manifest.json" \
+  --root "$TMP_ROOT/release-first" \
+  --policy policies/release.json \
+  --source-ref "refs/tags/v$version" \
+  --json
+jq -e '.status == "passed" and (.profiles | length) == 2 and (.negative_cases | length) == 6 and all(.profiles[]; .status == "verified") and all(.negative_cases[]; .status == "pass")' \
+  "$TMP_ROOT/attestation.log" >/dev/null
+printf 'release-attestation=passed profiles=2 negative_cases=6\n'
 
 run_logged "Installed candidate evidence and replay" "$TMP_ROOT/submission.log" \
   "$PYTHON_BIN" scripts/build_openai_submission_evidence.py --output "$EVIDENCE_OUTPUT"

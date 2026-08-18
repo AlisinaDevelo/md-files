@@ -27,7 +27,7 @@ reproducible across providers.
 | MCP interoperability | The 2026-07-28 MCP specification makes the core stateless and moves long-running work into the Tasks extension. | Completed the versioned digest-only adapter profile; keep live server support and MRTR payload handling as explicit future integrations. |
 | Agent runtime quality | The OpenAI Agents SDK treats guardrails, handoffs, sessions, usage, and traces as first-class runtime concerns. | Record trajectory and guardrail evidence without persisting prompts, credentials, or provider bodies. |
 | Agent identity | NIST's agent standards work and OWASP's agentic guidance make identity, delegated authority, least agency, and non-repudiation central controls. | Bind the principal, delegation chain, policy decision, approval, action, and receipt to one verifiable contract. |
-| Supply-chain evidence | SLSA v1.2 and DSSE provide portable, signed statements about artifact subjects, build definitions, and resolved inputs. | Keep the local HMAC profile for offline development, then add explicit public-key and GitHub attestation verification. |
+| Supply-chain evidence | SLSA v1.2 defines build provenance around subjects, builder, build definition, external parameters, and resolved dependencies; in-toto recommends DSSE envelopes; GitHub documents offline bundle and trusted-root verification. | Completed a strict Forge DSSE/SLSA contract with Ed25519, local HMAC, explicit trust-root rotation/revocation, and a separate GitHub receipt boundary. Never claim a SLSA build level from a laptop. |
 | Delivery topology | GitHub native Stacked Pull Requests are in public preview and GitHub now exposes native issue dependencies. | Import provider state into Forge evidence while keeping the ledger and branch ancestry distinct. |
 | Telemetry | OpenTelemetry's GenAI conventions now cover agent, workflow, plan, and tool spans. | Emit stable, privacy-safe correlations and schema versions rather than treating telemetry as runtime state. |
 | Skill packaging | Agent Skills uses progressive disclosure and a small required `SKILL.md` contract. | Keep capabilities sharp, validated, and discoverable; do not inflate the catalog to follow directory size. |
@@ -42,8 +42,10 @@ reproducible across providers.
    authorization mismatch, expiry, cancellation, handle isolation, and legacy-version rejection.
    A hosted MCP server and MCP Apps UI remain out of scope.
 2. [#86 DSSE and SLSA v1.2 artifact attestation verification](https://github.com/AlisinaDevelo/md-files/issues/86)
-   Verify portable public-key statements for release archives and SBOMs, bind them to source,
-   build, policy, and inputs, and keep trust-root rotation and revocation explicit.
+   Implemented locally: portable DSSE/SLSA statements bind release archives and SBOMs to source,
+   build, policy, manifest, and resolved inputs; trust-root rotation/revocation and GitHub's
+   host-verified boundary are explicit. Hosted signing and public transparency remain provider
+   responsibilities.
 3. [#87 trajectory and agentic-security regression harness](https://github.com/AlisinaDevelo/md-files/issues/87)
    Compare digest-only agent trajectories for least agency, approval, scope, replay, leakage,
    unsafe action, cost, latency, and outcome regressions. A live judge remains optional and
@@ -102,5 +104,9 @@ then, the local contracts and evidence gates are the product surface.
 - [NIST AI Agent Standards Initiative](https://www.nist.gov/artificial-intelligence/ai-agent-standards-initiative)
 - [OWASP Agentic AI threats and mitigations](https://genai.owasp.org/resource/agentic-ai-threats-and-mitigations/)
 - [SLSA v1.2 provenance](https://slsa.dev/spec/v1.2/provenance)
+- [SLSA v1.2 specification](https://slsa.dev/spec/v1.2/)
+- [in-toto envelope layer](https://github.com/in-toto/attestation/blob/main/spec/v1/envelope.md)
+- [DSSE pre-authentication encoding](https://github.com/secure-systems-lab/dsse/blob/master/envelope.proto)
+- [GitHub offline artifact-attestation verification](https://docs.github.com/en/actions/how-tos/secure-your-work/use-artifact-attestations/verify-attestations-offline)
 - [OpenTelemetry GenAI agent spans](https://github.com/open-telemetry/semantic-conventions-genai/blob/main/docs/gen-ai/gen-ai-agent-spans.md)
 - [GitHub Stacked Pull Requests](https://docs.github.com/en/pull-requests/reference/stacked-pull-requests)

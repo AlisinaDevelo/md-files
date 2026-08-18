@@ -112,9 +112,9 @@ The next release lane is deliberately outside the completed runtime baseline:
 - [#85 MCP Tasks adapter](https://github.com/AlisinaDevelo/md-files/issues/85) is locally complete
   at the reference-only contract boundary. A live protocol claim still requires separate hosted
   transport and discovery evidence.
-- [#86 release attestations](https://github.com/AlisinaDevelo/md-files/issues/86) must verify
-  portable DSSE/SLSA v1.2 statements without overstating local HMAC evidence as public-key
-  provenance.
+- [#86 release attestations](https://github.com/AlisinaDevelo/md-files/issues/86) now verifies
+  portable DSSE/SLSA v1.2 statements with explicit public-key, local-HMAC, and GitHub evidence
+  profiles without overstating local HMAC evidence as public-key provenance.
 - [#87 trajectory evaluations](https://github.com/AlisinaDevelo/md-files/issues/87) must keep
   deterministic safety and replay checks ahead of optional model-based judging.
 - [#88 delegated authority](https://github.com/AlisinaDevelo/md-files/issues/88) must bind

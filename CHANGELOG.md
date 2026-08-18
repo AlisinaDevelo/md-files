@@ -56,6 +56,10 @@ All notable changes to this project are documented here. The format is based on
   authorization-bound handles, bounded input rounds, stale-response rejection, idempotent
   update/cancel acknowledgements, expiry mapping, and a machine-readable contract schema. Live
   MCP hosting and raw input persistence remain out of scope.
+- **DSSE/SLSA release attestation contract** - added canonical in-toto/DSSE verification for
+  release archives and SBOM subjects, explicit Ed25519 and local-HMAC trust profiles with
+  rotation/revocation, digest-only GitHub verification receipts, and deterministic tamper cases
+  in the local release gate. This does not claim a SLSA build level for local builds.
 
 ## [3.6.0] — 2026-08-03
 

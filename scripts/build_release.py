@@ -76,6 +76,17 @@ RUNTIME_DEPENDENCIES = (
         "purpose": "optional GitHub task, stack, and policy adapters",
     },
 )
+ATTESTATION_CONTRACT = {
+    "schema_version": 1,
+    "envelope_type": "application/vnd.in-toto+dsse",
+    "payload_type": "application/vnd.in-toto+json",
+    "statement_type": "https://in-toto.io/Statement/v1",
+    "predicate_type": "https://slsa.dev/provenance/v1",
+    "build_type": "https://github.com/AlisinaDevelo/md-files/forge/release/v1",
+    "subject_rule": "release-manifest-artifacts-v1",
+    "profiles": ["local-hmac-v1", "public-key-dsse-v1", "github-artifact-v1"],
+    "offline_verifier": "python3 scripts/forge-attestation.py verify-release",
+}
 
 
 class ReleaseBuildError(RuntimeError):
@@ -415,6 +426,7 @@ def build_release(
         "runtime_dependencies": list(RUNTIME_DEPENDENCIES),
         "artifacts": artifacts,
         "sbom": {"name": sbom_name, "spdx_version": "SPDX-2.3", "predicate_type": "https://spdx.dev/Document/v2.3"},
+        "attestation": ATTESTATION_CONTRACT,
         "verification": {
             "hashes_file": "SHA256SUMS",
             "manifest_file": manifest_name,
