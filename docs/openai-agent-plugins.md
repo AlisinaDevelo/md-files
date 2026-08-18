@@ -74,6 +74,7 @@ the project-level approval evidence and public-availability boundary.
 | 0047 | major | Bind agent identity and delegated authority | done; local offline contract, adversarial corpus, and release-gate evidence |
 | 0048 | major | Add host-authenticated admission evidence for connected effects | done; external cryptographic verification remains a host responsibility; local gate passed |
 | 0049 | major | Validate signed A2A Agent Cards as bounded delegation evidence | done; offline trust projection passed; live discovery and cryptographic verification remain deferred |
+| 0050 | major | Add bounded A2A task handoff and lifecycle evidence | in progress; local task, interruption, idempotency, stream, and push checks are being wired; live transport remains deferred |
 
 ## Submission Test Candidates
 

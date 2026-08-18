@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/a2a-task/v1",
+  "title": "Forge A2A task handoff report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "status",
+    "schema_version",
+    "contract_revision",
+    "report_id",
+    "card_ref",
+    "protocol_version",
+    "context",
+    "task_ref",
+    "task_id",
+    "context_id",
+    "event_refs",
+    "event_count",
+    "message_count",
+    "artifact_ref_count",
+    "state_path",
+    "terminal_state",
+    "interrupted_states",
+    "stream_refs",
+    "push_ref",
+    "idempotency_key_count",
+    "authentication_boundary",
+    "authority_grant",
+    "checks"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://github.com/AlisinaDevelo/md-files/schema/runtime/a2a-task/v1"
+    },
+    "status": {"const": "passed"},
+    "schema_version": {"const": 1},
+    "contract_revision": {"const": "forge-a2a-task-v1"},
+    "report_id": {"$ref": "#/$defs/ref"},
+    "card_ref": {"$ref": "#/$defs/ref"},
+    "protocol_version": {"const": "1.0"},
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_ref",
+        "audience_ref",
+        "workspace_ref",
+        "resource_ref",
+        "authority_ref",
+        "admission_ref",
+        "lease_ref",
+        "runtime_episode_ref",
+        "provider_operation_ref",
+        "provenance_ref"
+      ],
+      "properties": {
+        "host_ref": {"$ref": "#/$defs/opaque"},
+        "audience_ref": {"$ref": "#/$defs/opaque"},
+        "workspace_ref": {"$ref": "#/$defs/opaque"},
+        "resource_ref": {"$ref": "#/$defs/opaque"},
+        "authority_ref": {"$ref": "#/$defs/ref"},
+        "admission_ref": {"$ref": "#/$defs/ref"},
+        "lease_ref": {"$ref": "#/$defs/ref"},
+        "runtime_episode_ref": {"$ref": "#/$defs/ref"},
+        "provider_operation_ref": {"$ref": "#/$defs/ref"},
+        "provenance_ref": {"$ref": "#/$defs/ref"}
+      }
+    },
+    "task_ref": {"$ref": "#/$defs/ref"},
+    "task_id": {"$ref": "#/$defs/opaque"},
+    "context_id": {"$ref": "#/$defs/opaque"},
+    "event_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 512,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/ref"}
+    },
+    "event_count": {"type": "integer", "minimum": 1, "maximum": 512},
+    "message_count": {"type": "integer", "minimum": 0, "maximum": 512},
+    "artifact_ref_count": {"type": "integer", "minimum": 0, "maximum": 32768},
+    "state_path": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 512,
+      "items": {
+        "enum": [
+          "TASK_STATE_SUBMITTED",
+          "TASK_STATE_WORKING",
+          "TASK_STATE_INPUT_REQUIRED",
+          "TASK_STATE_AUTH_REQUIRED",
+          "TASK_STATE_COMPLETED",
+          "TASK_STATE_FAILED",
+          "TASK_STATE_CANCELED",
+          "TASK_STATE_REJECTED"
+        ]
+      }
+    },
+    "terminal_state": {
+      "enum": [
+        "TASK_STATE_COMPLETED",
+        "TASK_STATE_FAILED",
+        "TASK_STATE_CANCELED",
+        "TASK_STATE_REJECTED"
+      ]
+    },
+    "interrupted_states": {
+      "type": "array",
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {
+        "enum": ["TASK_STATE_INPUT_REQUIRED", "TASK_STATE_AUTH_REQUIRED"]
+      }
+    },
+    "stream_refs": {
+      "type": "array",
+      "maxItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/ref"}
+    },
+    "push_ref": {
+      "anyOf": [{"$ref": "#/$defs/ref"}, {"type": "null"}]
+    },
+    "idempotency_key_count": {"type": "integer", "minimum": 1, "maximum": 512},
+    "authentication_boundary": {"const": "external-reference"},
+    "authority_grant": {"const": false},
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_fields",
+        "context_binding",
+        "protocol_version",
+        "bounded_transitions",
+        "message_idempotency",
+        "cancel_idempotency",
+        "terminal_closure",
+        "stream_ordering",
+        "push_url_safety",
+        "credential_exclusion",
+        "authority_non_grant"
+      ],
+      "properties": {
+        "required_fields": {"const": true},
+        "context_binding": {"const": true},
+        "protocol_version": {"const": true},
+        "bounded_transitions": {"const": true},
+        "message_idempotency": {"const": true},
+        "cancel_idempotency": {"const": true},
+        "terminal_closure": {"const": true},
+        "stream_ordering": {"const": true},
+        "push_url_safety": {"const": true},
+        "credential_exclusion": {"const": true},
+        "authority_non_grant": {"const": true}
+      }
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "opaque": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,31}:[A-Za-z0-9][A-Za-z0-9._:/@-]{0,191}$"
+    }
+  }
+}

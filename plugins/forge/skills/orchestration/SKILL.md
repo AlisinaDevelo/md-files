@@ -376,6 +376,26 @@ policy, host-admission, lease, and provenance contracts as well.
 Read [A2A Agent Card Evidence](../../../../docs/a2a.md) and the
 `tests/fixtures/a2a-card/v1.jsonl` corpus for the supported offline boundary.
 
+## A2A task handoff evidence
+
+After a card has been admitted, validate one bounded task lifecycle before a provider
+adapter treats the remote task as an execution handoff:
+
+```bash
+python3 scripts/forge-a2a-task.py verify --input TASK-ENVELOPE.json
+```
+
+The `forge-a2a-task-v1` contract requires the card, audience, workspace, resource,
+authority, host-admission, lease, runtime episode, provider operation, and provenance
+references. It checks ordered A2A 1.0 states, input-required and auth-required
+interruptions, terminal closure, message and cancel idempotency, optional stream markers,
+and digest-only push configuration. AUTH_REQUIRED is not authorization. The report never
+contains prompts, message parts, artifacts, provider bodies, credentials, or webhook
+secrets, and the verifier never contacts the remote agent.
+
+Read [A2A Task Handoff Evidence](../../../../docs/a2a-task.md) and the
+`tests/fixtures/a2a-task/v1.jsonl` corpus before adapting a live A2A client.
+
 ## How to delegate well (this makes or breaks it)
 
 When you spawn a specialist subagent, set two things deliberately:

@@ -53,6 +53,14 @@ The corpus covers a valid signed card, an insecure endpoint, an unsupported requ
 extension, and a card-reference mismatch. The checked-in release gate expects four
 cases and three explicit threat cases.
 
+## Task handoff
+
+After card admission, use [A2A Task Handoff Evidence](a2a-task.md) to validate one
+bounded task lifecycle and bind it to the Agent Card, authority, host admission, lease,
+runtime, provider, and provenance references. The task adapter keeps interruptions,
+idempotency, cancellation, stream ordering, and push safety explicit without becoming
+a live A2A client.
+
 ## Boundary
 
 Forge intentionally does not implement a live A2A client, `.well-known` discovery,

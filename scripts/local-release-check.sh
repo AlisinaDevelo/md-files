@@ -92,6 +92,13 @@ jq -e '.status == "passed" and .case_count == 4 and .threat_cases == 3 and .dete
   "$TMP_ROOT/a2a-card.log" >/dev/null
 printf 'a2a-card=passed cases=4 threat_cases=3\n'
 
+run_logged "A2A task handoff corpus" "$TMP_ROOT/a2a-task.log" \
+  "$PYTHON_BIN" scripts/forge-a2a-task.py evaluate \
+  --corpus tests/fixtures/a2a-task/v1.jsonl --json
+jq -e '.status == "passed" and .case_count == 8 and .threat_cases == 5 and .deterministic == true' \
+  "$TMP_ROOT/a2a-task.log" >/dev/null
+printf 'a2a-task=passed cases=8 threat_cases=5\n'
+
 run_logged "Cross-host scenarios" "$TMP_ROOT/scenarios.log" \
   "$PYTHON_BIN" evals/run_scenarios.py --adapter all --no-receipts --output "$TMP_ROOT/scenarios.json"
 jq -e '.summary.failed == 0 and .summary.flaky == 0 and .summary.passed > 0' \
@@ -130,6 +137,7 @@ PYTHON_LINT_TARGETS=(
   scripts/forge-authority.py
   scripts/forge-host-admission.py
   scripts/forge-a2a-card.py
+  scripts/forge-a2a-task.py
   scripts/build_openai_submission_evidence.py
   scripts/compile_capabilities.py
   scripts/render_capabilities.py
