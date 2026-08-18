@@ -148,6 +148,24 @@ in the reference-only envelope returned by `adapter_evidence`; its schema is
 parents, leases, and provider idempotency remain canonical. The contract promises at-least-once
 delivery with idempotent effects, never exactly-once provider execution.
 
+### A2A StreamResponse evidence
+
+For A2A v1 interoperability checks, use the digest-only StreamResponse adapter. It accepts a
+single terminal message stream or a bounded set of equivalent task streams, requires ordered
+terminal closure, and binds push metadata to the task, context, stream, and event. It rejects
+raw content, credentials, and authority grants; it does not open a transport or send a webhook.
+Run the local corpus with:
+
+```bash
+python3 scripts/forge-a2a-stream.py evaluate \
+  --corpus tests/fixtures/a2a-stream/v1.jsonl --json
+```
+
+The report schema is `data/runtime-a2a-stream.schema.json`. Keep A2A identifiers and delivery
+references subordinate to Forge canonical history and admission policy. See the
+[A2A specification](https://github.com/a2aproject/A2A/blob/main/docs/specification.md) for the
+provider protocol contract.
+
 ## How to delegate well (this makes or breaks it)
 
 When you spawn a specialist subagent, set two things deliberately:

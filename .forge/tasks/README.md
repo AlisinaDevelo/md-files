@@ -26,3 +26,4 @@
 | 0022 | Add signed trace-context and provenance bridge for runtime episodes | planned | observability-specialist | sonnet | 0018, 0020 |
 | 0023 | Add distributed revision and watch recovery adapter | done | concurrency-engineer | sonnet | 0020 |
 | 0024 | Add deterministic chaos and schedule-shrinking harness | planned | test-engineer | sonnet | 0019, 0020 |
+| 0025 | Add A2A StreamResponse evidence and concurrent-stream checks | review | interoperability-engineer | sonnet | 0020, 0021 |
