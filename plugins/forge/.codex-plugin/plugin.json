@@ -45,7 +45,7 @@
       "Create a Forge task ledger for this feature.",
       "Design and verify a stacked PR workflow for this feature."
     ],
-    "brandColor": "#F5B942",
+    "brandColor": "#A66B00",
     "composerIcon": "./assets/icon.png",
     "logo": "./assets/logo.png",
     "logoDark": "./assets/logo-dark.png",
