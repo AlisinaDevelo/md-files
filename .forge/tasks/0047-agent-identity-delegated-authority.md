@@ -1,7 +1,7 @@
 ---
 id: 0047
 title: Add agent identity and delegated authority contract
-status: review
+status: done
 agent: architect
 model: opus
 depends_on: [0018, 0022, 0025]
@@ -35,7 +35,10 @@ Do not build a hosted identity provider or treat model self-description as autho
 - The checked-in authority corpus reports 11 deterministic cases with 5 explicit threat cases.
 - Policy action, decision, approval, and receipt evidence preserve optional authority references
   while legacy actions retain their previous shape.
-- The full local release gate is the required final verification boundary and is still pending.
+- The full local release gate passed on `a52839318926a59d78600b79a7773bfebff91ce7`: 342 tests,
+  static evals 333/334 with 1 warning and 0 failures, trajectory 4 cases/2 threats, authority
+  11 cases/5 threats, cross-host 12/12, byte-identical six-artifact builds, offline release,
+  attestation, marketplace, and deterministic installed replay (2 attempts/8 cases).
 
 ## Primary sources
 
