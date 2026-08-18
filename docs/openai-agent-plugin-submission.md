@@ -1,8 +1,9 @@
 # OpenAI Agent Plugin Submission Packet
 
-Forge is prepared as a skills-only OpenAI Agent Plugin candidate. This packet records
-repository-verifiable evidence and keeps external publication state explicit. It does not
-claim directory approval or universal availability.
+Forge is prepared as a skills-only OpenAI Agent Plugin candidate. Owner-provided OpenAI
+project portal evidence dated 2026-08-18 shows Forge 3.6.0 as **Approved**. This packet
+records repository-verifiable evidence and keeps the remaining publication boundary explicit:
+it does not claim public directory listing or universal availability.
 
 ## Reproduce
 
@@ -29,13 +30,13 @@ external blockers.
 | Field | Repository evidence | External state |
 |---|---|---|
 | Listing name, description, category | Codex interface metadata | Ready for owner review |
-| Publisher | Manifest author identity and HTTPS profile | Identity verification pending |
+| Publisher | Manifest author identity and HTTPS profile | Project portal approval shown; publisher details remain owner-managed |
 | Support | GitHub issue tracker URL | Ready |
 | Privacy and terms | Repository policy URLs | Ready for owner review |
 | Starter prompts | Three manifest default prompts | Ready |
 | Release notes | Changelog URL | Ready |
-| Availability | Explicit pending status in the report | Must be entered in portal |
-| Portal draft and review | Not repository-verifiable | Blocked on owner identity action |
+| Availability | Explicit status in the report | Project portal approval shown; public listing and availability not independently verified |
+| Portal draft and review | Not repository-verifiable | Project portal shows Approved; public directory discoverability remains unverified |
 
 ## Cases
 
@@ -71,12 +72,16 @@ remove Forge, and verify removal. CI runs both the reproducible packet builder a
 lifecycle smoke. Neither check can complete publisher identity verification or OpenAI portal
 review.
 
-## Owner blocker
+## External status
 
-The remaining external step is publisher identity verification and creation of a portal
-draft. Until that happens, Forge must remain documented as **not submitted**. MCP and custom
-UI are intentionally excluded; see [task 0041](../.forge/tasks/0041-evaluate-optional-openai-mcp-ui.md)
-for the separate decision track.
+The owner-provided project Plugins view records Forge 3.6.0 as **Approved** on 2026-08-18.
+That evidence establishes the project-level review state shown by the portal. It does not
+prove that Forge is discoverable in a public directory or universally available to other
+accounts, so repository documentation keeps those states separate.
+
+MCP and custom UI remain intentionally excluded from the current skills-only submission;
+see [task 0041](../.forge/tasks/0041-evaluate-optional-openai-mcp-ui.md) for the separate
+decision track.
 
 See [task 0040](../.forge/tasks/0040-openai-skills-submission-evidence.md) and the official
 [OpenAI submission guidance](https://developers.openai.com/plugins/deploy/submission) for

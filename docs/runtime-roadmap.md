@@ -1,6 +1,10 @@
 # Runtime Roadmap
 
-Last reviewed: 2026-08-09.
+Last reviewed: 2026-08-18.
+
+The cross-project frontier priorities are tracked in the [frontier roadmap](frontier-roadmap.md).
+This document remains the durable runtime plan; protocol, identity, evaluation, and release
+attestation work must integrate through explicit adapters rather than replace runtime history.
 
 This roadmap is the execution plan for Forge's durable runtime. The event history is the
 source of truth for a run; receipts, task ledgers, provider sessions, MCP Tasks, GitHub
@@ -31,7 +35,7 @@ workflows, and telemetry remain adapters or evidence surfaces.
 | Activities and effects | Temporal and AWS assume retries or duplicate delivery and require idempotent activities, stable keys, and an atomic outbox boundary. | Keep at-least-once delivery explicit; make adapter idempotency and provider request references mandatory. |
 | Worker ownership | Chubby uses a lock generation sequencer that protected services validate, closing the stale-client write window. | A lease claim must issue a monotonic generation or fencing token; owner and generation are required for heartbeat, completion, failure, and protected effect submission. |
 | Recovery | LangGraph, Microsoft Agent Framework, and Dapr persist checkpoints and durable retry state, including successful work that can be resumed after a sibling failure. | Add hashed checkpoints, suffix replay, crash recovery, and reviewed fail-closed migrations before calling the runtime durable at scale. |
-| Human interaction | MCP Tasks defines `input_required`, TTL, polling hints, cancellation, authorization binding, limits, and audit expectations; provider task state is not enough. | Model waits and signals in Forge history, then expose MCP Tasks as an adapter. |
+| Human interaction | The final MCP 2026-07-28 specification makes the core stateless and places long-running work in the Tasks extension, including `input_required`, TTL, polling hints, cancellation, and authorization expectations. | Keep waits and signals in Forge history, then implement the versioned, digest-only adapter in [#85](https://github.com/AlisinaDevelo/md-files/issues/85). |
 | Evidence | OpenTelemetry provides versioned agent/workflow/tool vocabulary; W3C Trace Context carries portable correlation; SLSA and in-toto bind evidence to immutable subjects and resolved inputs. | Add a privacy-safe, digest-bound episode lineage and receipt verifier with pinned mappings, without replacing canonical history or GitHub release attestations. |
 | GitHub delivery | GitHub Merge Queue validates checks on the latest target plus queued changes and requires `merge_group` reporting. | Preserve SHA-bound stack plans, queue-event correlation, explicit approval, and indeterminate stop states. |
 | Definition rollout | AWS durable execution pins qualified versions and requires deterministic replay; Temporal uses worker-version compatibility and reachability signals. | Pin every run to an immutable definition/build digest; aliases affect new runs only, and incompatible replay fails closed or crosses an explicit continue-as-new boundary. |
@@ -100,6 +104,23 @@ must remain independently reviewable.
 
 The currently tracked runtime slices are complete; the later integrations below remain
 intentionally separate from the local-first runtime contract.
+
+### Frontier handoff
+
+The next release lane is deliberately outside the completed runtime baseline:
+
+- [#85 MCP Tasks adapter](https://github.com/AlisinaDevelo/md-files/issues/85) must add request
+  identity, handle isolation, bounded input rounds, and legacy-version rejection before any
+  live protocol claim.
+- [#86 release attestations](https://github.com/AlisinaDevelo/md-files/issues/86) must verify
+  portable DSSE/SLSA v1.2 statements without overstating local HMAC evidence as public-key
+  provenance.
+- [#87 trajectory evaluations](https://github.com/AlisinaDevelo/md-files/issues/87) must keep
+  deterministic safety and replay checks ahead of optional model-based judging.
+- [#88 delegated authority](https://github.com/AlisinaDevelo/md-files/issues/88) must bind
+  identity, policy, approval, action, runtime, and provenance before connected execution grows.
+
+No hosted MCP server or external control plane is required for the current runtime release.
 
 ### Later integrations
 

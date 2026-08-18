@@ -1,10 +1,11 @@
 # OpenAI Agent Plugins Compatibility
 
-Last reviewed: 2026-08-12
+Last reviewed: 2026-08-18
 
 Forge is a skills-only OpenAI Agent Plugin candidate. Its local and repository Codex
-marketplace installs are supported today; public listing in the universal ChatGPT and
-Codex Plugin Directory has not been submitted.
+marketplace installs are supported today. Owner-provided OpenAI project portal evidence
+dated 2026-08-18 shows Forge 3.6.0 as **Approved**. This confirms project-level review
+state; public listing and universal directory availability remain unverified.
 
 ## Research Findings
 
@@ -50,14 +51,14 @@ identity verification, listing and policy metadata, starter prompts, release not
 availability, and test evidence. The current submission guidance asks for five positive and
 three negative test cases. A repository marketplace passing does not imply public approval.
 
-The public submission remains intentionally open until the publisher identity and portal
-draft are reviewed. Forge must not claim directory listing, approval, or universal
-availability before that external state changes.
+The project portal review state is now recorded as **Approved** from owner-provided evidence
+dated 2026-08-18. Forge must still distinguish that project-level state from public directory
+listing and universal availability, which this repository cannot independently verify.
 
 The reproducible owner-review packet is documented in
 [`openai-agent-plugin-submission.md`](openai-agent-plugin-submission.md). It records the
 exact Codex release candidate, five positive and three negative offline contract cases, and
-the external identity-verification blocker.
+the project-level approval evidence and public-availability boundary.
 
 ## Planned Work
 
@@ -65,13 +66,17 @@ the external identity-verification blocker.
 |---|---|---|---|
 | 0038 | minor | Record the official contract and audit Forge's current surfaces | done |
 | 0039 | minor | Validate Codex marketplace policy and local source resolution in CI | done |
-| 0040 | major | Prepare skills-only submission evidence and an owner-reviewed portal draft | done |
+| 0040 | major | Prepare skills-only submission evidence and an owner-reviewed portal draft | done; project approval recorded; public availability unverified |
 | 0041 | major | Evaluate an MCP server or UI extension only if a real workflow requires it | done; deferred |
+| 0044 | minor | Define the MCP 2026-07-28 Tasks adapter contract | planned |
+| 0045 | minor | Verify DSSE and SLSA v1.2 release attestations | planned |
+| 0046 | minor | Add trajectory and agentic-security regression evidence | planned |
+| 0047 | major | Bind agent identity and delegated authority | planned |
 
 ## Submission Test Candidates
 
-These are the candidate cases for task 0040. They are a submission plan, not a claim that
-the OpenAI portal has accepted them.
+These are the candidate cases for task 0040. They are repository evidence, not a claim of
+public directory listing or universal availability.
 
 ### Positive cases
 

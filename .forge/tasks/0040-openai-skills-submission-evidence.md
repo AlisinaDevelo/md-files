@@ -11,7 +11,7 @@ issue: 82
 ## Goal
 
 Prepare an owner-reviewed submission packet for Forge's skills-only OpenAI Plugin Directory
-entry without claiming that the external review has happened.
+entry without overstating repository evidence or the external publication state.
 
 ## Acceptance criteria
 
@@ -20,8 +20,8 @@ entry without claiming that the external review has happened.
 - [x] Listing, publisher, support, privacy, terms, starter prompt, release note, and
       availability fields are checked against the submission form.
 - [x] The candidate archive, version, and evidence are linked from one reviewable artifact.
-- [x] A platform owner completes identity verification and creates a portal draft, or the
-      task records the exact external blocker.
+- [x] The available project-portal review state is recorded with its date and evidence
+      boundary; public directory listing is not inferred from project approval.
 
 ## Context
 
@@ -43,5 +43,6 @@ server-backed tools or visual interaction.
   plugin validator all passed.
 - The report records the exact source commit and archive digest, and CI uploads it as a
   reviewable artifact.
-- External blocker: the owner must complete OpenAI publisher identity verification and create
-  the portal draft; repository checks cannot prove that external state.
+- Owner-provided OpenAI project Plugins evidence dated 2026-08-18 shows Forge 3.6.0 as
+  **Approved**. This confirms project-level review state only; public directory listing and
+  universal availability remain outside repository-verifiable evidence.

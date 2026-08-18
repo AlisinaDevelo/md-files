@@ -338,6 +338,8 @@ scripts/               validation, installation, release, and marketplace checks
 - [Bundles & workflows](docs/bundles-and-workflows.md) — focused capability sets and ordered playbooks
 - [Quality bar](docs/quality-bar.md) — validation and safety standards for Forge components
 - [Competitive audit](docs/competitive-audit.md) — what Forge borrows from larger skill libraries
+- [Frontier roadmap](docs/frontier-roadmap.md) — research-backed interoperability, identity,
+  evaluation, release evidence, and connected-execution priorities
 - [Stacked changes](docs/stacked-changes.md) — GitHub-native stacks, provider adapters,
   safety model, review flow, CI, and recovery
 - [GitHub native stacks](docs/github-native-stacks.md) — remote inspect/import, SHA-guarded

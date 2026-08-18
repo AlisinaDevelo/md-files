@@ -32,6 +32,10 @@ def test_submission_evidence_has_five_positive_and_three_negative_cases(tmp_path
     assert all(item["status"] == "pass" for item in report["cases"])
     assert report["execution_mode"] == "offline-release-candidate-contract"
     assert report["submission_materials"]["publication"]["status"] == "not_submitted"
+    assert report["submission_materials"]["publisher"]["identity_verification"] == "not_repository_verifiable"
+    assert report["submission_materials"]["publication"]["portal_draft"] == "not_repository_verifiable"
+    assert report["submission_materials"]["publication"]["availability_review"] == "public_directory_unverified"
+    assert "Project-level portal approval" in report["external_blockers"][0]
     candidate = report["candidate"]
     assert candidate["archive_sha256"]
     assert candidate["installation"]["status"] == "pass"

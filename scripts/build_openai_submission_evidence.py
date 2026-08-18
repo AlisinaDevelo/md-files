@@ -191,13 +191,13 @@ def _submission_metadata(repo: Path, version: str) -> dict[str, Any]:
         "publisher": {
             "name": author["name"],
             "website_url": author["url"],
-            "identity_verification": "pending_external_owner_action",
+            "identity_verification": "not_repository_verifiable",
         },
         "publication": {
             "directory": "OpenAI universal Plugin Directory",
             "status": "not_submitted",
-            "portal_draft": "blocked_pending_owner_identity",
-            "availability_review": "pending_external_submission",
+            "portal_draft": "not_repository_verifiable",
+            "availability_review": "public_directory_unverified",
         },
         "plugin_manifest": {
             "name": plugin.get("name"),
@@ -428,11 +428,11 @@ def build_submission_evidence(repo: Path, output: Path | None = None, *, allow_d
             ],
             "cases": cases,
             "external_blockers": [
-                "Publisher identity verification must be completed by the owner in the OpenAI submission portal.",
-                "The portal draft, country availability, and external review result are not repository-verifiable.",
+                "Project-level portal approval, if present, is owner-provided and not repository-verifiable.",
+                "Public directory listing, country availability, and universal availability are not repository-verifiable.",
             ],
             "limitations": [
-                "These are deterministic release-candidate contract checks, not a claim of OpenAI portal approval.",
+                "These are deterministic release-candidate contract checks and do not independently verify portal approval or public listing.",
                 "The isolated offline archive installation is distinct from a host CLI marketplace lifecycle test.",
                 "Skills-only remains the intended package shape; MCP and custom UI are outside this task.",
             ],
@@ -459,7 +459,7 @@ def main(argv: list[str] | None = None) -> int:
     negative = sum(item["polarity"] == "negative" for item in report["cases"])
     print(f"Built OpenAI submission evidence for Forge {report['plugin']['version']}: {positive} positive, {negative} negative cases.")
     print(f"Candidate: {report['candidate']['archive']} sha256={report['candidate']['archive_sha256']}")
-    print("External status: identity verification and portal draft remain owner action.")
+    print("External boundary: project approval is owner-provided; public directory availability is not repository-verifiable.")
     return 0
 
 
