@@ -51,4 +51,4 @@
 | 0047 | Add agent identity and delegated authority contract | done | architect | opus | 0018, 0022, 0025 |
 | 0048 | Add host-authenticated admission evidence for connected effects | done | security-engineer | standard | 0047 |
 | 0049 | Validate signed A2A Agent Cards as bounded delegation evidence | done | security-engineer | standard | 0048 |
-| 0050 | Add bounded A2A task handoff and lifecycle evidence | in_progress | interoperability-engineer | standard | 0049, 0047, 0048 |
+| 0050 | Add bounded A2A task handoff and lifecycle evidence | done | interoperability-engineer | standard | 0049, 0047, 0048 |
