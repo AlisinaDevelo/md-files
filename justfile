@@ -54,6 +54,10 @@ eval-llm:
 conformance:
     python3 evals/run_scenarios.py --adapter all --no-receipts
 
+# Run the complete release, install, and replay gate without hosted CI.
+release-check:
+    ./scripts/local-release-check.sh
+
 # Symlink agents/skills/commands into ~/.claude (dry run)
 install-dry:
     ./scripts/install.sh --dry-run
