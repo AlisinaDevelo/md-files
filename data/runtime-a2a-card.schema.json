@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/a2a-card/v1",
+  "title": "Forge A2A Agent Card trust report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "status",
+    "schema_version",
+    "contract_revision",
+    "report_id",
+    "card_ref",
+    "agent",
+    "context",
+    "protocol_versions",
+    "interface_refs",
+    "skill_refs",
+    "security_scheme_refs",
+    "signature_refs",
+    "signature_count",
+    "unknown_field_count",
+    "required_extensions",
+    "authentication_boundary",
+    "signature_verification",
+    "authority_grant",
+    "checks"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://github.com/AlisinaDevelo/md-files/schema/runtime/a2a-card/v1"
+    },
+    "status": {"const": "passed"},
+    "schema_version": {"const": 1},
+    "contract_revision": {"const": "forge-a2a-card-v1"},
+    "report_id": {"$ref": "#/$defs/ref"},
+    "card_ref": {"$ref": "#/$defs/ref"},
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "provider_ref"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1, "maxLength": 256},
+        "version": {"type": "string", "minLength": 1, "maxLength": 64},
+        "provider_ref": {
+          "anyOf": [{"$ref": "#/$defs/ref"}, {"type": "null"}]
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host_ref", "audience_ref", "workspace_ref", "resource_ref"],
+      "properties": {
+        "host_ref": {"$ref": "#/$defs/opaque"},
+        "audience_ref": {"$ref": "#/$defs/opaque"},
+        "workspace_ref": {"$ref": "#/$defs/opaque"},
+        "resource_ref": {"$ref": "#/$defs/opaque"}
+      }
+    },
+    "protocol_versions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+$"}
+    },
+    "interface_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/ref"}
+    },
+    "skill_refs": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/ref"}
+    },
+    "security_scheme_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/ref"}
+    },
+    "signature_refs": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/ref"}
+    },
+    "signature_count": {"type": "integer", "minimum": 0, "maximum": 16},
+    "unknown_field_count": {"type": "integer", "minimum": 0, "maximum": 128},
+    "required_extensions": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/uri"}
+    },
+    "authentication_boundary": {
+      "enum": ["declared-only", "external-reference"]
+    },
+    "signature_verification": {
+      "enum": ["not-provided", "external-reference"]
+    },
+    "authority_grant": {"const": false},
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_fields",
+        "secure_interfaces",
+        "protocol_version",
+        "security_requirements",
+        "skill_identity",
+        "credential_exclusion",
+        "forward_extension_digest",
+        "authority_non_grant"
+      ],
+      "properties": {
+        "required_fields": {"const": true},
+        "secure_interfaces": {"const": true},
+        "protocol_version": {"const": true},
+        "security_requirements": {"const": true},
+        "skill_identity": {"const": true},
+        "credential_exclusion": {"const": true},
+        "forward_extension_digest": {"const": true},
+        "authority_non_grant": {"const": true}
+      }
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "opaque": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,31}:[A-Za-z0-9][A-Za-z0-9._:/@-]{0,191}$"
+    },
+    "uri": {
+      "type": "string",
+      "pattern": "^(?:(?:https|wss):\\/\\/[^#\\s]+|urn:[^#\\s]+)$"
+    }
+  }
+}

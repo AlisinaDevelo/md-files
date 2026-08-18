@@ -289,6 +289,7 @@ def render_release_surface(repo: Path, graph: dict[str, Any], output: Path) -> d
         "data/trajectory-evals.schema.json",
         "data/runtime-authority.schema.json",
         "data/runtime-host-admission.schema.json",
+        "data/runtime-a2a-card.schema.json",
         "data/runtime-receipts.schema.json",
         "data/runtime-lineage.schema.json",
         "data/runtime-provenance.schema.json",

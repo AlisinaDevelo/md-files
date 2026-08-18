@@ -28,6 +28,7 @@ reproducible across providers.
 | Agent runtime quality | OpenAI trace grading evaluates end-to-end decisions and tool calls; the Agents SDK exposes traces and guardrails; OpenTelemetry defines agent/workflow/tool span vocabulary. | Record deterministic trajectory and guardrail evidence without persisting prompts, credentials, or provider bodies. |
 | Agent identity | NIST's updated 2026 initiative emphasizes agent authentication and identity infrastructure; current MCP authorization requires resource-specific audience validation; OAuth security guidance adds sender-constrained and replay-resistant tokens; OWASP's skill checklist calls for publisher identity, immutable hashes, explicit permissions, and pre-mutation evidence. | Implemented `forge-authority-v1`: bind the actor, delegation chain, policy revision, policy decision, approval, worker lease, action, runtime, provider, and provenance refs; keep host authentication and proof-of-possession outside the local contract. |
 | Host admission | NIST's agent identity work, MCP's canonical resource and audience requirements, sender-constrained/replay-resistant OAuth guidance, and OpenAI tool guardrails all place trust at the execution boundary. | Added `forge-host-admission-v1`: a digest-only, effect-bound proof that Forge checks for audience, resource, scope, lifetime, nonce, generation, and replay while the host owns cryptographic verification. |
+| Agent-to-agent interoperability | A2A 1.0 standardizes Agent Cards, protocol bindings, skills, security declarations, discovery, and optional JWS signatures; RFC 8785 and RFC 7515 define the external signing boundary. | Added `forge-a2a-card-v1` as a digest-only, context-bound trust projection. Do not treat discovery metadata as authority; keep live discovery, credential acquisition, and signature verification at the provider boundary. |
 | Supply-chain evidence | SLSA v1.2 defines build provenance around subjects, builder, build definition, external parameters, and resolved dependencies; in-toto recommends DSSE envelopes; GitHub documents offline bundle and trusted-root verification. | Completed a strict Forge DSSE/SLSA contract with Ed25519, local HMAC, explicit trust-root rotation/revocation, and a separate GitHub receipt boundary. Never claim a SLSA build level from a laptop. |
 | Delivery topology | GitHub native Stacked Pull Requests are in public preview and GitHub now exposes native issue dependencies. | Import provider state into Forge evidence while keeping the ledger and branch ancestry distinct. |
 | Telemetry | OpenTelemetry's GenAI conventions now cover agent, workflow, plan, and tool spans. | Emit stable, privacy-safe correlations and schema versions rather than treating telemetry as runtime state. |
@@ -51,7 +52,10 @@ reproducible across providers.
    Implemented locally: compare digest-only agent trajectories for least agency, approval, scope,
    replay, leakage, unsafe action, cost, latency, and outcome regressions. A live judge remains
    optional and cannot replace deterministic checks.
-4. Finish review and merge of the implemented [#65 provenance bridge](https://github.com/AlisinaDevelo/md-files/issues/65)
+4. [#93 A2A Agent Card trust projection](https://github.com/AlisinaDevelo/md-files/issues/93)
+   In progress: validate secure, versioned discovery metadata and project it into explicit
+   Forge context without fetching remote cards or claiming signature verification.
+5. Finish review and merge of the implemented [#65 provenance bridge](https://github.com/AlisinaDevelo/md-files/issues/65)
    and [#66 chaos shrinking](https://github.com/AlisinaDevelo/md-files/issues/66) slices before
    treating the evidence layer as release-complete.
 

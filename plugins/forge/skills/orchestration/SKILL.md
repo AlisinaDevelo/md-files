@@ -351,6 +351,31 @@ not exactly-once provider execution. See
 `data/runtime-gh-aw-provider-request.schema.json` and
 [GitHub Agentic Workflows](../../../../docs/gh-aw.md).
 
+## A2A Agent Card trust evidence
+
+When a workflow receives an A2A Agent Card from configuration, a registry, or a host,
+treat it as untrusted discovery metadata. Use the bounded `forge-a2a-card-v1` verifier
+before using the card to select an agent:
+
+```bash
+python3 scripts/forge-a2a-card.py verify \
+  --input CARD.json \
+  --host-ref host:codex \
+  --audience audience:a2a \
+  --workspace workspace:md-files \
+  --resource resource:repo/md-files
+```
+
+The verifier binds secure interfaces, protocol versions, required skills, declared
+security schemes, required extensions, and the card digest to the explicit Forge context.
+It emits only references and counts. A signed card receives an external-verification
+reference; Forge does not fetch keys, verify JWS cryptography, acquire credentials, or
+grant authority from card metadata. Bind any later remote effect to the authority,
+policy, host-admission, lease, and provenance contracts as well.
+
+Read [A2A Agent Card Evidence](../../../../docs/a2a.md) and the
+`tests/fixtures/a2a-card/v1.jsonl` corpus for the supported offline boundary.
+
 ## How to delegate well (this makes or breaks it)
 
 When you spawn a specialist subagent, set two things deliberately:
