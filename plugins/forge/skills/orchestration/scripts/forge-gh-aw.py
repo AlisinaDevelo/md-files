@@ -175,6 +175,17 @@ def _load_policy(repo: Path, profile: str) -> Any:
     return module.PolicyEngine(module.PolicyProfile.from_file(path))
 
 
+def _load_firewall_policy() -> Any:
+    script = Path(__file__).with_name("forge_gh_aw_firewall.py")
+    spec = importlib.util.spec_from_file_location("forge_gh_aw_firewall", script)
+    if spec is None or spec.loader is None:
+        raise GhAwError(f"cannot load gh-aw firewall policy: {script}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def _capability_index(graph: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
     index: dict[str, dict[str, Any]] = {}
     for component in graph["components"]:
@@ -288,7 +299,7 @@ def validate_spec(repo: Path, spec: Mapping[str, Any], graph: Mapping[str, Any])
     defaults = spec.get("defaults")
     if not isinstance(defaults, dict):
         raise GhAwError("spec.defaults must be an object")
-    _unknown(defaults, {"repository", "policy_profile", "max_fan_out", "max_effects", "protected_paths", "network_allowed", "action_pins", "engines"}, "spec.defaults")
+    _unknown(defaults, {"repository", "policy_profile", "max_fan_out", "max_effects", "protected_paths", "network_allowed", "firewall_policy", "action_pins", "engines"}, "spec.defaults")
     repository = _string(defaults.get("repository"), "defaults.repository")
     if "/" not in repository or repository.startswith("/") or repository.endswith("/"):
         raise GhAwError("defaults.repository must be owner/repository")
@@ -297,6 +308,13 @@ def validate_spec(repo: Path, spec: Mapping[str, Any], graph: Mapping[str, Any])
     max_effects = _positive_int(defaults.get("max_effects"), "defaults.max_effects")
     protected = _string_list(defaults.get("protected_paths"), "defaults.protected_paths")
     network = _string_list(defaults.get("network_allowed"), "defaults.network_allowed")
+    firewall = _load_firewall_policy()
+    try:
+        firewall_policy = firewall.normalize_policy(defaults.get("firewall_policy"))
+    except firewall.FirewallPolicyError as exc:
+        raise GhAwError(str(exc)) from exc
+    if firewall_policy["network"]["allowed"] != sorted(set(network)):
+        raise GhAwError("defaults.network_allowed must equal firewall_policy.allowed_domains")
     action_pins = defaults.get("action_pins")
     if not isinstance(action_pins, dict) or not action_pins:
         raise GhAwError("defaults.action_pins must be a non-empty object")
@@ -389,6 +407,7 @@ def validate_spec(repo: Path, spec: Mapping[str, Any], graph: Mapping[str, Any])
             "max_effects": max_effects,
             "protected_paths": sorted(set(protected)),
             "network_allowed": sorted(set(network)),
+            "firewall_policy": firewall_policy,
             "action_pins": {key: action_pins[key] for key in sorted(action_pins)},
             "engines": sorted(set(engines)),
         },
@@ -504,7 +523,32 @@ def _toolsets(workflow: Mapping[str, Any]) -> list[str]:
     return sorted(toolsets)
 
 
+def _firewall_fields(spec: Mapping[str, Any]) -> dict[str, Any]:
+    policy = spec["defaults"]["firewall_policy"]
+    network = {
+        "allowed": copy.deepcopy(policy["network"]["allowed"]),
+        "blocked": copy.deepcopy(policy["network"]["blocked"]),
+        "firewall": {
+            "log-level": policy["firewall"]["log_level"],
+        },
+    }
+    if policy["firewall"]["ssl_bump"]:
+        network["firewall"]["ssl-bump"] = True
+        network["firewall"]["allow-urls"] = copy.deepcopy(policy["firewall"]["allow_urls"])
+    fields: dict[str, Any] = {"network": network}
+    if policy["sandbox"]["mode"] == "awf":
+        fields["sandbox"] = {"agent": "awf"}
+    else:
+        fields["features"] = {
+            "dangerously-disable-sandbox-agent": policy["sandbox"]["justification"],
+        }
+        fields["sandbox"] = {"agent": False}
+    return fields
+
+
 def _frontmatter(workflow: Mapping[str, Any], spec: Mapping[str, Any], graph_digest: str, definition_digest: str) -> dict[str, Any]:
+    policy = spec["defaults"]["firewall_policy"]
+    policy_digest = _load_firewall_policy().policy_digest(policy)
     safe_outputs: dict[str, Any] = {}
     for output in workflow["safe_outputs"]:
         rendered = {key: copy.deepcopy(value) for key, value in output.items() if key != "type"}
@@ -517,10 +561,12 @@ def _frontmatter(workflow: Mapping[str, Any], spec: Mapping[str, Any], graph_dig
             "forge-adapter": ADAPTER_REVISION,
             "forge-definition-digest": definition_digest,
             "forge-graph-digest": graph_digest,
+            "forge-firewall-policy-digest": policy_digest,
+            "forge-content-integrity-threshold": policy["content_integrity"]["threshold"],
+            "forge-untrusted-content": policy["content_integrity"]["untrusted_content"],
             "forge-source-workflow": workflow["source_workflow"],
             "forge-workflow-id": workflow["id"],
         },
-        "network": {"allowed": spec["defaults"]["network_allowed"]},
         "on": copy.deepcopy(workflow["trigger"]),
         "permissions": {
             "actions": "read",
@@ -531,6 +577,7 @@ def _frontmatter(workflow: Mapping[str, Any], spec: Mapping[str, Any], graph_dig
         "safe-outputs": safe_outputs,
         "strict": True,
         "tools": {"github": {"toolsets": _toolsets(workflow)}},
+        **_firewall_fields(spec),
     }
 
 
@@ -584,10 +631,12 @@ def _render_preview_lock(workflow: Mapping[str, Any], spec: Mapping[str, Any], s
     setup = pins["github/gh-aw/actions/setup"]
     activate_condition = "${{ github.event_name == 'workflow_dispatch' && inputs.activate == 'true' }}"
     effect_digest = digest(effect_plans)
+    policy_digest = _load_firewall_policy().policy_digest(spec["defaults"]["firewall_policy"])
     metadata = {
         "adapter_revision": ADAPTER_REVISION,
         "definition_digest": definition_digest,
         "effect_set_digest": effect_digest,
+        "firewall_policy_digest": policy_digest,
         "source_digest": source_digest,
         "upstream_version": spec["upstream"]["version"],
         "workflow_id": workflow["id"],
@@ -610,10 +659,12 @@ def _render_preview_lock(workflow: Mapping[str, Any], spec: Mapping[str, Any], s
         "env": {
             "FORGE_ADAPTER_REVISION": ADAPTER_REVISION,
             "FORGE_DEFINITION_DIGEST": definition_digest,
+            "FORGE_FIREWALL_POLICY_DIGEST": policy_digest,
             "FORGE_EPISODE_ID": "forge-gh-aw-${{ github.run_id }}-${{ github.run_attempt }}",
             "FORGE_WORKFLOW_ID": workflow["id"],
         },
     }
+    top.update(_firewall_fields(spec))
     lines.extend(_yaml_dump(top))
     lines.extend([
         "jobs:",
@@ -696,13 +747,14 @@ def _render_preview_lock(workflow: Mapping[str, Any], spec: Mapping[str, Any], s
     return "\n".join(lines).rstrip() + "\n"
 
 
-def _definition(workflow: Mapping[str, Any], graph_digest: str) -> dict[str, Any]:
+def _definition(workflow: Mapping[str, Any], graph_digest: str, firewall_policy_digest: str) -> dict[str, Any]:
     return {
         "adapter_revision": ADAPTER_REVISION,
         "capabilities": workflow["capabilities"],
         "dispatches": workflow["dispatches"],
         "engine": workflow["engine"],
         "graph_digest": graph_digest,
+        "firewall_policy_digest": firewall_policy_digest,
         "safe_outputs": workflow["safe_outputs"],
         "source_workflow": workflow["source_workflow"],
         "staged": workflow["staged"],
@@ -716,13 +768,15 @@ def compile_artifacts(repo: Path, spec_path: Path, output: Path) -> dict[str, An
     graph = _load_graph(repo)
     spec = validate_spec(repo, raw_spec, graph)
     graph_digest = digest(graph)
+    firewall = _load_firewall_policy()
+    firewall_policy_digest = firewall.policy_digest(spec["defaults"]["firewall_policy"])
     plans = _policy_plans(repo, spec)
     output.mkdir(parents=True, exist_ok=True)
     workflow_root = output / "workflows"
     workflow_root.mkdir(parents=True, exist_ok=True)
     artifacts: list[dict[str, Any]] = []
     for workflow in spec["workflows"]:
-        definition = _definition(workflow, graph_digest)
+        definition = _definition(workflow, graph_digest, firewall_policy_digest)
         definition_digest = digest(definition)
         source = _render_source(workflow, spec, graph, graph_digest, definition_digest)
         source_path = workflow_root / f"{workflow['id']}.md"
@@ -739,6 +793,9 @@ def compile_artifacts(repo: Path, spec_path: Path, output: Path) -> dict[str, An
         "adapter_revision": ADAPTER_REVISION,
         "definition_schema_version": SCHEMA_VERSION,
         "graph_digest": graph_digest,
+        "firewall_policy_revision": firewall.REVISION,
+        "firewall_policy_digest": firewall_policy_digest,
+        "firewall_policy": copy.deepcopy(spec["defaults"]["firewall_policy"]),
         "mode": "contract-preview",
         "spec_digest": digest(spec),
         "spec_path": str(spec_path.relative_to(repo)) if str(spec_path).startswith(str(repo) + "/") else str(spec_path),
@@ -746,7 +803,7 @@ def compile_artifacts(repo: Path, spec_path: Path, output: Path) -> dict[str, An
         "workflows": [
             {
                 "id": workflow["id"],
-                "definition_digest": digest(_definition(workflow, graph_digest)),
+                "definition_digest": digest(_definition(workflow, graph_digest, firewall_policy_digest)),
                 "effect_set_digest": digest(plans[workflow["id"]]),
                 "effects": plans[workflow["id"]],
             }
@@ -1003,7 +1060,7 @@ def check_artifacts(repo: Path, spec_path: Path, output: Path) -> dict[str, Any]
         raise GhAwError(f"unsupported gh-aw artifact mode: {mode}")
     if manifest.get("spec_digest") != expected.get("spec_digest"):
         raise GhAwError("gh-aw spec drift detected; recompile the adapter output")
-    for key in ("adapter_revision", "definition_schema_version", "graph_digest", "spec_path", "upstream", "workflows"):
+    for key in ("adapter_revision", "definition_schema_version", "graph_digest", "firewall_policy_revision", "firewall_policy_digest", "firewall_policy", "spec_path", "upstream", "workflows"):
         if manifest.get(key) != expected.get(key):
             raise GhAwError(f"gh-aw manifest drift detected: {key}")
     expected_artifacts = {(item["kind"], item["path"]): item for item in expected["artifacts"]}

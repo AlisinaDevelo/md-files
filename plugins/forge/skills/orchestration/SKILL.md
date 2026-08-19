@@ -234,6 +234,21 @@ known upstream provider/auth secret names, but Forge never commits their values 
 unknown references. Read [GitHub Agentic Workflows](../../../../docs/gh-aw.md) for the full
 contract, release surface, and runtime integration boundary.
 
+### AWF egress and integrity admission
+
+Keep `defaults.firewall_policy` aligned with `defaults.network_allowed`. The versioned policy
+normalizer accepts only known AWF ecosystem identifiers or safe domain patterns, rejects
+credentials, expressions, insecure URL patterns, and ambiguous wildcard paths, and emits a
+deterministic `firewall_policy_digest`. Use `allowed_url_patterns` only with `ssl_bump`; use
+`untrusted_content: redact` or `reject`, never an implicit allow. A disabled firewall/sandbox
+requires a static justification of at least 20 characters and cannot carry URL filtering.
+
+The compiler writes AWF network/sandbox fields plus digest-only Forge metadata into the source
+and lock. Native admission certificates bind the policy, source, and lock digests. Provider
+requests must carry `contract_evidence` and its `contract_evidence_ref`; the fenced provider
+compares them with the compiled manifest before it authorizes a lease. This adapter records
+offline evidence only and does not execute the AWF firewall or fetch remote content.
+
 ### Durable gh-aw episodes
 
 Bind a dispatcher to the Forge SQLite/WAL runtime when the workflow must survive process

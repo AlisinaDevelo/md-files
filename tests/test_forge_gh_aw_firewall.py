@@ -1,0 +1,124 @@
+"""Tests for the offline gh-aw firewall admission policy."""
+
+from __future__ import annotations
+
+import copy
+import importlib.util
+import json
+from pathlib import Path
+
+import pytest
+
+REPO = Path(__file__).resolve().parents[1]
+POLICY_SCRIPT = REPO / "plugins/forge/skills/orchestration/scripts/forge_gh_aw_firewall.py"
+COMPILER_SCRIPT = REPO / "plugins/forge/skills/orchestration/scripts/forge-gh-aw.py"
+SPEC_PATH = REPO / "data/gh-aw-workflows.json"
+
+
+def load_policy():
+    spec = importlib.util.spec_from_file_location("forge_gh_aw_firewall_test", POLICY_SCRIPT)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_compiler():
+    spec = importlib.util.spec_from_file_location("forge_gh_aw_compiler_firewall_test", COMPILER_SCRIPT)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def base_policy() -> dict:
+    return json.loads(SPEC_PATH.read_text(encoding="utf-8"))["defaults"]["firewall_policy"]
+
+
+def test_policy_normalization_is_sorted_digestable_and_awf_native():
+    module = load_policy()
+    policy = base_policy()
+    policy["allowed_domains"] = ["github", "defaults"]
+    normalized = module.normalize_policy(policy)
+
+    assert normalized["network"]["allowed"] == ["defaults", "github"]
+    assert normalized["firewall"] == {
+        "mode": "awf",
+        "log_level": "info",
+        "ssl_bump": False,
+        "allow_urls": [],
+    }
+    assert normalized["sandbox"] == {"agent": "awf", "mode": "awf"}
+    assert module.policy_digest(normalized) == module.policy_digest(copy.deepcopy(normalized))
+
+
+def test_policy_preserves_single_leading_wildcards():
+    module = load_policy()
+    policy = base_policy()
+    policy["allowed_domains"] = ["*.example.com"]
+    policy["allowed_url_patterns"] = ["https://*.api.example.com/v1/*"]
+    policy["ssl_bump"] = True
+    normalized = module.normalize_policy(policy)
+
+    assert normalized["network"]["allowed"] == ["*.example.com"]
+    assert normalized["firewall"]["allow_urls"] == ["https://*.api.example.com/v1/*"]
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("allowed_domains", ["${{ secrets.BAD }}"], "expression"),
+        ("allowed_domains", ["https://api.example.com/path"], "ambiguous"),
+        ("allowed_domains", ["http://api.example.com"], "insecure"),
+        ("allowed_url_patterns", ["http://api.example.com/v1/*"], "HTTPS"),
+        ("content_integrity_threshold", "permissive", "strict or standard"),
+        ("sandbox_mode", "disabled", "must agree"),
+    ],
+)
+def test_policy_rejects_unsafe_drift(field, value, message):
+    module = load_policy()
+    policy = base_policy()
+    policy[field] = value
+    with pytest.raises(module.FirewallPolicyError, match=message):
+        module.normalize_policy(policy)
+
+
+def test_policy_requires_ssl_bump_and_literal_sandbox_opt_out_reason():
+    module = load_policy()
+    policy = base_policy()
+    policy["allowed_url_patterns"] = ["https://api.example.com/repos/*/issues"]
+    with pytest.raises(module.FirewallPolicyError, match="ssl_bump"):
+        module.normalize_policy(policy)
+
+    policy["allowed_url_patterns"] = []
+    policy["firewall_mode"] = "disabled"
+    policy["sandbox_mode"] = "disabled"
+    with pytest.raises(module.FirewallPolicyError, match="justification"):
+        module.normalize_policy(policy)
+    policy["disable_justification"] = "development-only offline compiler fixture"
+    normalized = module.normalize_policy(policy)
+    assert normalized["sandbox"]["agent"] is False
+    assert normalized["sandbox"]["justification"].startswith("development-only")
+
+
+def test_compiler_manifest_and_lock_carry_firewall_evidence(tmp_path):
+    compiler = load_compiler()
+    spec = json.loads(SPEC_PATH.read_text(encoding="utf-8"))
+    normalized = compiler.validate_spec(
+        REPO, spec, json.loads((REPO / "data/capabilities.json").read_text(encoding="utf-8"))
+    )
+    output = tmp_path / "gh-aw"
+    manifest = compiler.compile_artifacts(REPO, SPEC_PATH, output)
+
+    assert manifest["firewall_policy_revision"] == "forge-gh-aw-firewall-v1"
+    assert manifest["firewall_policy_digest"].startswith("sha256:")
+    assert normalized["defaults"]["firewall_policy"]["network"]["allowed"] == [
+        "defaults",
+        "github",
+    ]
+    source = (output / "workflows/forge-dispatcher.md").read_text(encoding="utf-8")
+    lock = (output / "workflows/forge-dispatcher.lock.yml").read_text(encoding="utf-8")
+    assert "forge-firewall-policy-digest" in source
+    assert "sandbox:" in source
+    assert "FORGE_FIREWALL_POLICY_DIGEST" in lock
+    assert "firewall:" in lock

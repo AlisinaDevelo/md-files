@@ -41,6 +41,7 @@ DEFAULT_RECEIPTS = REPO / ".forge" / "receipts.jsonl"
 DEFAULT_JOURNAL = REPO / ".forge" / "gh-aw-provider.jsonl"
 REQUEST_SCHEMA = "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw-provider-request/v1"
 PROVIDER_REVISION = "forge-gh-aw-provider-v1"
+FIREWALL_POLICY_REVISION = "forge-gh-aw-firewall-v1"
 SCHEMA_VERSION = 1
 GITHUB_API_VERSION = "2026-03-10"
 SAFE_OUTPUT_TYPES = {
@@ -57,6 +58,8 @@ REQUEST_KEYS = {
     "request_ref",
     "repository",
     "workflow_id",
+    "contract_evidence",
+    "contract_evidence_ref",
     "safe_output_type",
     "operations",
 }
@@ -207,6 +210,12 @@ def _text(value: Any, label: str, *, maximum: int) -> str:
         raise GhAwProviderError(
             f"{label} must be non-empty text of at most {maximum} characters"
         )
+    return value
+
+
+def _ref(value: Any, label: str) -> str:
+    if not isinstance(value, str) or not REF_RE.fullmatch(value):
+        raise GhAwProviderError(f"{label} must be a sha256 reference")
     return value
 
 
@@ -387,6 +396,36 @@ def validate_request(value: Mapping[str, Any]) -> dict[str, Any]:
     workflow_id = _text(request.get("workflow_id"), "workflow_id", maximum=128)
     if not WORKFLOW_RE.fullmatch(workflow_id):
         raise GhAwProviderError("workflow_id must be lowercase kebab-case")
+    contract_evidence = request.get("contract_evidence")
+    if not isinstance(contract_evidence, Mapping):
+        raise GhAwProviderError("contract_evidence must be an object")
+    _unknown(
+        contract_evidence,
+        {"revision", "firewall_policy_digest", "source_digest", "lock_digest"},
+        "contract_evidence",
+    )
+    if contract_evidence.get("revision") != FIREWALL_POLICY_REVISION:
+        raise GhAwProviderError("contract_evidence has an unsupported revision")
+    normalized_evidence = {
+        "revision": FIREWALL_POLICY_REVISION,
+        "firewall_policy_digest": _ref(
+            contract_evidence.get("firewall_policy_digest"),
+            "contract_evidence.firewall_policy_digest",
+        ),
+        "source_digest": _ref(
+            contract_evidence.get("source_digest"),
+            "contract_evidence.source_digest",
+        ),
+        "lock_digest": _ref(
+            contract_evidence.get("lock_digest"),
+            "contract_evidence.lock_digest",
+        ),
+    }
+    contract_evidence_ref = _ref(
+        request.get("contract_evidence_ref"), "contract_evidence_ref"
+    )
+    if contract_evidence_ref != digest(normalized_evidence):
+        raise GhAwProviderError("contract_evidence_ref does not match contract_evidence")
     output_type = request.get("safe_output_type")
     if output_type not in SAFE_OUTPUT_TYPES:
         raise GhAwProviderError("safe_output_type is unsupported")
@@ -415,6 +454,8 @@ def validate_request(value: Mapping[str, Any]) -> dict[str, Any]:
         "adapter_contract_revision": PROVIDER_REVISION,
         "episode_id": episode_id,
         "request_ref": request_ref,
+        "contract_evidence": normalized_evidence,
+        "contract_evidence_ref": contract_evidence_ref,
         **material,
     }
 
@@ -638,6 +679,7 @@ def _policy_context(
     arguments = {
         "provider_revision": PROVIDER_REVISION,
         "request_ref": request["request_ref"],
+        "contract_evidence_ref": request["contract_evidence_ref"],
         "effect_id": effect["effect_id"],
         "safe_output": copy.deepcopy(safe_output),
         "operation_digests": [item["operation_digest"] for item in operations],
@@ -710,6 +752,62 @@ def _paths(spec_path: Path, output: Path) -> tuple[Path, Path]:
     return spec_path, output
 
 
+def _compiled_contract_evidence(
+    context: Mapping[str, Any], workflow_id: str
+) -> dict[str, str]:
+    workflow = next(
+        (item for item in context["manifest"]["workflows"] if item.get("id") == workflow_id),
+        None,
+    )
+    if not isinstance(workflow, Mapping):
+        raise GhAwProviderError(f"manifest is missing workflow evidence: {workflow_id}")
+    artifacts = {
+        item.get("path"): item
+        for item in context["manifest"].get("artifacts", [])
+        if isinstance(item, Mapping)
+    }
+    source = artifacts.get(f"workflows/{workflow_id}.md")
+    lock = artifacts.get(f"workflows/{workflow_id}.lock.yml")
+    if not isinstance(source, Mapping) or not isinstance(lock, Mapping):
+        raise GhAwProviderError(f"manifest is missing source/lock evidence: {workflow_id}")
+    return {
+        "revision": FIREWALL_POLICY_REVISION,
+        "firewall_policy_digest": _ref(
+            context["manifest"].get("firewall_policy_digest"),
+            "manifest firewall policy digest",
+        ),
+        "source_digest": _ref(source.get("sha256"), "manifest source digest"),
+        "lock_digest": _ref(lock.get("sha256"), "manifest lock digest"),
+    }
+
+
+def compiled_contract(spec_path: Path, output: Path, workflow_id: str) -> dict[str, Any]:
+    """Return the digest-only evidence a provider request must repeat."""
+
+    bridge = _bridge()
+    spec_path, output = _paths(spec_path, output)
+    context = bridge._contract(spec_path, output)
+    evidence = _compiled_contract_evidence(context, workflow_id)
+    return {"contract_evidence": evidence, "contract_evidence_ref": digest(evidence)}
+
+
+def _verify_contract_evidence(
+    context: Mapping[str, Any],
+    request: Mapping[str, Any],
+    admission: Mapping[str, Any] | None = None,
+) -> None:
+    expected = _compiled_contract_evidence(context, request["workflow_id"])
+    if request["contract_evidence"] != expected:
+        raise GhAwProviderError("provider contract evidence does not match compiled source, lock, or policy")
+    if request["contract_evidence_ref"] != digest(expected):
+        raise GhAwProviderError("provider contract evidence reference is stale")
+    if admission is not None:
+        if request["contract_evidence"]["revision"] != admission["firewall_policy_revision"]:
+            raise GhAwProviderError("provider contract revision does not match native admission")
+        if request["contract_evidence"]["firewall_policy_digest"] != admission["firewall_policy_digest"]:
+            raise GhAwProviderError("provider firewall policy does not match native admission")
+
+
 def _host_lease_ref(host_module: Any, effect: Mapping[str, Any], lease: Mapping[str, Any]) -> str:
     return host_module.digest_ref(
         {
@@ -729,6 +827,7 @@ def _host_provider_operation_ref(
             "provider_revision": PROVIDER_REVISION,
             "effect_id": effect["effect_id"],
             "request_ref": request["request_ref"],
+            "contract_evidence_ref": request["contract_evidence_ref"],
             "safe_output_type": request["safe_output_type"],
         }
     )
@@ -854,6 +953,7 @@ def _prepare(
     context = bridge._contract(spec_path, output)
     if request["repository"] != context["spec"]["defaults"]["repository"]:
         raise GhAwProviderError("request repository does not match the compiled repository")
+    _verify_contract_evidence(context, request)
     admission = _admission_for_request(
         bridge,
         context,
@@ -863,6 +963,7 @@ def _prepare(
         request,
         admission_path,
     )
+    _verify_contract_evidence(context, request, admission)
     try:
         with runtime.RuntimeStore(database) as store:
             state = store.state(request["episode_id"])
@@ -975,6 +1076,7 @@ def _prepare(
         "provider_revision": PROVIDER_REVISION,
         "effect_id": effect["effect_id"],
         "request_ref": request["request_ref"],
+        "contract_evidence_ref": request["contract_evidence_ref"],
         "compiled_action_digest": compiled_digest,
         "authorization_action_digest": authorization_digest,
         "operation_digests": [item["operation_digest"] for item in operations],
@@ -997,6 +1099,7 @@ def _prepare(
         "repository": request["repository"],
         "effect_id": effect["effect_id"],
         "request_ref": request["request_ref"],
+        "contract_evidence_ref": request["contract_evidence_ref"],
         "runtime_idempotency_key": effect["idempotency_key"],
         "execution_digest": execution_digest,
         "operation_count": len(operations),
