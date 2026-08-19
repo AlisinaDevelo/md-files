@@ -537,13 +537,22 @@ def _firewall_fields(spec: Mapping[str, Any], *, upstream: bool = False) -> dict
             network["firewall"]["ssl-bump"] = True
             network["firewall"]["allow-urls"] = copy.deepcopy(policy["firewall"]["allow_urls"])
     fields: dict[str, Any] = {"network": network}
+    features: dict[str, Any] = {}
     if policy["sandbox"]["mode"] == "awf":
-        fields["sandbox"] = {"agent": "awf"}
+        sandbox: dict[str, Any] = {"agent": "awf"}
+        runtime = policy["sandbox"]["runtime"]
+        if runtime != "docker":
+            sandbox["agent"] = {"runtime": runtime}
     else:
-        fields["features"] = {
-            "dangerously-disable-sandbox-agent": policy["sandbox"]["justification"],
-        }
-        fields["sandbox"] = {"agent": False}
+        features["dangerously-disable-sandbox-agent"] = policy["sandbox"]["justification"]
+        sandbox = {"agent": False}
+    gateway = policy["sandbox"]["mcp_gateway"]
+    if gateway["enabled"]:
+        features["mcp-gateway"] = True
+        sandbox["mcp"] = {"port": gateway["port"]}
+    if features:
+        fields["features"] = features
+    fields["sandbox"] = sandbox
     return fields
 
 

@@ -268,10 +268,14 @@ deterministic `firewall_policy_digest`. Use `allowed_url_patterns` only with `ss
 requires a static justification of at least 20 characters and cannot carry URL filtering.
 
 The compiler writes AWF network/sandbox fields plus digest-only Forge metadata into the source
-and lock. Native admission certificates bind the policy, source, and lock digests. Provider
+and lock. The v2 policy records `sandbox.agent.runtime` (`docker`, `gvisor`, `docker-sbx`,
+`cloud-hypervisor`, or the explicitly justified privileged `docker-sudo-iptables`) and an
+optional MCP Gateway enabled/port decision. Gateway credentials are never part of the Forge
+contract. Native admission certificates bind the policy, source, and lock digests. Provider
 requests must carry `contract_evidence` and its `contract_evidence_ref`; the fenced provider
 compares them with the compiled manifest before it authorizes a lease. This adapter records
-offline evidence only and does not execute the AWF firewall or fetch remote content.
+offline evidence only and does not execute the AWF firewall, sandbox runtime, gateway, or fetch
+remote content.
 
 ### Durable gh-aw episodes
 
