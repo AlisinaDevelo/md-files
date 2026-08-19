@@ -1,7 +1,7 @@
 ---
 id: 0051
 title: Add gh-aw firewall and content-integrity admission
-status: review
+status: done
 agent: security-engineer
 model: standard
 depends_on: [0026, 0033, 0048, 0050]
@@ -23,7 +23,7 @@ provider.
       request evidence, including host provider-operation and execution references.
 - [x] Add deterministic policy and evidence-drift tests without network or provider execution.
 - [x] Run the full local release gate.
-- [ ] Publish one stacked ready PR.
+- [x] Publish one stacked ready PR.
 
 ## Research decisions
 
@@ -51,9 +51,10 @@ Clean local release gate passed at commit `0b745f0c5ba539f8be70afbb04cd95e47ba1c
 - Two release builds were byte-identical; installed candidate replay passed with 2 identical
   attempts over 8 cases.
 - Candidate `forge-3.6.0-codex.tar.gz`: SHA-256
-  `73ecc1ca039c84187981b08150f4e185d9e3057bb1f683b1fea5a7289b931b3c`, 112 installed files,
+  `5dc11dc2001ae7460e6a6bd38b8856ab77090df8ba684de3f5edb4310c6fb3d`, 112 installed files,
   25 installed skills.
-- Stacked ready PR publication remains the final delivery step.
+- Ready stacked PR: [#100](https://github.com/AlisinaDevelo/md-files/pull/100), based on
+  `feature/a2a-task-handoff` and closing issue #98.
 
 ## Primary sources
 
