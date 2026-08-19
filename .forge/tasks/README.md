@@ -53,4 +53,4 @@
 | 0049 | Validate signed A2A Agent Cards as bounded delegation evidence | done | security-engineer | standard | 0048 |
 | 0050 | Add bounded A2A task handoff and lifecycle evidence | done | interoperability-engineer | standard | 0049, 0047, 0048 |
 | 0051 | Add gh-aw firewall and content-integrity admission | done | security-engineer | standard | 0026, 0033, 0048, 0050 |
-| 0052 | Admit gh-aw sandbox runtime profiles and MCP Gateway configuration | review | security-engineer | standard | 0051 |
+| 0052 | Admit gh-aw sandbox runtime profiles and MCP Gateway configuration | done | security-engineer | standard | 0051 |
