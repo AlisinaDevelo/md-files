@@ -22,7 +22,8 @@ provider.
 - [x] Bind policy, source, and lock digests into native admission certificates and provider
       request evidence, including host provider-operation and execution references.
 - [x] Add deterministic policy and evidence-drift tests without network or provider execution.
-- [ ] Run the full local release gate and publish one stacked ready PR.
+- [x] Run the full local release gate.
+- [ ] Publish one stacked ready PR.
 
 ## Research decisions
 
@@ -41,7 +42,18 @@ runtime firewall enforcement in this slice.
 
 ## Verification
 
-Focused tests: pending final gate.
+Clean local release gate passed at commit `0b745f0c5ba539f8be70afbb04cd95e47ba1c9f4`:
+
+- `./scripts/local-release-check.sh` -> `LOCAL_RELEASE_GATE=passed`
+- `392 passed` full pytest suite; static evals `333/334` with one existing warning and zero failures.
+- Backend conformance, trajectory, authority, host-admission, A2A card/task, deterministic
+  chaos, release attestation, offline archive, and marketplace checks passed.
+- Two release builds were byte-identical; installed candidate replay passed with 2 identical
+  attempts over 8 cases.
+- Candidate `forge-3.6.0-codex.tar.gz`: SHA-256
+  `73ecc1ca039c84187981b08150f4e185d9e3057bb1f683b1fea5a7289b931b3c`, 112 installed files,
+  25 installed skills.
+- Stacked ready PR publication remains the final delivery step.
 
 ## Primary sources
 
