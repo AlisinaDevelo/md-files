@@ -77,10 +77,11 @@ checkpoints before `wait.created`, binds the input schema and authorization cont
 and persists TTL, polling, expiry policy, and a bounded resume contract. Accept only one
 matching `submit-input`; use `signal` for ordered reference-only notifications. Cancellation
 is a three-event request/acknowledgement/terminal protocol. The MCP Tasks view in
-`scripts/forge-mcp-tasks.py` negotiates the `2026-07-28` Tasks extension, maps opaque task
-handles, status, TTL, polling, digest-only input requests, and empty update/cancel acknowledgements
-back to Forge history without becoming a second source of truth. It is a local adapter contract,
-not a hosted MCP server.
+`scripts/forge-mcp-tasks.py` advertises the `2026-07-28` Tasks extension, requires the exact
+per-request `io.modelcontextprotocol/clientCapabilities.extensions` admission object, maps
+opaque task handles, status, TTL, polling, digest-only input requests, and empty update/cancel
+acknowledgements back to Forge history without becoming a second source of truth. It is a local
+adapter contract, not a hosted MCP server.
 
 Pin every run to an immutable definition descriptor before dispatch: workflow and definition
 version, workflow code/schema digests, worker/build identity, policy and feature-flag digests,
