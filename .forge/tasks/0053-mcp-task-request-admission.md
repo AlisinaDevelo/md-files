@@ -43,3 +43,5 @@ entry in every task request before returning a task view or acknowledging a task
 - Release builds were byte-identical; offline archive, marketplace, and attestation validation passed.
 - Installed candidate replay passed with 2 identical attempts over 8 cases; candidate `forge-3.6.0-codex.tar.gz` SHA-256 `c614852a8d470ddfcb9a925690e3d42b65c1d3b7f01deeb01209f52c022971cd`, 112 installed files, 25 installed skills.
 - Evidence file: `/tmp/forge-mcp-task-admission-evidence.json`.
+- Ready stacked PR: [#102](https://github.com/AlisinaDevelo/md-files/pull/102), based on
+  `feature/gh-aw-runtime-profile` and related to issue #85.
