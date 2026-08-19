@@ -42,7 +42,7 @@ runtime firewall enforcement in this slice.
 
 ## Verification
 
-Clean local release gate passed at commit `0b745f0c5ba539f8be70afbb04cd95e47ba1c9f4`:
+Clean local release gate passed at commit `219cb14f39d459747e243d1ac1c9089391c759ff`:
 
 - `./scripts/local-release-check.sh` -> `LOCAL_RELEASE_GATE=passed`
 - `392 passed` full pytest suite; static evals `333/334` with one existing warning and zero failures.
@@ -51,7 +51,7 @@ Clean local release gate passed at commit `0b745f0c5ba539f8be70afbb04cd95e47ba1c
 - Two release builds were byte-identical; installed candidate replay passed with 2 identical
   attempts over 8 cases.
 - Candidate `forge-3.6.0-codex.tar.gz`: SHA-256
-  `5dc11dc2001ae7460e6a6bd38b8856ab77090df8ba684de3f5edb4310c6fb3d`, 112 installed files,
+  `3ec5f9691fbae3b152161f48ded5da706112928a47b9bac576ac3a7a28d8eca9`, 112 installed files,
   25 installed skills.
 - Ready stacked PR: [#100](https://github.com/AlisinaDevelo/md-files/pull/100), based on
   `feature/a2a-task-handoff` and closing issue #98.
