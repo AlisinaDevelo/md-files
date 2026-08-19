@@ -15,9 +15,9 @@ from pathlib import Path
 from typing import Any
 
 
-SCHEMA_VERSION = 1
-CONTRACT_REVISION = "forge-a2a-stream-v1"
-SCHEMA_URI = "https://github.com/AlisinaDevelo/md-files/schema/runtime/a2a-stream/v1"
+SCHEMA_VERSION = 2
+CONTRACT_REVISION = "forge-a2a-stream-v2"
+SCHEMA_URI = "https://github.com/AlisinaDevelo/md-files/schema/runtime/a2a-stream/v2"
 PROTOCOL_VERSION = "1.0"
 REF_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 OPAQUE_RE = re.compile(
@@ -44,8 +44,10 @@ TERMINAL_STATES = {
     "TASK_STATE_CANCELED",
     "TASK_STATE_REJECTED",
 }
-EVENT_KINDS = {"task", "message", "status_update", "artifact_update"}
-PUSH_KINDS = EVENT_KINDS
+INTERRUPTED_STATES = {"TASK_STATE_INPUT_REQUIRED", "TASK_STATE_AUTH_REQUIRED"}
+CLOSING_STATES = TERMINAL_STATES | INTERRUPTED_STATES
+RESPONSE_MEMBERS = {"task", "message", "statusUpdate", "artifactUpdate"}
+PUSH_MEMBERS = RESPONSE_MEMBERS
 ENVELOPE_FIELDS = {
     "$schema",
     "schema_version",
@@ -70,17 +72,16 @@ CONTEXT_FIELDS = {
     "provider_operation_ref",
     "provenance_ref",
 }
-STREAM_FIELDS = {"stream_id", "events"}
+STREAM_FIELDS = {"stream_id", "closed", "events"}
 EVENT_FIELDS = {
     "event_id",
-    "kind",
+    "response_member",
     "sequence",
-    "occurred_at",
-    "terminal",
+    "observed_at",
     "task_ref",
     "message_id",
     "message_ref",
-    "state",
+    "task_state",
     "artifact_refs",
 }
 PUSH_FIELDS = {
@@ -89,7 +90,7 @@ PUSH_FIELDS = {
     "event_id",
     "task_id",
     "context_id",
-    "payload_kind",
+    "response_member",
     "endpoint_ref",
     "payload_ref",
 }
@@ -222,18 +223,23 @@ def _parse_context(value: Any) -> dict[str, str]:
     return context
 
 
-def _event_material(event: Mapping[str, Any]) -> dict[str, Any]:
+def _response_material(event: Mapping[str, Any]) -> dict[str, Any]:
     return {
-        "event_id": event["event_id"],
-        "kind": event["kind"],
+        "response_member": event["response_member"],
         "sequence": event["sequence"],
-        "occurred_at": event["occurred_at"],
-        "terminal": event["terminal"],
         "task_ref": event.get("task_ref"),
         "message_id": event.get("message_id"),
         "message_ref": event.get("message_ref"),
-        "state": event.get("state"),
+        "task_state": event.get("task_state"),
         "artifact_refs": list(event.get("artifact_refs", [])),
+    }
+
+
+def _event_material(event: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "event_id": event["event_id"],
+        "observed_at": event["observed_at"],
+        "response_ref": event["response_ref"],
     }
 
 
@@ -241,23 +247,22 @@ def _parse_event(value: Any, stream_index: int, event_index: int) -> dict[str, A
     label = f"stream-{stream_index}.event-{event_index}"
     data = _mapping(value, label)
     _unknown(data, EVENT_FIELDS, label)
-    required = {"event_id", "kind", "sequence", "occurred_at", "terminal"}
+    required = {"event_id", "response_member", "sequence", "observed_at"}
     missing = sorted(required - set(data))
     if missing:
         raise A2AStreamError(f"missing-{label}-fields:" + ",".join(missing))
-    kind = _text(data["kind"], f"{label}.kind", maximum=32)
-    if kind not in EVENT_KINDS:
-        raise A2AStreamError(f"unsupported-event-kind:{kind}")
-    if not isinstance(data["terminal"], bool):
-        raise A2AStreamError(f"invalid-{label}.terminal")
+    response_member = _text(
+        data["response_member"], f"{label}.response_member", maximum=32
+    )
+    if response_member not in RESPONSE_MEMBERS:
+        raise A2AStreamError(f"unsupported-response-member:{response_member}")
     event: dict[str, Any] = {
         "event_id": _opaque(data["event_id"], f"{label}.event_id"),
-        "kind": kind,
+        "response_member": response_member,
         "sequence": _positive_int(data["sequence"], f"{label}.sequence"),
-        "occurred_at": _time(data["occurred_at"], f"{label}.occurred_at")
+        "observed_at": _time(data["observed_at"], f"{label}.observed_at")
         .isoformat()
         .replace("+00:00", "Z"),
-        "terminal": data["terminal"],
     }
     if "task_ref" in data:
         event["task_ref"] = _ref(data["task_ref"], f"{label}.task_ref")
@@ -265,10 +270,10 @@ def _parse_event(value: Any, stream_index: int, event_index: int) -> dict[str, A
         event["message_id"] = _opaque(data["message_id"], f"{label}.message_id")
     if "message_ref" in data:
         event["message_ref"] = _ref(data["message_ref"], f"{label}.message_ref")
-    if "state" in data:
-        event["state"] = _text(data["state"], f"{label}.state", maximum=64)
-        if event["state"] not in STATES:
-            raise A2AStreamError(f"unsupported-task-state:{event['state']}")
+    if "task_state" in data:
+        event["task_state"] = _text(data["task_state"], f"{label}.task_state", maximum=64)
+        if event["task_state"] not in STATES:
+            raise A2AStreamError(f"unsupported-task-state:{event['task_state']}")
     event["artifact_refs"] = (
         _ref_list(data["artifact_refs"], f"{label}.artifact_refs")
         if "artifact_refs" in data
@@ -276,30 +281,27 @@ def _parse_event(value: Any, stream_index: int, event_index: int) -> dict[str, A
     )
     if ("message_id" in event) != ("message_ref" in event):
         raise A2AStreamError(f"message-reference-pair-required:{label}")
-    if kind == "message":
-        if "message_id" not in event or event["sequence"] != 1 or not event["terminal"]:
+    if response_member == "message":
+        if "message_id" not in event or event["sequence"] != 1:
             raise A2AStreamError("message-only-stream-shape-invalid")
-        if any(key in event for key in ("task_ref", "state")) or event["artifact_refs"]:
+        if any(key in event for key in ("task_ref", "task_state")) or event["artifact_refs"]:
             raise A2AStreamError("message-event-has-task-payload")
-    elif kind == "task":
-        if "task_ref" not in event or "state" not in event or event["sequence"] != 1:
+    elif response_member == "task":
+        if "task_ref" not in event or "task_state" not in event or event["sequence"] != 1:
             raise A2AStreamError("task-first-response-shape-invalid")
-        if event["terminal"] != (event["state"] in TERMINAL_STATES):
-            raise A2AStreamError("task-terminal-marker-invalid")
         if any(key in event for key in ("message_id", "message_ref")) or event["artifact_refs"]:
             raise A2AStreamError("task-event-has-message-or-artifact-payload")
-    elif kind == "status_update":
-        if "state" not in event or event["artifact_refs"] or "task_ref" in event:
+    elif response_member == "statusUpdate":
+        if "task_state" not in event or event["artifact_refs"] or "task_ref" in event:
             raise A2AStreamError("status-update-shape-invalid")
-        if event["terminal"] != (event["state"] in TERMINAL_STATES):
-            raise A2AStreamError("status-terminal-marker-invalid")
         if any(key in event for key in ("message_id", "message_ref")):
             raise A2AStreamError("status-update-has-message-payload")
-    elif kind == "artifact_update":
-        if not event["artifact_refs"] or event["terminal"] or "state" in event or "task_ref" in event:
+    elif response_member == "artifactUpdate":
+        if not event["artifact_refs"] or "task_state" in event or "task_ref" in event:
             raise A2AStreamError("artifact-update-shape-invalid")
         if any(key in event for key in ("message_id", "message_ref")):
             raise A2AStreamError("artifact-update-has-message-payload")
+    event["response_ref"] = digest_ref(_response_material(event))
     return event
 
 
@@ -342,8 +344,12 @@ def _parse_stream(value: Any, stream_index: int) -> dict[str, Any]:
     _unknown(data, STREAM_FIELDS, f"stream-{stream_index}")
     missing = sorted(STREAM_FIELDS - set(data))
     if missing:
-        raise A2AStreamError(f"missing-stream-fields:" + ",".join(missing))
+        raise A2AStreamError("missing-stream-fields:" + ",".join(missing))
     stream_id = _opaque(data["stream_id"], f"stream-{stream_index}.stream_id")
+    if not isinstance(data["closed"], bool):
+        raise A2AStreamError(f"invalid-stream-{stream_index}.closed")
+    if not data["closed"]:
+        raise A2AStreamError("stream-transport-closure-required")
     raw_events = data["events"]
     if not isinstance(raw_events, list) or not raw_events or len(raw_events) > 512:
         raise A2AStreamError(f"invalid-stream-{stream_index}.events: expected bounded non-empty array")
@@ -355,55 +361,66 @@ def _parse_stream(value: Any, stream_index: int) -> dict[str, Any]:
         raise A2AStreamError("duplicate-stream-event-id")
     previous_time: datetime | None = None
     for event in events:
-        occurred_at = _time(event["occurred_at"], f"stream-{stream_index}.occurred_at")
-        if previous_time is not None and occurred_at < previous_time:
+        observed_at = _time(event["observed_at"], f"stream-{stream_index}.observed_at")
+        if previous_time is not None and observed_at < previous_time:
             raise A2AStreamError("stream-time-regression")
-        previous_time = occurred_at
+        previous_time = observed_at
     first = events[0]
-    if first["kind"] == "message":
+    if first["response_member"] == "message":
         if len(events) != 1:
             raise A2AStreamError("message-only-stream-must-close-after-one-message")
         mode = "message"
-        terminal_state = None
-    elif first["kind"] == "task":
+        closing_state = None
+    elif first["response_member"] == "task":
         mode = "task"
-        previous_state = first["state"]
+        previous_state = first["task_state"]
         if previous_state in TERMINAL_STATES:
             if len(events) != 1:
                 raise A2AStreamError("event-after-terminal-task")
+        elif len(events) == 1:
+            if previous_state not in INTERRUPTED_STATES:
+                raise A2AStreamError(
+                    "task-stream-must-close-with-terminal-or-interrupted-status"
+                )
         else:
             for event in events[1:]:
-                if event["kind"] == "status_update":
-                    if previous_state in TERMINAL_STATES or event["state"] not in _allowed_states(previous_state):
+                if event["response_member"] == "statusUpdate":
+                    if previous_state in TERMINAL_STATES or event[
+                        "task_state"
+                    ] not in _allowed_states(previous_state):
                         raise A2AStreamError("stream-invalid-state-transition")
-                    previous_state = event["state"]
-                elif event["kind"] == "artifact_update":
+                    previous_state = event["task_state"]
+                elif event["response_member"] == "artifactUpdate":
                     if previous_state in TERMINAL_STATES:
                         raise A2AStreamError("artifact-after-terminal-task")
                 else:
-                    raise A2AStreamError("task-stream-event-kind-invalid")
-            if events[-1]["kind"] != "status_update" or events[-1]["state"] not in TERMINAL_STATES:
-                raise A2AStreamError("task-stream-must-close-with-terminal-status")
-        if any(event["terminal"] for event in events[:-1]):
-            raise A2AStreamError("stream-closed-before-final-event")
-        if not events[-1]["terminal"]:
-            raise A2AStreamError("stream-terminal-marker-missing")
-        terminal_state = events[-1].get("state")
+                    raise A2AStreamError("task-stream-response-member-invalid")
+            if (
+                events[-1]["response_member"] != "statusUpdate"
+                or events[-1]["task_state"] not in CLOSING_STATES
+            ):
+                raise A2AStreamError("task-stream-must-close-with-terminal-or-interrupted-status")
+        closing_state = events[-1].get("task_state")
     else:
         raise A2AStreamError("stream-must-start-with-task-or-message")
     event_refs = [digest_ref(_event_material(event)) for event in events]
+    response_refs = [event["response_ref"] for event in events]
     return {
         "stream_id": stream_id,
+        "closed": data["closed"],
         "mode": mode,
         "events": events,
         "event_refs": event_refs,
-        "terminal_state": terminal_state,
+        "response_refs": response_refs,
+        "closing_state": closing_state,
         "stream_ref": digest_ref(
             {
                 "stream_id": stream_id,
                 "mode": mode,
                 "event_refs": event_refs,
-                "terminal_state": terminal_state,
+                "response_refs": response_refs,
+                "closing_state": closing_state,
+                "closed": data["closed"],
             }
         ),
     }
@@ -427,7 +444,9 @@ def _parse_push(
         "event_id": _opaque(data["event_id"], "push.event_id"),
         "task_id": _opaque(data["task_id"], "push.task_id"),
         "context_id": _opaque(data["context_id"], "push.context_id"),
-        "payload_kind": _text(data["payload_kind"], "push.payload_kind", maximum=32),
+        "response_member": _text(
+            data["response_member"], "push.response_member", maximum=32
+        ),
         "endpoint_ref": _ref(data["endpoint_ref"], "push.endpoint_ref"),
         "payload_ref": _ref(data["payload_ref"], "push.payload_ref"),
     }
@@ -441,7 +460,10 @@ def _parse_push(
     event = next((item for item in stream["events"] if item["event_id"] == delivery["event_id"]), None)
     if event is None:
         raise A2AStreamError("push-event-unknown")
-    if delivery["payload_kind"] not in PUSH_KINDS or delivery["payload_kind"] != event["kind"]:
+    if (
+        delivery["response_member"] not in PUSH_MEMBERS
+        or delivery["response_member"] != event["response_member"]
+    ):
         raise A2AStreamError("push-payload-must-match-stream-response")
     return delivery
 
@@ -487,9 +509,9 @@ def verify_streams(value: Mapping[str, Any]) -> dict[str, Any]:
         task_refs = {stream["events"][0]["task_ref"] for stream in streams}
         if len(task_refs) != 1:
             raise A2AStreamError("task-reference-drift-across-streams")
-        event_sequences = [stream["event_refs"] for stream in streams]
+        event_sequences = [stream["response_refs"] for stream in streams]
         if any(sequence != event_sequences[0] for sequence in event_sequences[1:]):
-            raise A2AStreamError("concurrent-stream-event-drift")
+            raise A2AStreamError("concurrent-stream-response-drift")
     stream_map = {stream["stream_id"]: stream for stream in streams}
     raw_push = data.get("push", [])
     if not isinstance(raw_push, list) or len(raw_push) > 64:
@@ -503,6 +525,7 @@ def verify_streams(value: Mapping[str, Any]) -> dict[str, Any]:
         raise A2AStreamError("duplicate-push-delivery-id")
     stream_refs = [stream["stream_ref"] for stream in streams]
     canonical_events = streams[0]["event_refs"]
+    canonical_responses = streams[0]["response_refs"]
     report_material = {
         "contract_revision": CONTRACT_REVISION,
         "card_ref": card_ref,
@@ -511,10 +534,12 @@ def verify_streams(value: Mapping[str, Any]) -> dict[str, Any]:
         "context_id": context_id,
         "task_id": task_id,
         "stream_refs": stream_refs,
+        "response_refs": canonical_responses,
         "push_refs": [digest_ref(item) for item in push],
     }
     task_stream_count = len(streams) if mode == "task" else 0
     message_stream_count = len(streams) if mode == "message" else 0
+    concurrent_stream_count = task_stream_count if task_stream_count > 1 else 0
     return {
         "$schema": SCHEMA_URI,
         "status": "passed",
@@ -530,16 +555,24 @@ def verify_streams(value: Mapping[str, Any]) -> dict[str, Any]:
         "stream_count": len(streams),
         "task_stream_count": task_stream_count,
         "message_stream_count": message_stream_count,
-        "concurrent_stream_count": task_stream_count,
+        "concurrent_stream_count": concurrent_stream_count,
         "event_count": len(canonical_events),
         "event_refs": canonical_events,
+        "response_refs": canonical_responses,
         "stream_refs": stream_refs,
         "push_refs": [digest_ref(item) for item in push],
         "terminal_states": list(
             dict.fromkeys(
-                stream["terminal_state"]
+                stream["closing_state"]
                 for stream in streams
-                if stream["terminal_state"] is not None
+                if stream["closing_state"] in TERMINAL_STATES
+            )
+        ),
+        "interrupted_states": list(
+            dict.fromkeys(
+                stream["closing_state"]
+                for stream in streams
+                if stream["closing_state"] in INTERRUPTED_STATES
             )
         ),
         "authentication_boundary": "external-reference",
@@ -548,9 +581,17 @@ def verify_streams(value: Mapping[str, Any]) -> dict[str, Any]:
             "first_response": True,
             "message_only_closure": mode == "message",
             "task_lifecycle": mode == "task",
+            "transport_closure": all(stream["closed"] for stream in streams),
             "stream_ordering": True,
             "concurrent_stream_equivalence": mode == "task" and len(streams) > 1,
-            "push_stream_response": all(item["payload_kind"] in PUSH_KINDS for item in push),
+            "push_stream_response": all(
+                item["response_member"] in PUSH_MEMBERS for item in push
+            ),
+            "interrupted_closure": all(
+                stream["closing_state"] not in INTERRUPTED_STATES
+                or stream["closed"]
+                for stream in streams
+            ),
             "credential_exclusion": True,
             "authority_non_grant": True,
         },
