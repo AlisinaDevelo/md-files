@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/mcp-tasks/v1",
-  "title": "Forge MCP Tasks Adapter Contract",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/mcp-tasks/v2",
+  "title": "Forge MCP Tasks Adapter Contract v2",
   "description": "Versioned, reference-only MCP Tasks projections over canonical Forge runtime history.",
   "oneOf": [
     {"$ref": "#/$defs/profile"},
@@ -14,11 +14,14 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "profile", "protocolVersion", "extension", "extensions", "methods", "resultType",
-        "stateless", "sessionBound", "rawPayloads", "inputResponses", "sourceOfTruth"
+        "profile", "schemaVersion", "contractRevision", "protocolVersion", "extension",
+        "extensions", "methods", "requestNegotiation", "resultType", "stateless", "sessionBound",
+        "rawPayloads", "inputResponses", "sourceOfTruth"
       ],
       "properties": {
         "profile": {"const": "mcp-2026-07-28"},
+        "schemaVersion": {"const": 2},
+        "contractRevision": {"const": "forge-mcp-tasks-v2"},
         "protocolVersion": {"const": "2026-07-28"},
         "extension": {"const": "io.modelcontextprotocol/tasks"},
         "extensions": {
@@ -30,6 +33,7 @@
         "methods": {
           "const": ["tasks/get", "tasks/update", "tasks/cancel"]
         },
+        "requestNegotiation": {"const": "per-request"},
         "resultType": {"const": "task"},
         "stateless": {"const": true},
         "sessionBound": {"const": false},
@@ -43,7 +47,7 @@
       "additionalProperties": false,
       "required": ["taskId", "status", "createdAt", "lastUpdatedAt", "ttlMs", "pollIntervalMs", "_meta"],
       "properties": {
-        "taskId": {"type": "string", "pattern": "^forge-task-v1\\.[A-Za-z0-9_-]+\\.[0-9a-f]{64}$"},
+        "taskId": {"type": "string", "pattern": "^forge-task-v2\\.[A-Za-z0-9_-]+\\.[0-9a-f]{64}$"},
         "status": {"enum": ["working", "input_required", "completed", "failed", "cancelled"]},
         "createdAt": {"type": "string", "format": "date-time"},
         "lastUpdatedAt": {"type": "string", "format": "date-time"},
@@ -69,12 +73,13 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "protocol_version", "extension", "operation", "source_of_truth", "request_binding_digest",
+        "protocol_version", "contract_revision", "extension", "operation", "source_of_truth", "request_binding_digest",
         "run_id", "wait_id", "checkpoint_id", "checkpoint_sequence", "policy_revision",
         "input_schema_digest", "resume_contract"
       ],
       "properties": {
         "protocol_version": {"const": "2026-07-28"},
+        "contract_revision": {"const": "forge-mcp-tasks-v2"},
         "extension": {"const": "io.modelcontextprotocol/tasks"},
         "operation": {"enum": ["tasks/get", "tasks/update", "tasks/cancel"]},
         "source_of_truth": {"const": "forge-runtime-history"},
