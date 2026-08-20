@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [3.8.0] — 2026-08-20
+
+### Added
+
+- **MCP Tasks request admission** - require the exact per-request client capability on every
+  task operation while keeping the adapter local, digest-only, and outside live MCP hosting.
+- **gh-aw runtime profiles and MCP Gateway admission** - bind sandbox runtime selection and
+  bounded gateway configuration to the versioned firewall policy, native fields, and provider
+  evidence without accepting credentials or launching external infrastructure.
+
 ## [3.7.0] — 2026-08-20
 
 ### Added
@@ -355,7 +365,8 @@ plugin under `plugins/forge/`.
 - **Docs** — getting started, usage patterns, architecture, design rationale, and CI &
   headless usage guides.
 
-[Unreleased]: https://github.com/AlisinaDevelo/md-files/compare/v3.7.0...HEAD
+[Unreleased]: https://github.com/AlisinaDevelo/md-files/compare/v3.8.0...HEAD
+[3.8.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.8.0
 [3.7.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.7.0
 [3.6.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.6.0
 [3.5.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.5.0

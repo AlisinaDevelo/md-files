@@ -8,11 +8,11 @@ accepted a public directory submission.
 
 | Surface | Current state | Evidence or next action |
 |---|---|---|
-| GitHub repository marketplace | Available | Install from `AlisinaDevelo/md-files`; tag `v3.7.0` is the current release candidate. |
+| GitHub repository marketplace | Available | Install from `AlisinaDevelo/md-files`; tag `v3.8.0` is the current release candidate. |
 | Claude Code repository marketplace | Available | `claude plugin marketplace add AlisinaDevelo/md-files` then `claude plugin install forge@forge`. |
 | Codex local/repository marketplace | Available | `codex plugin marketplace add AlisinaDevelo/md-files` then `codex plugin add forge@forge`. |
 | Claude public/curated directory | Not submitted | Do not claim listing or approval; submit only after the checklist below is reviewed. |
-| OpenAI universal Plugin Directory (ChatGPT and Codex) | Project portal approval recorded | Owner-provided evidence dated 2026-08-18 shows Forge 3.6.0 as Approved; the 3.7.0 ZIP is the current candidate; public listing and universal availability are not independently verified. |
+| OpenAI universal Plugin Directory (ChatGPT and Codex) | Project portal approval recorded | Owner-provided evidence dated 2026-08-18 shows Forge 3.6.0 as Approved; the 3.8.0 ZIP is the current candidate; public listing and universal availability are not independently verified. |
 | Agent Skills ecosystem directories | Not submitted | The `.agents` bundle is installable and validated, but no third-party directory approval is claimed. |
 
 The OpenAI universal Plugin Directory and package model are described in [OpenAI's plugin
@@ -82,7 +82,7 @@ Before any external submission, record a dated result for each case in the issue
 | Near-miss request | Unrelated prompts do not invoke a Forge skill solely because they mention code. |
 | Permission boundary | Read-only work does not require mutation approval; GitHub/release effects remain policy-gated. |
 | Clean install | A fresh user can add the documented repository marketplace and install `forge@forge`. |
-| Upgrade | Version `3.7.0` replaces the prior cache entry without stale skill content. |
+| Upgrade | Version `3.8.0` replaces the prior cache entry without stale skill content. |
 | Uninstall | Removing Forge removes the host registration while leaving the user's repository untouched. |
 | Resource loading | Every declared skill, command, hook, asset, and referenced file loads from the cached plugin root. |
 | OpenAI submission evidence | Five positive and three negative skills-only cases are recorded with expected behavior and release notes. |

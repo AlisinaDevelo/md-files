@@ -35,9 +35,9 @@ repository evidence can be distinguished from the portal's own test run.
 
 ## Candidate release
 
-The current public candidate is [Forge 3.7.0](https://github.com/AlisinaDevelo/md-files/releases/tag/v3.7.0).
-Use its [OpenAI skills-only ZIP](https://github.com/AlisinaDevelo/md-files/releases/download/v3.7.0/forge-3.7.0-openai.zip)
-and verify it against the published [SHA-256 inventory](https://github.com/AlisinaDevelo/md-files/releases/download/v3.7.0/SHA256SUMS)
+The current public candidate is [Forge 3.8.0](https://github.com/AlisinaDevelo/md-files/releases/tag/v3.8.0).
+Use its [OpenAI skills-only ZIP](https://github.com/AlisinaDevelo/md-files/releases/download/v3.8.0/forge-3.8.0-openai.zip)
+and verify it against the published [SHA-256 inventory](https://github.com/AlisinaDevelo/md-files/releases/download/v3.8.0/SHA256SUMS)
 before uploading it. The generated report also records these URLs under
 `submission_materials.listing.candidate_*` alongside the exact source commit and archive
 digest. Do not mix a locally rebuilt archive with evidence generated for the public release.
