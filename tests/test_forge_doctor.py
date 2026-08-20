@@ -105,6 +105,48 @@ def test_manifest_drift_is_a_failure(tmp_path):
     assert "disagree" in instance.checks[0].summary
 
 
+def test_host_checks_allow_slow_cli_startup(tmp_path, monkeypatch):
+    doctor = load_module()
+    manifest = tmp_path / "plugins/forge/.codex-plugin/plugin.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text('{"version":"3.6.0"}\n')
+    calls = []
+
+    monkeypatch.setattr(doctor.shutil, "which", lambda executable: executable)
+
+    def command(args, timeout=15):
+        calls.append((args, timeout))
+        if args[1:] == ["--version"]:
+            return subprocess.CompletedProcess(args, 0, f"{args[0]} 1.0\n", "")
+        if args[0] == "claude":
+            payload = [{"id": "forge@forge", "version": "3.6.0"}]
+        else:
+            payload = {"installed": [{"pluginId": "forge@forge", "version": "3.6.0"}]}
+        return subprocess.CompletedProcess(args, 0, json.dumps(payload), "")
+
+    instance = doctor.Doctor(tmp_path, offline=True)
+    monkeypatch.setattr(instance, "command", command)
+    instance.check_executables()
+
+    assert [timeout for _, timeout in calls] == [
+        doctor.HOST_VERSION_TIMEOUT_SECONDS,
+        doctor.HOST_VERSION_TIMEOUT_SECONDS,
+        doctor.HOST_VERSION_TIMEOUT_SECONDS,
+        doctor.HOST_VERSION_TIMEOUT_SECONDS,
+    ]
+    assert doctor.HOST_VERSION_TIMEOUT_SECONDS == 30
+
+    calls.clear()
+    instance.check_plugin_surfaces()
+
+    assert instance.checks[-1].status == "pass"
+    assert [timeout for _, timeout in calls] == [
+        doctor.PLUGIN_LIST_TIMEOUT_SECONDS,
+        doctor.PLUGIN_LIST_TIMEOUT_SECONDS,
+    ]
+    assert doctor.PLUGIN_LIST_TIMEOUT_SECONDS == 45
+
+
 def test_cli_json_output_is_parseable():
     proc = subprocess.run(
         [sys.executable, str(SCRIPT), "--repo", str(REPO), "--offline", "--json"],
