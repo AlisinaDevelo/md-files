@@ -14,7 +14,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
 SCHEMA_VERSION = 1
 CONTRACT_REVISION = "forge-host-admission-v1"
 SCHEMA_URI = "https://github.com/AlisinaDevelo/md-files/schema/runtime/host-admission/v1"
