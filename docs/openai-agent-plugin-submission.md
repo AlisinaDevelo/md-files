@@ -55,6 +55,23 @@ digest. Do not mix a locally rebuilt archive with evidence generated for the pub
 | Availability | Explicit status in the report | Project portal approval shown; public listing and availability not independently verified |
 | Portal draft and review | Not repository-verifiable | Project portal shows Approved; public directory discoverability remains unverified |
 
+## Portal workflow
+
+The remaining steps are performed in the OpenAI Platform, not by this repository. Before
+creating a draft, the submitting organization needs Apps Management write access and a
+verified individual or business developer identity. The portal currently uses this flow:
+
+1. Create a plugin submission and choose **Skills only**.
+2. Upload the published [OpenAI skills-only ZIP](https://github.com/AlisinaDevelo/md-files/releases/download/v3.8.0/forge-3.8.0-openai.zip), after checking its [SHA-256 inventory](https://github.com/AlisinaDevelo/md-files/releases/download/v3.8.0/SHA256SUMS).
+3. Complete the listing, publisher, policy URLs, starter prompts, five positive and three
+   negative test cases, country availability, and release notes.
+4. Review the complete draft and policy attestations, then choose **Submit for Review**.
+5. After approval, choose **Publish** in the portal. Approval alone does not make the
+   plugin visible in the shared ChatGPT and Codex directory.
+
+Use the published archive and its matching evidence together. A locally rebuilt archive is
+useful for verification, but it is not interchangeable with the release asset named above.
+
 ## Cases
 
 ### Positive
