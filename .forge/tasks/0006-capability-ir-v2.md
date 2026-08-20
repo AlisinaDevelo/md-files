@@ -14,11 +14,11 @@ semantically typed intermediate representation that can drive multiple host proj
 
 ## Acceptance criteria
 
-- [ ] The graph schema is versioned as v2 and embeds canonical Markdown instructions.
-- [ ] Components expose identity, trigger, tool, permission, input, output, resource,
+- [x] The graph schema is versioned as v2 and embeds canonical Markdown instructions.
+- [x] Components expose identity, trigger, tool, permission, input, output, resource,
       script, eval, and host-extension fields.
-- [ ] Import remains deterministic and rejects source drift.
-- [ ] Existing components and eval scenarios are migrated without losing coverage.
+- [x] Import remains deterministic and rejects source drift.
+- [x] Existing components and eval scenarios are migrated without losing coverage.
 
 ## Context
 

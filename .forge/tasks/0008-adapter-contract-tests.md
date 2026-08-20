@@ -13,11 +13,11 @@ Make third-party host projection behavior explicit, safe, and independently veri
 
 ## Acceptance criteria
 
-- [ ] The v1 adapter schema validates identifiers, component-kind partitions, paths, and
+- [x] The v1 adapter schema validates identifiers, component-kind partitions, paths, and
       projection naming fields.
-- [ ] Unsafe paths, overlapping native/shim kinds, and unsupported kinds fail closed.
-- [ ] A representative third-party adapter renders native skills and agent/command shims.
-- [ ] Deterministic output and existing cross-host scenarios remain green.
+- [x] Unsafe paths, overlapping native/shim kinds, and unsupported kinds fail closed.
+- [x] A representative third-party adapter renders native skills and agent/command shims.
+- [x] Deterministic output and existing cross-host scenarios remain green.
 
 ## Context
 
