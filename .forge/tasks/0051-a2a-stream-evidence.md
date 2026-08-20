@@ -1,7 +1,7 @@
 ---
 id: 0051
 title: Add A2A StreamResponse evidence and concurrent-stream checks
-status: review
+status: done
 agent: interoperability-engineer
 model: sonnet
 depends_on: [0020, 0021]
@@ -23,7 +23,7 @@ message, task, concurrent subscription, and push metadata shapes.
 - [x] Push metadata is bound to the task, context, stream, event, and wrapper member.
 - [x] Credentials, raw content, and authority grants fail closed.
 - [x] A deterministic JSONL corpus and focused tests cover valid and hostile cases.
-- [ ] The change is reviewed and merged through the public release workflow.
+- [x] The change is reviewed and merged through the public release workflow.
 
 ## Research decisions
 
@@ -57,3 +57,5 @@ Local evidence recorded 2026-08-20:
 - Reproducible release builds produced 6 byte-identical artifacts; offline release, Codex,
   marketplace, and attestation checks passed.
 - Installed candidate replay passed twice with identical results across 8 cases (111 files, 25 skills).
+- Public release: PR #99 merged at `c046dc39528ea37bef69f3e2d928af1927c5fbc7` from tested head
+  `6001ab2e6b4fe04c2cbbe0c901f612278c9e9675`.
