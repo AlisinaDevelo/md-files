@@ -91,8 +91,22 @@ def test_default_runtime_is_explicit_in_native_admission_fields():
     normalized = firewall.normalize_policy(base_policy())
 
     fields = compiler._firewall_fields({"defaults": {"firewall_policy": normalized}})
+    upstream_fields = compiler._firewall_fields({"defaults": {"firewall_policy": normalized}}, upstream=True)
 
     assert fields["sandbox"]["agent"] == {"runtime": "docker"}
+    assert upstream_fields["sandbox"]["agent"] == {"runtime": "docker-sbx", "sudo": True}
+
+
+def test_upstream_runtime_rejects_profiles_outside_pinned_compiler():
+    firewall = load_policy()
+    compiler = load_compiler()
+    policy = base_policy()
+    policy["runtime_profile"] = "cloud-hypervisor"
+    policy["runtime_justification"] = "isolate untrusted workloads in a dedicated virtual machine"
+    normalized = firewall.normalize_policy(policy)
+
+    with pytest.raises(compiler.GhAwError, match="pinned gh-aw"):
+        compiler._firewall_fields({"defaults": {"firewall_policy": normalized}}, upstream=True)
 
 
 def test_runtime_and_gateway_policy_fail_closed():
@@ -136,6 +150,7 @@ def test_policy_preserves_single_leading_wildcards():
     ("field", "value", "message"),
     [
         ("allowed_domains", ["${{ secrets.BAD }}"], "expression"),
+        ("allowed_domains", ["127.0.0.1"], "IP address"),
         ("allowed_domains", ["https://api.example.com/path"], "ambiguous"),
         ("allowed_domains", ["http://api.example.com"], "insecure"),
         ("allowed_url_patterns", ["http://api.example.com/v1/*"], "HTTPS"),
@@ -188,5 +203,7 @@ def test_compiler_manifest_and_lock_carry_firewall_evidence(tmp_path):
     lock = (output / "workflows/forge-dispatcher.lock.yml").read_text(encoding="utf-8")
     assert "forge-firewall-policy-digest" in source
     assert "sandbox:" in source
+    network = source.split("network:", 1)[1].split("on:", 1)[0]
+    assert "firewall:" not in network
     assert "FORGE_FIREWALL_POLICY_DIGEST" in lock
     assert "firewall:" in lock

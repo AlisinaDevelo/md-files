@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-
 SCHEMA_VERSION = 1
 CONTRACT_REVISION = "forge-a2a-task-v1"
 SCHEMA_URI = "https://github.com/AlisinaDevelo/md-files/schema/runtime/a2a-task/v1"
@@ -219,7 +218,7 @@ def _push_url(value: Any, label: str) -> str:
     if not hostname:
         raise A2ATaskError(f"invalid-{label}: hostname is required")
     lowered = hostname.rstrip(".").lower()
-    if lowered == "localhost" or lowered.endswith(".localhost") or lowered.endswith(".local"):
+    if lowered == "localhost" or lowered.endswith((".localhost", ".local")):
         raise A2ATaskError(f"unsafe-{label}: local hostname")
     try:
         address = ipaddress.ip_address(lowered)

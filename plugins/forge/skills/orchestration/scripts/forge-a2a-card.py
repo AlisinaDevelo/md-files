@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-
 SCHEMA_VERSION = 1
 CONTRACT_REVISION = "forge-a2a-card-v1"
 SCHEMA_URI = "https://github.com/AlisinaDevelo/md-files/schema/runtime/a2a-card/v1"
@@ -540,10 +539,10 @@ def verify_card(
     if expected_card_ref is not None and card_ref != _ref(expected_card_ref, "expected-card-ref"):
         raise A2ACardError("card-digest-mismatch")
     expected_versions = expected_protocol_versions or [DEFAULT_PROTOCOL_VERSION]
-    if not set(card["protocol_versions"]) & set(
+    if not set(card["protocol_versions"]) & {
         _text(version, "expected-protocol-version", maximum=32, pattern=VERSION_RE)
         for version in expected_versions
-    ):
+    }:
         raise A2ACardError("protocol-version-mismatch")
     if required_skill_ids is not None:
         expected_skills = {_id(skill_id, "required-skill-id") for skill_id in required_skill_ids}
