@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [3.7.0] — 2026-08-20
+
 ### Added
 
 - **Transactional runtime effects** - added a local SQLite/WAL outbox and inbox boundary
@@ -353,7 +355,8 @@ plugin under `plugins/forge/`.
 - **Docs** — getting started, usage patterns, architecture, design rationale, and CI &
   headless usage guides.
 
-[Unreleased]: https://github.com/AlisinaDevelo/md-files/compare/v3.6.0...HEAD
+[Unreleased]: https://github.com/AlisinaDevelo/md-files/compare/v3.7.0...HEAD
+[3.7.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.7.0
 [3.6.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.6.0
 [3.5.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.5.0
 [3.4.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.4.0

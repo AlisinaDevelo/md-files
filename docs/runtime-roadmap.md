@@ -22,8 +22,8 @@ workflows, and telemetry remain adapters or evidence surfaces.
 - The wait-aware runtime now uses database schema v4; v2/v3 checkpoints remain readable evidence
   but are excluded from restore until a v4 checkpoint is created after migration. v3-to-v4 adds
   deterministic legacy definition descriptors without rewriting canonical event rows.
-- The current release remains 3.6.0. The transactional effect boundary is documented under
-  `Unreleased`; no new tag should claim it until release validation is repeated.
+- The current release candidate is 3.7.0. The transactional effect boundary is documented
+  under its release heading and must remain covered by the local release gate.
 - The current stack delivery path already records head/base SHAs, guards mutations, handles
   Merge Queue observation, and receives `merge_group` CI checks. Stacked delivery is a
   maintained strength, not a missing parallel abstraction.

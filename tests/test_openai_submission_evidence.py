@@ -50,10 +50,14 @@ def test_submission_evidence_has_five_positive_and_three_negative_cases(tmp_path
     release_root = "https://github.com/AlisinaDevelo/md-files"
     assert listing["candidate_release_url"] == f"{release_root}/releases/tag/v{version}"
     assert listing["candidate_archive_url"] == (
+        f"{release_root}/releases/download/v{version}/forge-{version}-openai.zip"
+    )
+    assert listing["candidate_codex_archive_url"] == (
         f"{release_root}/releases/download/v{version}/forge-{version}-codex.tar.gz"
     )
     assert listing["candidate_checksums_url"] == f"{release_root}/releases/download/v{version}/SHA256SUMS"
     candidate = report["candidate"]
+    assert candidate["archive"].endswith("-openai.zip")
     assert candidate["archive_sha256"]
     assert candidate["installation"]["status"] == "pass"
     assert candidate["installation"]["mode"] == "isolated-offline-archive"

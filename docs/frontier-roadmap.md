@@ -9,9 +9,9 @@ reproducible across providers.
 
 ## Current position
 
-- The v3.6 runtime slices are local-first and event-history based. Adapters must not become a
+- The v3.7 runtime slices are local-first and event-history based. Adapters must not become a
   second source of truth.
-- The Claude, Codex, and Agent Skills packages are installable and validated. The OpenAI
+- The Claude, Codex, Agent Skills, and OpenAI skills-only packages are installable and validated. The OpenAI
   project portal shows Forge 3.6.0 as **Approved** in owner-provided evidence dated
   2026-08-18. This confirms project-level review state, not public directory discoverability.
 - Forge now has a versioned, reference-only MCP Tasks projection for the final 2026-07-28

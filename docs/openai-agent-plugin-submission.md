@@ -14,8 +14,9 @@ python3 scripts/build_openai_submission_evidence.py \
   --output /tmp/forge-openai-plugin-evidence.json
 ```
 
-The runner builds the exact Codex release candidate, verifies the release manifest, SBOM,
-hash inventory, and archive, then installs that archive into an isolated temporary tree. It
+The runner builds the exact OpenAI skills-only ZIP release candidate, verifies the release
+manifest, SBOM, hash inventory, and archive, then installs that archive into an isolated
+temporary tree. It
 requires the installed files to match the archive byte for byte and reruns strict plugin
 validation after installation. Five positive plus three negative contract cases then replay
 twice against the installed bytes and the source release policy; both the policy input and
@@ -34,9 +35,9 @@ repository evidence can be distinguished from the portal's own test run.
 
 ## Candidate release
 
-The current public candidate is [Forge 3.6.0](https://github.com/AlisinaDevelo/md-files/releases/tag/v3.6.0).
-Use its [Codex archive](https://github.com/AlisinaDevelo/md-files/releases/download/v3.6.0/forge-3.6.0-codex.tar.gz)
-and verify it against the published [SHA-256 inventory](https://github.com/AlisinaDevelo/md-files/releases/download/v3.6.0/SHA256SUMS)
+The current public candidate is [Forge 3.7.0](https://github.com/AlisinaDevelo/md-files/releases/tag/v3.7.0).
+Use its [OpenAI skills-only ZIP](https://github.com/AlisinaDevelo/md-files/releases/download/v3.7.0/forge-3.7.0-openai.zip)
+and verify it against the published [SHA-256 inventory](https://github.com/AlisinaDevelo/md-files/releases/download/v3.7.0/SHA256SUMS)
 before uploading it. The generated report also records these URLs under
 `submission_materials.listing.candidate_*` alongside the exact source commit and archive
 digest. Do not mix a locally rebuilt archive with evidence generated for the public release.

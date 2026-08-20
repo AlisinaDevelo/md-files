@@ -209,6 +209,10 @@ for release_dir in "$TMP_ROOT/release-first" "$TMP_ROOT/release-second"; do
     "$TMP_ROOT/$(basename "$release_dir")-codex.log" \
     "$PYTHON_BIN" scripts/validate_codex_plugin.py \
     --archive "$release_dir/forge-$version-codex.tar.gz" --version "$version"
+  run_logged "OpenAI skills-only ZIP validation: $(basename "$release_dir")" \
+    "$TMP_ROOT/$(basename "$release_dir")-openai.log" \
+    "$PYTHON_BIN" scripts/validate_codex_plugin.py \
+    --zip "$release_dir/forge-$version-openai.zip" --version "$version"
 done
 run_logged "Codex marketplace validation" "$TMP_ROOT/codex-marketplace.log" \
   "$PYTHON_BIN" scripts/validate_codex_plugin.py --marketplace .agents/plugins/marketplace.json --root .
