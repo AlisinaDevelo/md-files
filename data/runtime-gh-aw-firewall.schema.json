@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw-firewall/v1",
+  "title": "Forge GitHub Agentic Workflows Firewall Admission Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "contract_revision", "firewall", "network", "content_integrity", "sandbox"],
+  "properties": {
+    "$schema": {"const": "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw-firewall/v1"},
+    "schema_version": {"const": 1},
+    "contract_revision": {"const": "forge-gh-aw-firewall-v1"},
+    "firewall": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "log_level", "ssl_bump", "allow_urls"],
+      "properties": {
+        "mode": {"enum": ["awf", "disabled"]},
+        "log_level": {"enum": ["debug", "info", "warn", "error"]},
+        "ssl_bump": {"type": "boolean"},
+        "allow_urls": {"type": "array", "items": {"type": "string", "pattern": "^https://"}, "uniqueItems": true}
+      }
+    },
+    "network": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed", "blocked"],
+      "properties": {
+        "allowed": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "blocked": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+      }
+    },
+    "content_integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["threshold", "untrusted_content"],
+      "properties": {
+        "threshold": {"enum": ["strict", "standard"]},
+        "untrusted_content": {"enum": ["redact", "reject"]}
+      }
+    },
+    "sandbox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent", "mode"],
+      "properties": {
+        "agent": {"type": ["string", "boolean"], "enum": ["awf", false]},
+        "mode": {"enum": ["awf", "disabled"]},
+        "justification": {"type": "string", "minLength": 20, "maxLength": 512}
+      }
+    }
+  }
+}

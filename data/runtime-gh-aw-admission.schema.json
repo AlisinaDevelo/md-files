@@ -9,8 +9,9 @@
     "$schema", "schema_version", "contract_revision", "admission_id", "mode", "repository",
     "episode_id", "request_digest", "dispatcher_workflow_id", "dispatcher_source_workflow",
     "runtime_definition_digest", "gh_aw_definition_digest", "graph_digest", "spec_digest",
-    "effect_set_digest", "upstream", "artifacts", "native_job_roles", "dispatch_targets",
-    "safe_outputs", "history_sequence", "history_head"
+    "effect_set_digest", "firewall_policy_revision", "firewall_policy_digest", "source_digest",
+    "lock_digest", "upstream", "artifacts", "native_job_roles", "dispatch_targets", "safe_outputs",
+    "history_sequence", "history_head"
   ],
   "properties": {
     "$schema": {"const": "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw-admission/v1"},
@@ -28,6 +29,10 @@
     "graph_digest": {"$ref": "#/$defs/ref"},
     "spec_digest": {"$ref": "#/$defs/ref"},
     "effect_set_digest": {"$ref": "#/$defs/ref"},
+    "firewall_policy_revision": {"const": "forge-gh-aw-firewall-v1"},
+    "firewall_policy_digest": {"$ref": "#/$defs/ref"},
+    "source_digest": {"$ref": "#/$defs/ref"},
+    "lock_digest": {"$ref": "#/$defs/ref"},
     "upstream": {
       "type": "object",
       "additionalProperties": false,

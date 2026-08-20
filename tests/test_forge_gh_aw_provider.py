@@ -159,6 +159,7 @@ def envelope(
     workflow_id: str,
     output_type: str,
     operations: list[dict[str, Any]],
+    contract: dict[str, Any],
 ) -> dict[str, Any]:
     material = {
         "repository": "AlisinaDevelo/md-files",
@@ -172,6 +173,7 @@ def envelope(
         "adapter_contract_revision": module.PROVIDER_REVISION,
         "episode_id": episode_id,
         "request_ref": module.digest(material),
+        **contract,
         **material,
     }
 
@@ -221,7 +223,14 @@ def dispatch_episode(module, bridge, output: Path, database: Path) -> tuple[str,
         occurred_at="2026-08-08T10:00:00Z",
     )
     episode_id = started["episode_id"]
-    request = envelope(module, episode_id, "forge-dispatcher", "dispatch-workflow", operations)
+    request = envelope(
+        module,
+        episode_id,
+        "forge-dispatcher",
+        "dispatch-workflow",
+        operations,
+        module.compiled_contract(SPEC_PATH, output, "forge-dispatcher"),
+    )
     bridge.dispatch_episode(
         SPEC_PATH,
         output,
@@ -287,7 +296,14 @@ def native_dispatch_episode(
         request_ref,
         certificate_path=certificate_path,
     )
-    request = envelope(module, episode_id, "forge-dispatcher", "dispatch-workflow", operations)
+    request = envelope(
+        module,
+        episode_id,
+        "forge-dispatcher",
+        "dispatch-workflow",
+        operations,
+        module.compiled_contract(SPEC_PATH, output, "forge-dispatcher"),
+    )
     bridge.dispatch_episode(
         SPEC_PATH,
         output,
@@ -346,7 +362,14 @@ def worker_effect(
         worker_id,
         occurred_at="2026-08-08T10:04:00Z",
     )
-    request = envelope(module, episode_id, worker_id, output_type, operations)
+    request = envelope(
+        module,
+        episode_id,
+        worker_id,
+        output_type,
+        operations,
+        module.compiled_contract(SPEC_PATH, output, worker_id),
+    )
     bridge.complete_worker(
         SPEC_PATH,
         output,
@@ -428,6 +451,7 @@ def test_plan_is_digest_only_and_does_not_consume_approval(tmp_path):
     assert plan["operation_count"] == 1
     assert plan["policy"]["compiled_action_digest"] == effect["payload"]["policy_action_digest"]
     assert plan["policy"]["authorization_action_digest"].startswith("sha256:")
+    assert plan["contract_evidence_ref"] == request["contract_evidence_ref"]
     assert "operations" not in plan
     assert "inputs" not in json.dumps(plan, sort_keys=True)
     assert not approvals.exists()
@@ -1399,6 +1423,27 @@ def test_request_rejects_unknown_fields_credentials_and_identity_drift(tmp_path)
     unknown["surprise"] = True
     with pytest.raises(module.GhAwProviderError, match="unsupported fields"):
         module.validate_request(unknown)
+
+
+def test_provider_rejects_compiled_source_lock_or_policy_evidence_drift(tmp_path):
+    module = load_module()
+    bridge, output, database = prepare(module, tmp_path)
+    _, request, effect = dispatch_episode(module, bridge, output, database)
+    drifted = copy.deepcopy(request)
+    drifted["contract_evidence"]["lock_digest"] = REF_B
+    drifted["contract_evidence_ref"] = module.digest(drifted["contract_evidence"])
+
+    with pytest.raises(module.GhAwProviderError, match="contract evidence"):
+        module.plan_effect(
+            SPEC_PATH,
+            output,
+            database,
+            drifted,
+            effect["effect_id"],
+            "provider-a",
+            effect["lease_generation"],
+            now="2026-08-08T10:02:30Z",
+        )
 
 
 def host_admission_for_effect(module, request, effect, path: Path, *, worker_id: str) -> dict[str, Any]:
