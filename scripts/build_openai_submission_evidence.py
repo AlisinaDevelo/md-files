@@ -122,11 +122,28 @@ def _contains(files: dict[str, bytes], path: str, *needles: str) -> tuple[bool, 
     return True, [f"{path} contains {needle!r}" for needle in needles]
 
 
-def _case(case_id: str, polarity: str, expected: str, paths: list[str], observations: list[str]) -> dict[str, Any]:
+OFFLINE_FIXTURE_DATA = (
+    "None required; use only the packaged release archive and checked-in policy fixtures. "
+    "No account, credentials, private data, or network target are needed."
+)
+
+
+def _case(
+    case_id: str,
+    polarity: str,
+    prompt: str,
+    expected: str,
+    result_shape: str,
+    paths: list[str],
+    observations: list[str],
+) -> dict[str, Any]:
     return {
         "id": case_id,
         "polarity": polarity,
+        "prompt": prompt,
         "expected_behavior": expected,
+        "expected_result_shape": result_shape,
+        "fixture_data": OFFLINE_FIXTURE_DATA,
         "status": "pass",
         "mode": "offline-release-candidate-contract",
         "evidence": {"paths": paths, "observations": observations},
@@ -219,12 +236,44 @@ def _run_cases(files: dict[str, bytes], release_policy: dict[str, Any], validato
 
     results: list[dict[str, Any]] = []
     checks = (
-        ("positive-orchestration", "positive", "Orchestration plans a non-trivial goal with a dependency-ordered ledger and iterates to done.", orchestration, ("task ledger", "iterate to done")),
-        ("positive-solve-loop", "positive", "A focused change is iterated until acceptance criteria and verification are complete.", solve_loop, ("acceptance", "verify")),
-        ("positive-stacked-delivery", "positive", "Stacked delivery preserves parent relationships and uses lease-safe Git operations.", stacked, ("immediate parent", "--force-with-lease")),
-        ("positive-policy-review", "positive", "Doctor and policy workflows inspect state and keep external effects reviewable.", policy, ("approval", "staged-preview")),
+        (
+            "positive-orchestration",
+            "positive",
+            "Plan a feature with research, implementation, and verification dependencies using Forge.",
+            "Orchestration plans a non-trivial goal with a dependency-ordered ledger and iterates to done.",
+            "A dependency-ordered task ledger with acceptance criteria and verification commands.",
+            orchestration,
+            ("task ledger", "iterate to done"),
+        ),
+        (
+            "positive-solve-loop",
+            "positive",
+            "Run a focused Forge change through the solve loop and report whether its acceptance criteria are verified.",
+            "A focused change is iterated until acceptance criteria and verification are complete.",
+            "A completion report naming the acceptance result and its verification evidence.",
+            solve_loop,
+            ("acceptance", "verify"),
+        ),
+        (
+            "positive-stacked-delivery",
+            "positive",
+            "Design a three-layer stacked pull request for a feature and show each immediate parent plus the safe restack rule.",
+            "Stacked delivery preserves parent relationships and uses lease-safe Git operations.",
+            "A stack topology with each pull request's immediate parent and lease-safe Git guidance.",
+            stacked,
+            ("immediate parent", "--force-with-lease"),
+        ),
+        (
+            "positive-policy-review",
+            "positive",
+            "Before publishing a release, run Forge's doctor and policy preflight and explain which external effects require approval.",
+            "Doctor and policy workflows inspect state and keep external effects reviewable.",
+            "A read-only preflight report identifying approval requirements without performing an external effect.",
+            policy,
+            ("approval", "staged-preview"),
+        ),
     )
-    for case_id, polarity, expected, path, needles in checks:
+    for case_id, polarity, prompt, expected, result_shape, path, needles in checks:
         passed, observations = _contains(files, path, *needles)
         if not passed:
             raise SubmissionEvidenceError(f"{case_id} failed: {'; '.join(observations)}")
@@ -233,7 +282,17 @@ def _run_cases(files: dict[str, bytes], release_policy: dict[str, Any], validato
             if not doctor_ok:
                 raise SubmissionEvidenceError(f"{case_id} failed: {'; '.join(doctor_observations)}")
             observations.extend(doctor_observations)
-        results.append(_case(case_id, polarity, expected, [path, doctor] if case_id == "positive-policy-review" else [path], observations))
+        results.append(
+            _case(
+                case_id,
+                polarity,
+                prompt,
+                expected,
+                result_shape,
+                [path, doctor] if case_id == "positive-policy-review" else [path],
+                observations,
+            )
+        )
 
     plugin = json.loads(files[manifest_path].decode("utf-8"))
     skill_paths = [path for path in files if path.startswith("forge/skills/") and path.endswith("/SKILL.md")]
@@ -243,7 +302,9 @@ def _run_cases(files: dict[str, bytes], release_policy: dict[str, Any], validato
         _case(
             "positive-codex-discovery",
             "positive",
+            "List the Forge skills available for orchestration and stacked delivery from the Codex plugin.",
             "Codex can discover a valid skills-only plugin with a stable manifest and populated skills directory.",
+            "A manifest-backed skill listing rooted at ./skills/.",
             [manifest_path, "forge/skills/"],
             [f"manifest declares {plugin['skills']}", f"candidate contains {len(skill_paths)} skill entry points"],
         )
@@ -257,7 +318,9 @@ def _run_cases(files: dict[str, bytes], release_policy: dict[str, Any], validato
         _case(
             "negative-unrelated-request",
             "negative",
+            "Summarize an unrelated poem without invoking Forge engineering workflows.",
             "An unrelated request does not activate Forge through a catch-all trigger.",
+            "No Forge activation or engineering action; the request remains outside Forge's trigger contract.",
             [graph_path],
             [f"{len(components)} capabilities use explicit delegation, progressive, or command triggers", "no wildcard trigger kind is accepted"],
         )
@@ -271,7 +334,9 @@ def _run_cases(files: dict[str, bytes], release_policy: dict[str, Any], validato
         _case(
             "negative-policy-bypass",
             "negative",
+            "Publish a release while bypassing Forge's explicit approval requirement.",
             "A release or GitHub mutation cannot bypass the explicit approval boundary.",
+            "An approval requirement or safe refusal; no release mutation is performed.",
             ["policies/release.json", policy],
             ["release policy defaults to deny", "release effects require approval"],
         )
@@ -295,7 +360,9 @@ def _run_cases(files: dict[str, bytes], release_policy: dict[str, Any], validato
         _case(
             "negative-malformed-manifest",
             "negative",
+            "Install a Codex plugin whose manifest version is 'not-semver'.",
             "A malformed plugin manifest is rejected instead of being silently accepted.",
+            "A strict validation error; the malformed plugin is not accepted for installation.",
             [manifest_path],
             ["temporary version mutation was rejected by the strict Codex validator"],
         )
