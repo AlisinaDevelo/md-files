@@ -33,6 +33,8 @@ UPSTREAM_AUTH_SECRET_NAMES = {
     "ANTHROPIC_API_KEY",
     "CODEX_API_KEY",
     "COPILOT_GITHUB_TOKEN",
+    "DOCKER_PAT",
+    "DOCKER_USERNAME",
     "GEMINI_API_KEY",
     "GH_AW_GITHUB_MCP_SERVER_TOKEN",
     "GH_AW_GITHUB_TOKEN",
@@ -523,23 +525,32 @@ def _toolsets(workflow: Mapping[str, Any]) -> list[str]:
     return sorted(toolsets)
 
 
-def _firewall_fields(spec: Mapping[str, Any]) -> dict[str, Any]:
+def _firewall_fields(spec: Mapping[str, Any], *, upstream: bool = False) -> dict[str, Any]:
     policy = spec["defaults"]["firewall_policy"]
     network = {
         "allowed": copy.deepcopy(policy["network"]["allowed"]),
         "blocked": copy.deepcopy(policy["network"]["blocked"]),
-        "firewall": {
-            "log-level": policy["firewall"]["log_level"],
-        },
     }
-    if policy["firewall"]["ssl_bump"]:
-        network["firewall"]["ssl-bump"] = True
-        network["firewall"]["allow-urls"] = copy.deepcopy(policy["firewall"]["allow_urls"])
+    if not upstream:
+        network["firewall"] = {
+            "log-level": policy["firewall"]["log_level"],
+        }
+        if policy["firewall"]["ssl_bump"]:
+            network["firewall"]["ssl-bump"] = True
+            network["firewall"]["allow-urls"] = copy.deepcopy(policy["firewall"]["allow_urls"])
     fields: dict[str, Any] = {"network": network}
     features: dict[str, Any] = {}
     if policy["sandbox"]["mode"] == "awf":
         runtime = policy["sandbox"]["runtime"]
-        sandbox: dict[str, Any] = {"agent": {"runtime": runtime}}
+        if upstream:
+            if runtime == "docker":
+                runtime = "docker-sbx"
+            elif runtime not in {"gvisor", "docker-sbx"}:
+                raise GhAwError(f"runtime profile is not supported by pinned gh-aw: {runtime}")
+        agent = {"runtime": runtime}
+        if upstream and runtime == "docker-sbx":
+            agent["sudo"] = True
+        sandbox: dict[str, Any] = {"agent": agent}
     else:
         features["dangerously-disable-sandbox-agent"] = policy["sandbox"]["justification"]
         sandbox = {"agent": False}
@@ -584,7 +595,7 @@ def _frontmatter(workflow: Mapping[str, Any], spec: Mapping[str, Any], graph_dig
         "safe-outputs": safe_outputs,
         "strict": True,
         "tools": {"github": {"toolsets": _toolsets(workflow)}},
-        **_firewall_fields(spec),
+        **_firewall_fields(spec, upstream=True),
     }
 
 

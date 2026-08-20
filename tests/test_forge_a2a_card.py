@@ -9,7 +9,6 @@ from pathlib import Path
 
 import pytest
 
-
 REPO = Path(__file__).resolve().parents[1]
 SCRIPT = REPO / "plugins/forge/skills/orchestration/scripts/forge-a2a-card.py"
 CORPUS = REPO / "tests/fixtures/a2a-card/v1.jsonl"

@@ -246,6 +246,27 @@ def test_check_rejects_unknown_native_secret_reference(tmp_path):
         module.check_artifacts(REPO, SPEC_PATH, tmp_path)
 
 
+def test_check_accepts_docker_sbx_upstream_secret_references(tmp_path):
+    module = load_module()
+    manifest = native_fixture(module, tmp_path)
+    path = tmp_path / "workflows/forge-ci-diagnosis.lock.yml"
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "    name: Read-only Forge agent contract\n",
+            "    name: Read-only Forge agent contract\n"
+            "    env: ${{ secrets.DOCKER_PAT }}\n"
+            "    DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}\n",
+            1,
+        ),
+        encoding="utf-8",
+    )
+    artifact = next(item for item in manifest["artifacts"] if item["path"] == "workflows/forge-ci-diagnosis.lock.yml")
+    artifact["sha256"] = module.file_digest(path)
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    module.check_artifacts(REPO, SPEC_PATH, tmp_path)
+
+
 def test_native_mode_requires_bound_upstream_evidence(tmp_path):
     module = load_module()
     manifest = native_fixture(module, tmp_path)
