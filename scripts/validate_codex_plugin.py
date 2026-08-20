@@ -357,7 +357,7 @@ def _safe_zip_member_name(raw: str) -> str:
         raise ValueError(f"archive contains an unsafe member: {raw!r}")
     if any(ord(char) < 32 or ord(char) == 127 for char in raw):
         raise ValueError(f"archive contains an unsafe member: {raw!r}")
-    name = raw[:-1] if raw.endswith("/") else raw
+    name = raw.removesuffix("/")
     if not name or "/" in name and any(part == "" for part in name.split("/")):
         raise ValueError(f"archive contains an unsafe member: {raw!r}")
     path = PurePosixPath(name)
