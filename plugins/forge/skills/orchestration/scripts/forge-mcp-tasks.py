@@ -12,6 +12,7 @@ import json
 import re
 import secrets
 import sys
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -31,7 +32,10 @@ class McpTaskError(ValueError):
 MCP_PROTOCOL_VERSION = "2026-07-28"
 MCP_TASKS_EXTENSION = "io.modelcontextprotocol/tasks"
 MCP_TASK_METHODS = ("tasks/get", "tasks/update", "tasks/cancel")
-TASK_HANDLE_PREFIX = "forge-task-v1."
+MCP_CONTRACT_VERSION = 2
+MCP_CONTRACT_REVISION = "forge-mcp-tasks-v2"
+MCP_CLIENT_CAPABILITIES_META = "io.modelcontextprotocol/clientCapabilities"
+TASK_HANDLE_PREFIX = "forge-task-v2."
 TASK_HANDLE_FIELDS = {"version", "run_id", "task_id", "request_identity_digest", "nonce"}
 
 
@@ -57,7 +61,7 @@ def _encode_task_handle(
 ) -> tuple[str, str | None]:
     nonce = None if request_identity_digest is not None else secrets.token_urlsafe(18)
     payload = {
-        "version": 1,
+        "version": 2,
         "run_id": runtime._identifier(run_id, "run_id"),
         "task_id": runtime._identifier(task_id, "task_id"),
         "request_identity_digest": request_identity_digest,
@@ -85,7 +89,7 @@ def _decode_task_handle(task_handle: str) -> tuple[dict[str, Any], bytes, str]:
         payload = json.loads(payload_bytes.decode("utf-8"))
     except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise McpTaskError("task handle is invalid") from exc
-    if not isinstance(payload, dict) or set(payload) != TASK_HANDLE_FIELDS or payload.get("version") != 1:
+    if not isinstance(payload, dict) or set(payload) != TASK_HANDLE_FIELDS or payload.get("version") != 2:
         raise McpTaskError("task handle is invalid")
     try:
         payload["run_id"] = runtime._identifier(payload["run_id"], "task handle.run_id")
@@ -135,10 +139,13 @@ class McpTasksAdapter:
     def profile() -> dict[str, Any]:
         return {
             "profile": "mcp-2026-07-28",
+            "schemaVersion": MCP_CONTRACT_VERSION,
+            "contractRevision": MCP_CONTRACT_REVISION,
             "protocolVersion": MCP_PROTOCOL_VERSION,
             "extension": MCP_TASKS_EXTENSION,
             "extensions": [MCP_TASKS_EXTENSION],
             "methods": list(MCP_TASK_METHODS),
+            "requestNegotiation": "per-request",
             "resultType": "task",
             "stateless": True,
             "sessionBound": False,
@@ -165,6 +172,25 @@ class McpTasksAdapter:
             raise McpTaskError("MCP extension capabilities are ambiguous")
         if MCP_TASKS_EXTENSION not in extension_names:
             raise McpTaskError(f"MCP Tasks extension is not negotiated: {MCP_TASKS_EXTENSION}")
+        return cls.profile()
+
+    @classmethod
+    def negotiate_request(cls, request_meta: Any) -> dict[str, Any]:
+        """Require the MCP Tasks extension in this request's `_meta` capabilities."""
+        if not isinstance(request_meta, Mapping):
+            raise McpTaskError("MCP request metadata must be a mapping")
+        client_capabilities = request_meta.get(MCP_CLIENT_CAPABILITIES_META)
+        if not isinstance(client_capabilities, Mapping):
+            raise McpTaskError("MCP client capabilities are missing from request metadata")
+        extensions = client_capabilities.get("extensions")
+        if not isinstance(extensions, Mapping):
+            raise McpTaskError("MCP client capabilities.extensions must be a mapping")
+        if MCP_TASKS_EXTENSION not in extensions:
+            raise McpTaskError(
+                f"MCP Tasks extension is not negotiated for this request: {MCP_TASKS_EXTENSION}"
+            )
+        if not isinstance(extensions[MCP_TASKS_EXTENSION], Mapping):
+            raise McpTaskError("MCP Tasks request extension capability must be an object")
         return cls.profile()
 
     @staticmethod
@@ -200,6 +226,7 @@ class McpTasksAdapter:
         return "mcp-" + runtime._digest(
             {
                 "protocol_version": MCP_PROTOCOL_VERSION,
+                "contract_revision": MCP_CONTRACT_REVISION,
                 "operation": operation,
                 "run_id": run_id,
                 "wait_id": wait_id,
@@ -288,6 +315,7 @@ class McpTasksAdapter:
         status = _task_status(state["status"], wait["status"], wait["expiration_outcome"])
         forge_meta = {
             "protocol_version": MCP_PROTOCOL_VERSION,
+            "contract_revision": MCP_CONTRACT_REVISION,
             "extension": MCP_TASKS_EXTENSION,
             "operation": operation,
             "source_of_truth": "forge-runtime-history",
@@ -341,9 +369,11 @@ class McpTasksAdapter:
         wait_id: str,
         authorization_context_digest: str,
         *,
+        request_meta: Any = None,
         now: str | None = None,
         request_identity_digest: str | None = None,
     ) -> dict[str, Any]:
+        self.negotiate_request(request_meta)
         state, wait, history = self._wait(run_id, wait_id)
         self._authorize_wait(wait, authorization_context_digest)
         request_identity_digest = _optional_digest(request_identity_digest, "request_identity_digest")
@@ -364,9 +394,11 @@ class McpTasksAdapter:
         task_handle: str,
         authorization_context_digest: str,
         *,
+        request_meta: Any = None,
         now: str | None = None,
         request_identity_digest: str | None = None,
     ) -> dict[str, Any]:
+        self.negotiate_request(request_meta)
         run_id, state, wait, handle_nonce = self._resolve_handle(
             task_handle, authorization_context_digest, request_identity_digest
         )
@@ -387,9 +419,11 @@ class McpTasksAdapter:
         wait_id: str,
         authorization_context_digest: str,
         *,
+        request_meta: Any = None,
         request_identity_digest: str | None = None,
         now: str | None = None,
     ) -> dict[str, Any]:
+        self.negotiate_request(request_meta)
         state, wait, _history = self._wait(run_id, wait_id)
         self._authorize_wait(wait, authorization_context_digest)
         status = _task_status(state["status"], wait["status"], wait["expiration_outcome"])
@@ -399,6 +433,7 @@ class McpTasksAdapter:
             run_id,
             wait_id,
             authorization_context_digest,
+            request_meta=request_meta,
             request_identity_digest=request_identity_digest,
             now=now,
         )
@@ -410,6 +445,7 @@ class McpTasksAdapter:
         input_digest: str,
         authorization_context_digest: str,
         *,
+        request_meta: Any = None,
         input_schema_digest: str,
         input_request_id: str,
         submission_id: str | None = None,
@@ -417,6 +453,7 @@ class McpTasksAdapter:
         handle_nonce: str | None = None,
         occurred_at: str | None = None,
     ) -> dict[str, Any]:
+        self.negotiate_request(request_meta)
         _state, wait, history = self._wait(run_id, wait_id)
         authorization_context_digest = self._authorize_wait(wait, authorization_context_digest)
         request_identity_digest = _optional_digest(request_identity_digest, "request_identity_digest")
@@ -472,12 +509,14 @@ class McpTasksAdapter:
         authorization_context_digest: str,
         input_digest: str,
         *,
+        request_meta: Any = None,
         input_schema_digest: str,
         input_request_id: str,
         submission_id: str | None = None,
         request_identity_digest: str | None = None,
         occurred_at: str | None = None,
     ) -> dict[str, Any]:
+        self.negotiate_request(request_meta)
         run_id, _state, wait, handle_nonce = self._resolve_handle(
             task_handle, authorization_context_digest, request_identity_digest
         )
@@ -486,6 +525,7 @@ class McpTasksAdapter:
             wait["wait_id"],
             input_digest,
             authorization_context_digest,
+            request_meta=request_meta,
             input_schema_digest=input_schema_digest,
             input_request_id=input_request_id,
             submission_id=submission_id,
@@ -500,11 +540,13 @@ class McpTasksAdapter:
         wait_id: str,
         authorization_context_digest: str,
         *,
+        request_meta: Any = None,
         occurred_at: str | None = None,
         request_identity_digest: str | None = None,
         handle_nonce: str | None = None,
         task_handle: str | None = None,
     ) -> dict[str, Any]:
+        self.negotiate_request(request_meta)
         state, wait, history = self._wait(run_id, wait_id)
         authorization_context_digest = self._authorize_wait(wait, authorization_context_digest)
         request_identity_digest = _optional_digest(request_identity_digest, "request_identity_digest")
@@ -530,9 +572,11 @@ class McpTasksAdapter:
         task_handle: str,
         authorization_context_digest: str,
         *,
+        request_meta: Any = None,
         request_identity_digest: str | None = None,
         occurred_at: str | None = None,
     ) -> dict[str, Any]:
+        self.negotiate_request(request_meta)
         run_id, _state, wait, handle_nonce = self._resolve_handle(
             task_handle, authorization_context_digest, request_identity_digest
         )
@@ -540,6 +584,7 @@ class McpTasksAdapter:
             run_id,
             wait["wait_id"],
             authorization_context_digest,
+            request_meta=request_meta,
             occurred_at=occurred_at,
             request_identity_digest=request_identity_digest,
             handle_nonce=handle_nonce,
@@ -586,13 +631,25 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Forge MCP Tasks adapter")
     parser.add_argument("--db", type=Path, default=Path(".forge/runtime.sqlite3"))
     sub = parser.add_subparsers(dest="command", required=True)
+
+    def add_request_meta(command: argparse.ArgumentParser) -> None:
+        command.add_argument(
+            "--request-meta-json",
+            required=True,
+            help="JSON object containing the request _meta client-capabilities extension",
+        )
+
     profile = sub.add_parser("profile")
     profile.add_argument("--protocol-version", required=True)
     profile.add_argument("--extension", action="append", required=True)
-    for name in ("get", "result", "notifications"):
+    for name in ("get", "result"):
         command = sub.add_parser(name)
         command.add_argument("--run-id", required=True)
         command.add_argument("--wait-id", required=True)
+        add_request_meta(command)
+    notifications = sub.add_parser("notifications")
+    notifications.add_argument("--run-id", required=True)
+    notifications.add_argument("--wait-id", required=True)
     sub.choices["get"].add_argument("--now")
     sub.choices["get"].add_argument("--authorization-context-digest", required=True)
     sub.choices["get"].add_argument("--request-identity-digest")
@@ -603,6 +660,7 @@ def _parser() -> argparse.ArgumentParser:
     get_by_id = sub.add_parser("get-by-id")
     get_by_id.add_argument("--task-id", required=True)
     get_by_id.add_argument("--authorization-context-digest", required=True)
+    add_request_meta(get_by_id)
     get_by_id.add_argument("--request-identity-digest")
     get_by_id.add_argument("--now")
     update = sub.add_parser("update")
@@ -612,6 +670,7 @@ def _parser() -> argparse.ArgumentParser:
     update.add_argument("--input-schema-digest", required=True)
     update.add_argument("--input-request-id", required=True)
     update.add_argument("--authorization-context-digest", required=True)
+    add_request_meta(update)
     update.add_argument("--request-identity-digest")
     update.add_argument("--submission-id")
     update.add_argument("--occurred-at")
@@ -621,6 +680,7 @@ def _parser() -> argparse.ArgumentParser:
     update_by_id.add_argument("--input-schema-digest", required=True)
     update_by_id.add_argument("--input-request-id", required=True)
     update_by_id.add_argument("--authorization-context-digest", required=True)
+    add_request_meta(update_by_id)
     update_by_id.add_argument("--request-identity-digest")
     update_by_id.add_argument("--submission-id")
     update_by_id.add_argument("--occurred-at")
@@ -628,14 +688,23 @@ def _parser() -> argparse.ArgumentParser:
     cancel.add_argument("--run-id", required=True)
     cancel.add_argument("--wait-id", required=True)
     cancel.add_argument("--authorization-context-digest", required=True)
+    add_request_meta(cancel)
     cancel.add_argument("--request-identity-digest")
     cancel.add_argument("--occurred-at")
     cancel_by_id = sub.add_parser("cancel-by-id")
     cancel_by_id.add_argument("--task-id", required=True)
     cancel_by_id.add_argument("--authorization-context-digest", required=True)
+    add_request_meta(cancel_by_id)
     cancel_by_id.add_argument("--request-identity-digest")
     cancel_by_id.add_argument("--occurred-at")
     return parser
+
+
+def _parse_request_meta(value: str) -> Any:
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise McpTaskError("request metadata must be valid JSON") from exc
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -645,6 +714,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     store = None
     try:
+        request_meta = _parse_request_meta(args.request_meta_json) if hasattr(args, "request_meta_json") else None
         store = runtime.RuntimeStore(args.db)
         adapter = McpTasksAdapter(store)
         if args.command == "get":
@@ -652,6 +722,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.run_id,
                 args.wait_id,
                 args.authorization_context_digest,
+                request_meta=request_meta,
                 now=args.now,
                 request_identity_digest=args.request_identity_digest,
             )
@@ -660,6 +731,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.run_id,
                 args.wait_id,
                 args.authorization_context_digest,
+                request_meta=request_meta,
                 now=args.now,
                 request_identity_digest=args.request_identity_digest,
             )
@@ -669,6 +741,7 @@ def main(argv: list[str] | None = None) -> int:
             result = adapter.get_task_by_id(
                 args.task_id,
                 args.authorization_context_digest,
+                request_meta=request_meta,
                 now=args.now,
                 request_identity_digest=args.request_identity_digest,
             )
@@ -678,6 +751,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.wait_id,
                 args.input_digest,
                 args.authorization_context_digest,
+                request_meta=request_meta,
                 input_schema_digest=args.input_schema_digest,
                 input_request_id=args.input_request_id,
                 submission_id=args.submission_id,
@@ -690,6 +764,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.authorization_context_digest,
                 args.input_digest,
                 input_schema_digest=args.input_schema_digest,
+                request_meta=request_meta,
                 input_request_id=args.input_request_id,
                 submission_id=args.submission_id,
                 request_identity_digest=args.request_identity_digest,
@@ -699,6 +774,7 @@ def main(argv: list[str] | None = None) -> int:
             result = adapter.cancel_by_id(
                 args.task_id,
                 args.authorization_context_digest,
+                request_meta=request_meta,
                 request_identity_digest=args.request_identity_digest,
                 occurred_at=args.occurred_at,
             )
@@ -707,6 +783,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.run_id,
                 args.wait_id,
                 args.authorization_context_digest,
+                request_meta=request_meta,
                 request_identity_digest=args.request_identity_digest,
                 occurred_at=args.occurred_at,
             )

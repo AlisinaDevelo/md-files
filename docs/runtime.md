@@ -142,11 +142,11 @@ cannot resurrect the run.
 
 ### MCP Tasks 2026-07-28 adapter
 
-The reference-only adapter in `scripts/forge-mcp-tasks.py` negotiates the final
-`2026-07-28` protocol revision and the `io.modelcontextprotocol/tasks` extension. It projects
-canonical Forge history through `tasks/get`, `tasks/update`, and `tasks/cancel`; it is not a
-hosted MCP server, does not implement `server/discover`, and does not persist raw
-`inputResponses`.
+The reference-only adapter in `scripts/forge-mcp-tasks.py` exposes the final
+`2026-07-28` protocol revision and the `io.modelcontextprotocol/tasks` extension as the
+versioned `forge-mcp-tasks-v2` contract. It projects canonical Forge history through
+`tasks/get`, `tasks/update`, and `tasks/cancel`; it is not a hosted MCP server, does not
+implement `server/discover`, and does not persist raw `inputResponses`.
 
 Inspect the negotiated profile before using the adapter:
 
@@ -157,14 +157,28 @@ python3 scripts/forge-mcp-tasks.py profile \
 ```
 
 Every read and mutation proves the wait's authorization-context digest. `tasks/get` returns an
-opaque, authorization-bound `forge-task-v1` handle. If a caller supplies a request-identity
-digest, the handle is stable across reconnects; without one, the adapter adds a random nonce so
-handles cannot be enumerated. `inputRequests` contains only a schema digest and a digest-only
-input-request key. Submit a digest reference, never raw input:
+opaque, authorization-bound `forge-task-v2` handle. Before any task view or task mutation is
+returned, the caller must pass the exact MCP request `_meta` capability object. The adapter
+requires `io.modelcontextprotocol/clientCapabilities.extensions.io.modelcontextprotocol/tasks`
+to be present as an object; missing or malformed request capabilities fail closed. If a caller
+supplies a request-identity digest, the handle is stable across reconnects; without one, the
+adapter adds a random nonce so handles cannot be enumerated. `inputRequests` contains only a
+schema digest and a digest-only input-request key. Submit a digest reference, never raw input:
+
+```json
+{
+  "io.modelcontextprotocol/clientCapabilities": {
+    "extensions": {
+      "io.modelcontextprotocol/tasks": {}
+    }
+  }
+}
+```
 
 ```bash
 python3 scripts/forge-mcp-tasks.py --db .forge/runtime.sqlite3 update-by-id \
   --task-id TASK_HANDLE \
+  --request-meta-json REQUEST_META_JSON \
   --authorization-context-digest sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
   --input-digest sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc \
   --input-schema-digest sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
@@ -175,7 +189,8 @@ The update and cancellation acknowledgements are empty results, as required by t
 extension. Poll the same handle with `get-by-id`; repeated updates are idempotent only when the
 persisted event payload matches exactly. A later input round receives a new request key, so a
 stale response fails closed. Notifications remain a best-effort legacy convenience and are not
-the canonical history.
+the canonical history. The adapter profile advertises `requestNegotiation: "per-request"` and
+the machine-readable contract is `data/runtime-mcp-tasks.schema.json` (v2).
 
 This boundary follows the [MCP 2026-07-28 release](https://blog.modelcontextprotocol.io/posts/2026-07-28/),
 the [Tasks extension](https://modelcontextprotocol.io/extensions/tasks/overview), and the
