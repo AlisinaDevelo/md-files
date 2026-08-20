@@ -17,6 +17,8 @@ SCHEMA_VERSION = 1
 STATUSES = ("pass", "warn", "fail", "unknown")
 PLUGIN = Path("plugins/forge")
 PROFILE_RELATIVE = Path("data/doctor-profiles.json")
+HOST_VERSION_TIMEOUT_SECONDS = 30
+PLUGIN_LIST_TIMEOUT_SECONDS = 45
 
 
 @dataclass
@@ -525,7 +527,9 @@ class Doctor:
             if not executable:
                 missing_optional.append(name)
                 continue
-            result = self.command([executable, *args], timeout=10)
+            result = self.command(
+                [executable, *args], timeout=HOST_VERSION_TIMEOUT_SECONDS
+            )
             version = (result.stdout or result.stderr).splitlines()[0] if result.returncode == 0 else "unavailable"
             found_optional.append(f"{name}: {version}")
         if missing_optional:
@@ -591,7 +595,7 @@ class Doctor:
             if not shutil.which(args[0]):
                 findings.append(f"{host}: CLI unavailable")
                 continue
-            result = self.command(args, timeout=20)
+            result = self.command(args, timeout=PLUGIN_LIST_TIMEOUT_SECONDS)
             if result.returncode:
                 problems.append(f"{host}: plugin list failed")
                 continue
