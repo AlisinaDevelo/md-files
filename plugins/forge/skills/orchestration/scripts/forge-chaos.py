@@ -462,7 +462,7 @@ def _handle_wait_signal(adapter: Any, action: Mapping[str, Any], index: int, con
     state = adapter.state(run_id)
     _assert(signal["event_type"] == "signal.received", "wait_signal_race", "signal was not recorded")
     _assert(submission["event_type"] == "wait.input_submitted", "wait_signal_race", "input was not recorded")
-    _assert(state["waits"][wait["payload"]["wait_id"]]["status"] == "submitted", "lost_cancellation", "wait did not resume after signal/input race")
+    _assert(state["waits"][wait["payload"]["wait_id"]]["status"] == "submitted", "wait_signal_race", "wait did not resume after signal/input race")
     return {"outcome": "resumed", "history_digest": digest(adapter.history(run_id)), "state_digest": digest(state)}
 
 
@@ -853,6 +853,15 @@ def compare_results(schedule: Mapping[str, Any], results: list[Mapping[str, Any]
     for candidate in results[1:]:
         candidate_actions = {item["action_id"]: item for item in candidate["canonical"]["actions"]}
         candidate_runs = {item["run_id"]: item for item in candidate["canonical"]["runs"]}
+        for action_id in sorted(set(candidate_actions) - set(baseline_actions)):
+            mismatches.append(
+                {
+                    "action_id": action_id,
+                    "reason_ref": digest(
+                        {"kind": "unexpected_action", "backend": candidate["backend"]["backend_id"]}
+                    ),
+                }
+            )
         for action_id, expected in baseline_actions.items():
             actual = candidate_actions.get(action_id)
             if actual is None:
@@ -877,6 +886,15 @@ def compare_results(schedule: Mapping[str, Any], results: list[Mapping[str, Any]
                 and expected["evidence_digest"] != actual["evidence_digest"]
             ):
                 mismatches.append({"action_id": action_id, "reason_ref": digest({"kind": "evidence", "expected": expected["evidence_digest"], "actual": actual["evidence_digest"]})})
+        for run_id in sorted(set(candidate_runs) - set(baseline_runs)):
+            mismatches.append(
+                {
+                    "run_id": run_id,
+                    "reason_ref": digest(
+                        {"kind": "unexpected_run", "backend": candidate["backend"]["backend_id"]}
+                    ),
+                }
+            )
         for run_id, expected in baseline_runs.items():
             actual = candidate_runs.get(run_id)
             if actual is None:

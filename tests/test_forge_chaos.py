@@ -58,6 +58,72 @@ def test_same_schedule_passes_all_backends_with_explicit_degradation():
     assert all(item["status"] != "failed" for result_item in result["results"] for item in result_item["actions"])
 
 
+def test_compare_results_rejects_unexpected_actions_and_runs():
+    module = load_module()
+    schedule = module.make_schedule(
+        7002,
+        [{"action_id": "start", "kind": "start_run", "run_id": "run"}],
+    )
+    baseline = module.run_schedule(schedule, "memory")
+
+    extra_action = json.loads(json.dumps(baseline))
+    extra_action["canonical"]["actions"].append(
+        {
+            "action_id": "unexpected-action",
+            "kind": "start_run",
+            "status": "passed",
+            "outcome": "accepted",
+            "failure_class": None,
+            "evidence_digest": None,
+        }
+    )
+    extra_run = json.loads(json.dumps(baseline))
+    extra_run["canonical"]["runs"].append(
+        {
+            "run_id": "unexpected-run",
+            "history_digest": module.digest([]),
+            "state_digest": module.digest({}),
+            "receipt_digest": module.digest([]),
+            "effect_digest": module.digest([]),
+            "status": "running",
+        }
+    )
+
+    comparison = module.compare_results(schedule, [baseline, extra_action, extra_run])
+
+    assert comparison["status"] == "failed"
+    assert {item.get("action_id") for item in comparison["mismatches"]} >= {"unexpected-action"}
+    assert {item.get("run_id") for item in comparison["mismatches"]} >= {"unexpected-run"}
+
+
+def test_wait_signal_invariant_uses_wait_signal_failure_class(monkeypatch):
+    module = load_module()
+
+    class Runtime:
+        def receive_signal(self, *args, **kwargs):
+            return {"event_type": "signal.received"}
+
+        def submit_input(self, *args, **kwargs):
+            return {"event_type": "wait.input_submitted"}
+
+    class Adapter:
+        runtime = Runtime()
+
+        def state(self, run_id):
+            return {"waits": {f"{run_id}:wait": {"status": "waiting"}}}
+
+    monkeypatch.setattr(
+        module,
+        "_prepare_wait",
+        lambda adapter, run_id, index: {"payload": {"wait_id": f"{run_id}:wait"}},
+    )
+
+    with pytest.raises(module.ChaosInvariantError) as error:
+        module._handle_wait_signal(Adapter(), {"run_id": "run"}, 0, set())
+
+    assert error.value.failure_class == "wait_signal_race"
+
+
 def test_shrinker_removes_irrelevant_actions_and_preserves_failure_class():
     module = load_module()
     schedule = module.make_schedule(
