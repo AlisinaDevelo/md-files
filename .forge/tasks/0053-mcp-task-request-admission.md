@@ -43,4 +43,4 @@ entry in every task request before returning a task view or acknowledging a task
 - Python compilation, Ruff, Markdown lint, skills-ref, strict Claude validation, and ShellCheck passed; 7 release artifacts were byte-identical across two builds.
 - Offline release, Codex archive, OpenAI skills-only ZIP, marketplace, and attestation validation passed.
 - Installed candidate replay passed with 2 identical attempts over 8 cases; `forge-3.7.0-openai.zip` SHA-256 `c3549d31fc9ecf34af6acbae77ccdc089ae8e64b4273ed6393cb76f09a85b381`, 119 installed files, 25 installed skills.
-- The implementation was previously reviewed in stacked PR [#102](https://github.com/AlisinaDevelo/md-files/pull/102), which merged into its feature parent. This branch is the focused mainline reconciliation; its new PR link is recorded when published.
+- The implementation was previously reviewed in stacked PR [#102](https://github.com/AlisinaDevelo/md-files/pull/102), which merged into its feature parent. Mainline reconciliation is [#111](https://github.com/AlisinaDevelo/md-files/pull/111).
