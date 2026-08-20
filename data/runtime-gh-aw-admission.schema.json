@@ -29,7 +29,7 @@
     "graph_digest": {"$ref": "#/$defs/ref"},
     "spec_digest": {"$ref": "#/$defs/ref"},
     "effect_set_digest": {"$ref": "#/$defs/ref"},
-    "firewall_policy_revision": {"const": "forge-gh-aw-firewall-v1"},
+    "firewall_policy_revision": {"const": "forge-gh-aw-firewall-v2"},
     "firewall_policy_digest": {"$ref": "#/$defs/ref"},
     "source_digest": {"$ref": "#/$defs/ref"},
     "lock_digest": {"$ref": "#/$defs/ref"},

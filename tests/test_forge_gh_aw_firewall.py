@@ -48,8 +48,90 @@ def test_policy_normalization_is_sorted_digestable_and_awf_native():
         "ssl_bump": False,
         "allow_urls": [],
     }
-    assert normalized["sandbox"] == {"agent": "awf", "mode": "awf"}
+    assert normalized["sandbox"] == {
+        "agent": "awf",
+        "mode": "awf",
+        "runtime": "docker",
+        "mcp_gateway": {"enabled": False, "port": 8080},
+    }
     assert module.policy_digest(normalized) == module.policy_digest(copy.deepcopy(normalized))
+
+
+def test_runtime_profile_and_mcp_gateway_render_as_native_admission_fields(tmp_path):
+    module = load_policy()
+    policy = base_policy()
+    policy["runtime_profile"] = "gvisor"
+    policy["runtime_justification"] = "run untrusted agent code under gVisor isolation"
+    policy["mcp_gateway"] = {"enabled": True, "port": 9090}
+    normalized = module.normalize_policy(policy)
+
+    assert normalized["sandbox"]["runtime"] == "gvisor"
+    assert normalized["sandbox"]["runtime_justification"].startswith("run untrusted")
+    assert normalized["sandbox"]["mcp_gateway"] == {"enabled": True, "port": 9090}
+
+    compiler = load_compiler()
+    assert compiler._firewall_fields({"defaults": {"firewall_policy": normalized}})["sandbox"]["agent"] == {
+        "runtime": "gvisor"
+    }
+    spec = json.loads(SPEC_PATH.read_text(encoding="utf-8"))
+    spec["defaults"]["firewall_policy"] = policy
+    output = tmp_path / "gh-aw"
+    spec_path = tmp_path / "spec.json"
+    spec_path.write_text(json.dumps(spec), encoding="utf-8")
+    compiler.compile_artifacts(REPO, spec_path, output)
+    source = (output / "workflows/forge-dispatcher.md").read_text(encoding="utf-8")
+    assert "runtime: gvisor" in source
+    assert "mcp-gateway: true" in source
+    assert "port: 9090" in source
+
+
+def test_default_runtime_is_explicit_in_native_admission_fields():
+    firewall = load_policy()
+    compiler = load_compiler()
+    normalized = firewall.normalize_policy(base_policy())
+
+    fields = compiler._firewall_fields({"defaults": {"firewall_policy": normalized}})
+    upstream_fields = compiler._firewall_fields({"defaults": {"firewall_policy": normalized}}, upstream=True)
+
+    assert fields["sandbox"]["agent"] == {"runtime": "docker"}
+    assert upstream_fields["sandbox"]["agent"] == {"runtime": "docker-sbx", "sudo": True}
+
+
+def test_upstream_runtime_rejects_profiles_outside_pinned_compiler():
+    firewall = load_policy()
+    compiler = load_compiler()
+    policy = base_policy()
+    policy["runtime_profile"] = "cloud-hypervisor"
+    policy["runtime_justification"] = "isolate untrusted workloads in a dedicated virtual machine"
+    normalized = firewall.normalize_policy(policy)
+
+    with pytest.raises(compiler.GhAwError, match="pinned gh-aw"):
+        compiler._firewall_fields({"defaults": {"firewall_policy": normalized}}, upstream=True)
+
+
+def test_runtime_and_gateway_policy_fail_closed():
+    module = load_policy()
+    policy = base_policy()
+    policy["runtime_profile"] = "unknown-runtime"
+    with pytest.raises(module.FirewallPolicyError, match="runtime_profile"):
+        module.normalize_policy(policy)
+
+    policy = base_policy()
+    policy["runtime_profile"] = "docker-sudo-iptables"
+    with pytest.raises(module.FirewallPolicyError, match="runtime.*justification"):
+        module.normalize_policy(policy)
+
+    policy["runtime_justification"] = "privileged host networking is required for services"
+    policy["sandbox_mode"] = "disabled"
+    policy["firewall_mode"] = "disabled"
+    policy["disable_justification"] = "offline fixture with no agent network access"
+    with pytest.raises(module.FirewallPolicyError, match="enabled AWF sandbox"):
+        module.normalize_policy(policy)
+
+    policy = base_policy()
+    policy["mcp_gateway"] = {"enabled": True, "port": 80}
+    with pytest.raises(module.FirewallPolicyError, match="1024"):
+        module.normalize_policy(policy)
 
 
 def test_policy_preserves_single_leading_wildcards():
@@ -111,7 +193,7 @@ def test_compiler_manifest_and_lock_carry_firewall_evidence(tmp_path):
     output = tmp_path / "gh-aw"
     manifest = compiler.compile_artifacts(REPO, SPEC_PATH, output)
 
-    assert manifest["firewall_policy_revision"] == "forge-gh-aw-firewall-v1"
+    assert manifest["firewall_policy_revision"] == "forge-gh-aw-firewall-v2"
     assert manifest["firewall_policy_digest"].startswith("sha256:")
     assert normalized["defaults"]["firewall_policy"]["network"]["allowed"] == [
         "defaults",

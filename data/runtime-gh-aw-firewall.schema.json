@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw-firewall/v1",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw-firewall/v2",
   "title": "Forge GitHub Agentic Workflows Firewall Admission Policy",
   "type": "object",
   "additionalProperties": false,
   "required": ["$schema", "schema_version", "contract_revision", "firewall", "network", "content_integrity", "sandbox"],
   "properties": {
-    "$schema": {"const": "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw-firewall/v1"},
-    "schema_version": {"const": 1},
-    "contract_revision": {"const": "forge-gh-aw-firewall-v1"},
+    "$schema": {"const": "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw-firewall/v2"},
+    "schema_version": {"const": 2},
+    "contract_revision": {"const": "forge-gh-aw-firewall-v2"},
     "firewall": {
       "type": "object",
       "additionalProperties": false,
@@ -41,12 +41,33 @@
     "sandbox": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["agent", "mode"],
+      "required": ["agent", "mode", "runtime", "mcp_gateway"],
       "properties": {
         "agent": {"type": ["string", "boolean"], "enum": ["awf", false]},
         "mode": {"enum": ["awf", "disabled"]},
+        "runtime": {"enum": ["docker", "docker-sudo-iptables", "gvisor", "docker-sbx", "cloud-hypervisor"]},
+        "runtime_justification": {"type": "string", "minLength": 20, "maxLength": 512},
+        "mcp_gateway": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "port"],
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "port": {"type": "integer", "minimum": 1024, "maximum": 65535}
+          }
+        },
         "justification": {"type": "string", "minLength": 20, "maxLength": 512}
-      }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"runtime": {"const": "docker"}}},
+          "then": {"not": {"required": ["runtime_justification"]}}
+        },
+        {
+          "if": {"properties": {"runtime": {"enum": ["docker-sudo-iptables", "gvisor", "docker-sbx", "cloud-hypervisor"]}}},
+          "then": {"required": ["runtime_justification"]}
+        }
+      ]
     }
   }
 }

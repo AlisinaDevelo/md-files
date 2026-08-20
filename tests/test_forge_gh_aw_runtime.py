@@ -403,7 +403,7 @@ def test_native_preflight_is_deterministic_and_does_not_advance_episode(tmp_path
     assert first["$schema"] == module.ADMISSION_SCHEMA
     assert first["mode"] == "upstream-gh-aw"
     assert first["admission_id"].startswith("sha256:")
-    assert first["firewall_policy_revision"] == "forge-gh-aw-firewall-v1"
+    assert first["firewall_policy_revision"] == "forge-gh-aw-firewall-v2"
     assert first["firewall_policy_digest"].startswith("sha256:")
     assert first["source_digest"] == first["artifacts"]["source"]["sha256"]
     assert first["lock_digest"] == first["artifacts"]["lock"]["sha256"]

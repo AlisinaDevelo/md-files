@@ -33,6 +33,8 @@ UPSTREAM_AUTH_SECRET_NAMES = {
     "ANTHROPIC_API_KEY",
     "CODEX_API_KEY",
     "COPILOT_GITHUB_TOKEN",
+    "DOCKER_PAT",
+    "DOCKER_USERNAME",
     "GEMINI_API_KEY",
     "GH_AW_GITHUB_MCP_SERVER_TOKEN",
     "GH_AW_GITHUB_TOKEN",
@@ -537,13 +539,28 @@ def _firewall_fields(spec: Mapping[str, Any], *, upstream: bool = False) -> dict
             network["firewall"]["ssl-bump"] = True
             network["firewall"]["allow-urls"] = copy.deepcopy(policy["firewall"]["allow_urls"])
     fields: dict[str, Any] = {"network": network}
+    features: dict[str, Any] = {}
     if policy["sandbox"]["mode"] == "awf":
-        fields["sandbox"] = {"agent": "awf"}
+        runtime = policy["sandbox"]["runtime"]
+        if upstream:
+            if runtime == "docker":
+                runtime = "docker-sbx"
+            elif runtime not in {"gvisor", "docker-sbx"}:
+                raise GhAwError(f"runtime profile is not supported by pinned gh-aw: {runtime}")
+        agent = {"runtime": runtime}
+        if upstream and runtime == "docker-sbx":
+            agent["sudo"] = True
+        sandbox: dict[str, Any] = {"agent": agent}
     else:
-        fields["features"] = {
-            "dangerously-disable-sandbox-agent": policy["sandbox"]["justification"],
-        }
-        fields["sandbox"] = {"agent": False}
+        features["dangerously-disable-sandbox-agent"] = policy["sandbox"]["justification"]
+        sandbox = {"agent": False}
+    gateway = policy["sandbox"]["mcp_gateway"]
+    if gateway["enabled"]:
+        features["mcp-gateway"] = True
+        sandbox["mcp"] = {"port": gateway["port"]}
+    if features:
+        fields["features"] = features
+    fields["sandbox"] = sandbox
     return fields
 
 
