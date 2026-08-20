@@ -66,6 +66,10 @@ ADMISSION_CERTIFICATE_KEYS = {
     "graph_digest",
     "spec_digest",
     "effect_set_digest",
+    "firewall_policy_revision",
+    "firewall_policy_digest",
+    "source_digest",
+    "lock_digest",
     "upstream",
     "artifacts",
     "native_job_roles",
@@ -251,7 +255,14 @@ def _runtime_definition(context: Mapping[str, Any], workflow_id: str) -> dict[st
         workflow_schema_digest=schema_digest,
         policy_digest=policy_digest,
         feature_flags_digest=compiler.digest(
-            {"mode": context["manifest"]["mode"], "staged": workflow["staged"]}
+            {
+                "mode": context["manifest"]["mode"],
+                "staged": workflow["staged"],
+                "firewall_policy_digest": _ref(
+                    context["manifest"]["firewall_policy_digest"],
+                    "firewall policy digest",
+                ),
+            }
         ),
         compatibility_revision=BRIDGE_REVISION,
         step_identity_revision="gh-aw-step-v1",
@@ -363,6 +374,13 @@ def _admission_material(
         "effect_set_digest": _ref(
             manifest_workflow["effect_set_digest"], "effect set digest"
         ),
+        "firewall_policy_revision": context["manifest"]["firewall_policy_revision"],
+        "firewall_policy_digest": _ref(
+            context["manifest"]["firewall_policy_digest"],
+            "firewall policy digest",
+        ),
+        "source_digest": _ref(artifacts["source"]["sha256"], "source digest"),
+        "lock_digest": _ref(artifacts["lock"]["sha256"], "lock digest"),
         "upstream": copy.deepcopy(context["manifest"]["upstream"]),
         "artifacts": copy.deepcopy(dict(artifacts)),
         "native_job_roles": sorted(context["compiler"].NATIVE_JOB_NEEDS),

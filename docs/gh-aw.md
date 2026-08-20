@@ -63,6 +63,10 @@ or publish generated files.
   Forge permits only the known upstream names, never values, and rejects unknown references.
 - Definition, graph, source, effect-set, episode, and idempotency digests make source-to-lock
   drift and replay identity inspectable without persisting prompts or provider responses.
+- The reviewed AWF policy binds allowed domains, blocked domains, HTTPS URL patterns, firewall
+  log level, sandbox mode, and a redact-or-reject content-integrity decision to a policy digest.
+  Disabled sandbox/firewall mode requires a literal operator justification and never carries URL
+  filtering configuration.
 - The optional Forge provider worker is no-effect by default. Live execution requires the
   current fenced lease, an exact one-use approval, an expected authenticated GitHub login, and
   an explicit `--execute` acknowledgement.
@@ -74,10 +78,13 @@ or publish generated files.
 
 - `data/gh-aw-workflows.json` is the reviewed workflow specification.
 - `data/runtime-gh-aw.schema.json` defines the adapter schema and pinned upstream contract.
+- `data/runtime-gh-aw-firewall.schema.json` defines the normalized AWF admission policy.
 - `data/runtime-gh-aw-episode.schema.json` defines the privacy-safe durable episode projection.
 - `data/runtime-gh-aw-admission.schema.json` defines the digest-only native execution admission certificate.
 - `data/runtime-host-admission.schema.json` defines the digest-only host-authenticated admission proof.
 - `data/runtime-gh-aw-provider-request.schema.json` defines the secret-free provider envelope.
+- `plugins/forge/skills/orchestration/scripts/forge_gh_aw_firewall.py` normalizes the offline AWF
+  admission policy and emits its deterministic digest.
 - `policies/gh-aw.json` constrains the external effect boundary.
 - `plugins/forge/skills/orchestration/scripts/forge-gh-aw.py` owns validation and rendering.
 - `plugins/forge/skills/orchestration/scripts/forge-gh-aw-runtime.py` binds staged effects to the
@@ -88,6 +95,37 @@ or publish generated files.
 The workflow examples cover a staged dispatcher, issue triage, CI diagnosis, documentation
 maintenance, and bounded feature planning. They are examples and contract fixtures; they do
 not authorize themselves.
+
+## AWF admission policy
+
+`defaults.firewall_policy` in `data/gh-aw-workflows.json` is the single reviewed egress policy.
+The normalizer accepts only known AWF ecosystem identifiers or safe domain patterns, rejects
+credentials and expressions, rejects insecure URL patterns, and requires `ssl_bump` for
+path-scoped HTTPS allowlists. Its content-integrity contract permits only `redact` or `reject`
+for untrusted content; there is no silent allow mode.
+
+The compiler emits the normalized policy into the source and offline lock frontmatter. Every
+manifest carries `firewall_policy_digest`. Native preflight certificates repeat the policy,
+source, and lock digests. Provider request files must repeat the target workflow's evidence:
+
+```json
+{
+  "contract_evidence": {
+    "revision": "forge-gh-aw-firewall-v1",
+    "firewall_policy_digest": "sha256:...",
+    "source_digest": "sha256:...",
+    "lock_digest": "sha256:..."
+  },
+  "contract_evidence_ref": "sha256:..."
+}
+```
+
+`contract_evidence_ref` is the digest of the evidence object. The provider compares all three
+digests with the compiled manifest before authorizing a lease, and includes the evidence
+reference in the host provider-operation binding and execution digest. This is offline evidence;
+Forge does not execute AWF, inspect HTTPS traffic, fetch content, or contact a provider here.
+The policy shape follows the upstream [AWF network permissions](https://github.github.com/gh-aw/reference/network/)
+and [sandbox configuration](https://github.github.com/gh-aw/reference/sandbox/) contracts.
 
 ## Durable runtime bridge
 
@@ -217,7 +255,8 @@ not claim exactly-once external execution.
 
 The `forge-gh-aw-provider-v1` worker consumes a request file separately from runtime history.
 `request_ref` is the SHA-256 digest of the canonical `repository`, `workflow_id`,
-`safe_output_type`, and `operations` object. The envelope repeats episode and workflow identity,
+`safe_output_type`, and `operations` object. `contract_evidence_ref` separately binds the
+normalized firewall policy and exact source/lock artifacts to the request. The envelope repeats episode and workflow identity,
 but raw titles, bodies, inputs, and changed-file lists remain outside the runtime database,
 approval store, receipts, and CLI plan output. Dispatch envelopes cover every compiled target
 exactly once; each leased dispatch effect selects only its declared worker.

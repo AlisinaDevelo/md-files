@@ -12,6 +12,8 @@
     "request_ref",
     "repository",
     "workflow_id",
+    "contract_evidence",
+    "contract_evidence_ref",
     "safe_output_type",
     "operations"
   ],
@@ -34,6 +36,8 @@
       "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
     },
     "workflow_id": {"$ref": "#/$defs/workflowId"},
+    "contract_evidence": {"$ref": "#/$defs/contractEvidence"},
+    "contract_evidence_ref": {"$ref": "#/$defs/sha256Ref"},
     "safe_output_type": {
       "enum": ["add-comment", "create-issue", "create-pull-request", "dispatch-workflow"]
     },
@@ -80,6 +84,17 @@
       "minLength": 1,
       "maxLength": 128,
       "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "contractEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision", "firewall_policy_digest", "source_digest", "lock_digest"],
+      "properties": {
+        "revision": {"const": "forge-gh-aw-firewall-v1"},
+        "firewall_policy_digest": {"$ref": "#/$defs/sha256Ref"},
+        "source_digest": {"$ref": "#/$defs/sha256Ref"},
+        "lock_digest": {"$ref": "#/$defs/sha256Ref"}
+      }
     },
     "branch": {
       "type": "string",

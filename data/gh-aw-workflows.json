@@ -26,6 +26,19 @@
       "**/Cargo.lock"
     ],
     "network_allowed": ["defaults", "github"],
+    "firewall_policy": {
+      "schema_version": 1,
+      "contract_revision": "forge-gh-aw-firewall-v1",
+      "firewall_mode": "awf",
+      "allowed_domains": ["defaults", "github"],
+      "blocked_domains": [],
+      "allowed_url_patterns": [],
+      "log_level": "info",
+      "ssl_bump": false,
+      "content_integrity_threshold": "strict",
+      "untrusted_content": "redact",
+      "sandbox_mode": "awf"
+    },
     "action_pins": {
       "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
       "actions/download-artifact": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
