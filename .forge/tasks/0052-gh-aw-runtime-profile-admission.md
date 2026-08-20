@@ -22,7 +22,7 @@ the experimental MCP Gateway without accepting credentials or claiming live exec
 - [x] Render runtime and gateway decisions into native gh-aw fields and bind them through the
       existing policy digest, native admission, and provider evidence.
 - [x] Add deterministic normalization, rendering, schema, and rejection tests.
-- [ ] Run the full local release gate and publish one ready stacked PR.
+- [x] Run the full local release gate and prepare one ready mainline PR.
 
 ## Research decisions
 
@@ -50,3 +50,18 @@ PR #106 as its implementation baseline.
 
 - [AWF network permissions](https://github.github.com/gh-aw/reference/network/)
 - [AWF sandbox configuration](https://github.github.com/gh-aw/reference/sandbox/)
+
+## Verification
+
+The complete local release gate passed at implementation head `3e8dec62006e5b0619680124c6e6e9048104a08c`:
+
+- `./scripts/local-release-check.sh` -> `LOCAL_RELEASE_GATE=passed`.
+- Full pytest: `418 passed`; static evaluations: `333/334`, one warning, zero failures.
+- Trajectory, authority, host-admission, A2A card/task, backend conformance, and deterministic
+  chaos checks passed; cross-host scenarios were `12 passed, 0 failed, 0 flaky, 12 skipped`.
+- Python compilation, Ruff, Markdown lint, 25 skills-ref validations, strict Claude validation,
+  and ShellCheck passed.
+- Two release builds were byte-identical across seven artifacts; offline release, Codex archive,
+  OpenAI ZIP, marketplace, and attestation checks passed (2 profiles, 6 negative cases).
+- Installed replay passed with two identical attempts over 8 cases, 119 files, and 25 skills.
+- The generated OpenAI candidate for this head was `b650481fb9b35ad76bc59230b1c4df34376f5647a3a374cb162545e3b6c7d9e7`.
