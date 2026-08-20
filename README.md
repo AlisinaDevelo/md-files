@@ -12,8 +12,8 @@ maximize the efficacy of LLMs in software engineering.**
 [![Agents](https://img.shields.io/badge/agents-20-8b5cf6.svg)](plugins/forge/agents/)
 [![Skills](https://img.shields.io/badge/skills-25-06b6d4.svg)](plugins/forge/skills/)
 [![Commands](https://img.shields.io/badge/commands-22-22c55e.svg)](plugins/forge/commands/)
-[![Tests](https://img.shields.io/badge/tests-256%20passing-success.svg)](tests/)
-[![Prompt evals](https://img.shields.io/badge/prompt%20evals-312%20checks-success.svg)](evals/)
+[![Tests](https://img.shields.io/badge/tests-382%20passing-success.svg)](tests/)
+[![Prompt evals](https://img.shields.io/badge/prompt%20evals-333%2F334%20checks-success.svg)](evals/)
 
 </div>
 
@@ -87,8 +87,8 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   auto-format edits, inject repo context at session start, and notify you on completion —
   deterministically, without relying on the model to remember.
 - **Proven, not asserted.** A real eval harness scores prompts and high-risk behavior
-  contracts (312 deterministic checks plus cross-host scenarios and an opt-in LLM judge);
-  278 tests cover safety hooks, task sync, receipts, durable runtime replay, external effect
+  contracts (333/334 deterministic checks, one warning, plus cross-host scenarios and an opt-in
+  LLM judge); 382 tests cover safety hooks, task sync, receipts, durable runtime replay, external effect
   delivery, doctor, policy,
   stacks, marketplace readiness, capability graph, rendering, semantic evidence, and conformance. Run
   them yourself — `just check`.
