@@ -52,3 +52,4 @@
 | 0048 | Add host-authenticated admission evidence for connected effects | done | security-engineer | standard | 0047 |
 | 0049 | Validate signed A2A Agent Cards as bounded delegation evidence | done | security-engineer | standard | 0048 |
 | 0050 | Add bounded A2A task handoff and lifecycle evidence | done | interoperability-engineer | standard | 0049, 0047, 0048 |
+| 0051 | Add A2A StreamResponse evidence and concurrent-stream checks | review | interoperability-engineer | sonnet | 0020, 0021 |

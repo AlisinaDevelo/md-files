@@ -150,6 +150,29 @@ in the reference-only envelope returned by `adapter_evidence`; its schema is
 parents, leases, and provider idempotency remain canonical. The contract promises at-least-once
 delivery with idempotent effects, never exactly-once provider execution.
 
+### A2A StreamResponse evidence
+
+For A2A v1 interoperability checks, use the digest-only StreamResponse adapter. It accepts a
+single closed message stream or a bounded set of task streams, records the exact v1 wrapper
+member (`task`, `message`, `statusUpdate`, or `artifactUpdate`), and requires ordered transport
+closure in a terminal or interrupted state. Concurrent streams compare logical response
+references while allowing delivery-local IDs and timestamps to differ. Push metadata is bound
+to the task, context, stream, event, and wrapper member. The adapter rejects legacy `kind` and
+`final` fields, raw content, credentials, and authority grants; it does not open a transport or
+send a webhook. Run the local corpus with:
+
+```bash
+python3 scripts/forge-a2a-stream.py evaluate \
+  --corpus tests/fixtures/a2a-stream/v2.jsonl --json
+```
+
+The report schema is `data/runtime-a2a-stream.schema.json`. Keep A2A identifiers and delivery
+references subordinate to Forge canonical history and admission policy. See the
+[A2A specification](https://github.com/a2aproject/A2A/blob/main/docs/specification.md) for the
+provider protocol contract and the
+[A2A 1.0 migration notes](https://github.com/a2aproject/A2A/blob/main/docs/whats-new-v1.md)
+for wrapper and closure changes.
+
 For deterministic race coverage, use the chaos schedule harness. It is seedable and offline: the
 schedule contains symbolic faults and references only, while the runner drives the real backend
 adapters and compares canonical history, outcomes, receipts, and privacy evidence. Keep the CI

@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/a2a-stream/v2",
+  "title": "Forge A2A StreamResponse Evidence",
+  "description": "Digest-only evidence for A2A 1.0 wrapper members, transport closure, concurrent subscriptions, and push StreamResponse handling.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "status",
+    "schema_version",
+    "contract_revision",
+    "report_id",
+    "card_ref",
+    "protocol_version",
+    "context",
+    "context_id",
+    "task_id",
+    "mode",
+    "stream_count",
+    "task_stream_count",
+    "message_stream_count",
+    "concurrent_stream_count",
+    "event_count",
+    "event_refs",
+    "response_refs",
+    "stream_refs",
+    "push_refs",
+    "terminal_states",
+    "interrupted_states",
+    "authentication_boundary",
+    "authority_grant",
+    "checks"
+  ],
+  "properties": {
+    "$schema": {"const": "https://github.com/AlisinaDevelo/md-files/schema/runtime/a2a-stream/v2"},
+    "status": {"const": "passed"},
+    "schema_version": {"const": 2},
+    "contract_revision": {"const": "forge-a2a-stream-v2"},
+    "report_id": {"$ref": "#/$defs/digest"},
+    "card_ref": {"$ref": "#/$defs/digest"},
+    "protocol_version": {"const": "1.0"},
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_ref",
+        "audience_ref",
+        "workspace_ref",
+        "resource_ref",
+        "authority_ref",
+        "admission_ref",
+        "lease_ref",
+        "runtime_episode_ref",
+        "provider_operation_ref",
+        "provenance_ref"
+      ],
+      "properties": {
+        "host_ref": {"$ref": "#/$defs/opaque"},
+        "audience_ref": {"$ref": "#/$defs/opaque"},
+        "workspace_ref": {"$ref": "#/$defs/opaque"},
+        "resource_ref": {"$ref": "#/$defs/opaque"},
+        "authority_ref": {"$ref": "#/$defs/digest"},
+        "admission_ref": {"$ref": "#/$defs/digest"},
+        "lease_ref": {"$ref": "#/$defs/digest"},
+        "runtime_episode_ref": {"$ref": "#/$defs/digest"},
+        "provider_operation_ref": {"$ref": "#/$defs/digest"},
+        "provenance_ref": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "context_id": {"$ref": "#/$defs/opaque"},
+    "task_id": {"anyOf": [{"$ref": "#/$defs/opaque"}, {"type": "null"}]},
+    "mode": {"enum": ["message", "task"]},
+    "stream_count": {"type": "integer", "minimum": 1, "maximum": 8},
+    "task_stream_count": {"type": "integer", "minimum": 0, "maximum": 8},
+    "message_stream_count": {"type": "integer", "minimum": 0, "maximum": 1},
+    "concurrent_stream_count": {"type": "integer", "minimum": 0, "maximum": 8},
+    "event_count": {"type": "integer", "minimum": 1, "maximum": 512},
+    "event_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 512,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/digest"}
+    },
+    "response_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 512,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/digest"}
+    },
+    "stream_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/digest"}
+    },
+    "push_refs": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/digest"}
+    },
+    "terminal_states": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {"enum": ["TASK_STATE_COMPLETED", "TASK_STATE_FAILED", "TASK_STATE_CANCELED", "TASK_STATE_REJECTED"]}
+    },
+    "interrupted_states": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {"enum": ["TASK_STATE_INPUT_REQUIRED", "TASK_STATE_AUTH_REQUIRED"]}
+    },
+    "authentication_boundary": {"const": "external-reference"},
+    "authority_grant": {"const": false},
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "first_response",
+        "message_only_closure",
+        "task_lifecycle",
+        "transport_closure",
+        "stream_ordering",
+        "concurrent_stream_equivalence",
+        "push_stream_response",
+        "interrupted_closure",
+        "credential_exclusion",
+        "authority_non_grant"
+      ],
+      "properties": {
+        "first_response": {"type": "boolean"},
+        "message_only_closure": {"type": "boolean"},
+        "task_lifecycle": {"type": "boolean"},
+        "transport_closure": {"type": "boolean"},
+        "stream_ordering": {"type": "boolean"},
+        "concurrent_stream_equivalence": {"type": "boolean"},
+        "push_stream_response": {"type": "boolean"},
+        "interrupted_closure": {"type": "boolean"},
+        "credential_exclusion": {"type": "boolean"},
+        "authority_non_grant": {"type": "boolean"}
+      }
+    }
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "opaque": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,31}:[A-Za-z0-9][A-Za-z0-9._:/@-]{0,191}$",
+      "not": {"pattern": "://"}
+    }
+  }
+}
