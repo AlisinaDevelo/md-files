@@ -79,6 +79,11 @@ workflows, and telemetry remain adapters or evidence surfaces.
    from digest-verified snapshots plus contiguous replay. The shared backend matrix remains
    `12/12`, and the distributed matrix adds `6/6` deterministic cases.
 
+8. [#65 Signed trace-context and provenance bridge](https://github.com/AlisinaDevelo/md-files/issues/65)
+   This slice adds stable W3C trace correlation, pinned OpenTelemetry mappings, digest-only
+   privacy defaults, an offline HMAC-signed in-toto/SLSA-shaped subject envelope, trust-policy
+   rotation and revocation, and tamper/reproducibility fixtures without mutating runtime state.
+
 ### Next runtime slices
 
 These issues are the minimum credible v4 runtime contract. They are intentionally separate:
@@ -86,7 +91,6 @@ recovery, evidence, interaction, and backend portability have different failure 
 must remain independently reviewable.
 
 - [#66 Deterministic chaos and schedule shrinking](https://github.com/AlisinaDevelo/md-files/issues/66)
-- [#65 Signed trace-context and provenance bridge](https://github.com/AlisinaDevelo/md-files/issues/65)
 
 ### Later integrations
 

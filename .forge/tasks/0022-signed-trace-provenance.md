@@ -1,7 +1,7 @@
 ---
 id: 0022
 title: Add signed trace-context and provenance bridge for runtime episodes
-status: planned
+status: done
 agent: observability-specialist
 model: sonnet
 depends_on: [0018, 0020]
@@ -15,15 +15,15 @@ prompts, credentials, tool content, and provider bodies out of default evidence.
 
 ## Acceptance criteria
 
-- [ ] Version-pinned W3C and OpenTelemetry mappings correlate runs, episodes, effects, waits,
+- [x] Version-pinned W3C and OpenTelemetry mappings correlate runs, episodes, effects, waits,
       provider references, and receipt digests deterministically.
-- [ ] Sensitive and verbose attributes are digest/reference-only by default, with explicit opt-in
+- [x] Sensitive and verbose attributes are digest/reference-only by default, with explicit opt-in
       filtering, truncation, and export controls.
-- [ ] Signed provenance verifies subject, source, policy, and evidence-input digests offline;
+- [x] Signed provenance verifies subject, source, policy, and evidence-input digests offline;
       tampering and malformed trust material fail closed.
-- [ ] Export loss or reordering cannot mutate canonical runtime state.
-- [ ] Tests cover privacy regressions, malformed context, key rotation, and reproducible output.
-- [ ] Retention, redaction, key custody, and incident response are documented.
+- [x] Export loss or reordering cannot mutate canonical runtime state.
+- [x] Tests cover privacy regressions, malformed context, key rotation, and reproducible output.
+- [x] Retention, redaction, key custody, and incident response are documented.
 
 ## Research decisions
 
@@ -34,5 +34,6 @@ prompts, credentials, tool content, and provider bodies out of default evidence.
 
 ## Verification
 
-Track implementation and release evidence on GitHub issue #65. Keep the event history and receipt
-verifier authoritative if an exporter is unavailable.
+Verification: `python3 -m pytest tests/test_forge_provenance.py -q`, the full repository test
+suite, `scripts/validate.sh`, and the release-surface determinism checks. Keep the event history
+and receipt verifier authoritative if an exporter is unavailable.

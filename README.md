@@ -12,7 +12,7 @@ maximize the efficacy of LLMs in software engineering.**
 [![Agents](https://img.shields.io/badge/agents-20-8b5cf6.svg)](plugins/forge/agents/)
 [![Skills](https://img.shields.io/badge/skills-25-06b6d4.svg)](plugins/forge/skills/)
 [![Commands](https://img.shields.io/badge/commands-22-22c55e.svg)](plugins/forge/commands/)
-[![Tests](https://img.shields.io/badge/tests-228%20passing-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-239%20passing-success.svg)](tests/)
 [![Prompt evals](https://img.shields.io/badge/prompt%20evals-312%20checks-success.svg)](evals/)
 
 </div>
@@ -59,7 +59,7 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
 - **Durable local execution.** SQLite/WAL run history, idempotent lifecycle events,
   tamper-evident replay, digest-pinned workflow code/schema and worker definitions, fail-closed
   compatibility gates for replay, migration, restore, and effect retry, checkpointed recovery,
-  offline lineage verification, and a strict
+  offline lineage and signed provenance verification, and a strict
   separation between execution state, task planning, and privacy-safe receipts give long-running
   orchestration a recoverable foundation. The portable backend facade also models etcd-first
   distributed revisions, watch delivery, verified snapshots, and compaction recovery without
@@ -88,7 +88,7 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   deterministically, without relying on the model to remember.
 - **Proven, not asserted.** A real eval harness scores prompts and high-risk behavior
   contracts (312 deterministic checks plus cross-host scenarios and an opt-in LLM judge);
-  230 tests cover safety hooks, task sync, receipts, durable runtime replay, external effect
+  239 tests cover safety hooks, task sync, receipts, durable runtime replay, external effect
   delivery, doctor, policy,
   stacks, marketplace readiness, capability graph, rendering, semantic evidence, and conformance. Run
   them yourself — `just check`.
@@ -350,8 +350,10 @@ scripts/               validation, installation, release, and marketplace checks
 - [Durable runtime](docs/runtime.md) — local SQLite/WAL history, deterministic replay,
   transactional outbox/inbox effects, generation-fenced heartbeats, lease evidence,
   checkpointed recovery, human-input waits, signals, MCP Tasks projection, reviewed
-  migrations, offline lineage verification, idempotency, hash-chain verification, and
-  explicit at-least-once boundaries
+  migrations, offline lineage verification, signed trace/provenance evidence, idempotency,
+  hash-chain verification, and explicit at-least-once boundaries
+- [Runtime provenance](docs/provenance.md) — signed trace correlation, privacy defaults,
+  offline trust verification, key rotation, retention, and incident response
 - [Architecture](docs/architecture.md) — how the repo is organized and why
 - [Design rationale](docs/design-rationale.md) — the decisions and trade-offs behind Forge
 - [CI & headless usage](docs/ci-and-headless.md) — run Forge in pipelines and automated review

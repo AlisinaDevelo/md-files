@@ -31,6 +31,10 @@ generations, incomplete receipt logs, and raw sensitive content. OTel names and 
 the pinned mapping recorded in the manifest; release artifact provenance remains the existing
 GitHub/SLSA/in-toto attestation path.
 
+For a signed trace projection bound to this manifest, use the offline bridge documented in
+[`docs/provenance.md`](provenance.md). It adds stable span correlation and an explicit trust
+policy without changing the receipt or runtime authority boundary.
+
 ## Local storage
 
 The bundled standard-library CLI writes to `.forge/receipts.jsonl` by default:

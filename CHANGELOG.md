@@ -35,6 +35,10 @@ All notable changes to this project are documented here. The format is based on
   revision, watch delivery, snapshot, and compaction capabilities; digest-verified cursors and
   snapshots; ordering and duplicate checks; fail-closed gap, stale-watch, privacy, and compaction
   recovery fixtures; and a six-case offline matrix alongside the shared backend conformance suite.
+- **Signed trace and provenance bridge** - added deterministic W3C trace correlation, pinned
+  OpenTelemetry workflow/agent/tool/effect/wait/GenAI mappings, digest-only privacy defaults,
+  an offline HMAC-signed in-toto/SLSA-shaped bundle, trust-policy rotation and revocation, and
+  tamper/reproducibility fixtures without mutating canonical runtime history.
 
 ## [3.6.0] — 2026-08-03
 
