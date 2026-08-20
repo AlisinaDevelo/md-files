@@ -196,6 +196,7 @@ def test_report_shape_and_root_wrapper_are_json_serializable(tmp_path):
     assert schema["properties"]["authority_grant"] == {"const": False}
     assert "response_refs" in schema["required"]
     assert "interrupted_states" in schema["required"]
+    assert schema["$defs"]["opaque"]["not"] == {"pattern": "://"}
 
     envelope = copy.deepcopy(load_cases()[0]["envelope"])
     input_path = tmp_path / "message.json"

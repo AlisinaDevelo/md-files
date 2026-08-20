@@ -360,8 +360,10 @@ def _parse_stream(value: Any, stream_index: int) -> dict[str, Any]:
     if len(event_ids) != len(set(event_ids)):
         raise A2AStreamError("duplicate-stream-event-id")
     previous_time: datetime | None = None
-    for event in events:
-        observed_at = _time(event["observed_at"], f"stream-{stream_index}.observed_at")
+    for event_index, event in enumerate(events, start=1):
+        observed_at = _time(
+            event["observed_at"], f"stream-{stream_index}.events[{event_index}].observed_at"
+        )
         if previous_time is not None and observed_at < previous_time:
             raise A2AStreamError("stream-time-regression")
         previous_time = observed_at

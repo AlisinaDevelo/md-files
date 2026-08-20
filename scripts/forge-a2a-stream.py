@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Run the Forge A2A StreamResponse evidence adapter from the repository root."""
 
-from pathlib import Path
 import runpy
+from pathlib import Path
 
 
 TARGET = (
