@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/routing-replay/v1",
+  "title": "Forge Runtime Routing Replay",
+  "description": "Offline baseline/candidate comparison and fail-closed adaptive activation decision.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract_revision",
+    "status",
+    "baseline",
+    "candidate",
+    "comparison",
+    "activation",
+    "replay_ref"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "contract_revision": {"const": "forge-routing-v1"},
+    "status": {"const": "passed"},
+    "baseline": {"$ref": "#/$defs/policy_result"},
+    "candidate": {"$ref": "#/$defs/policy_result"},
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["episode_count", "quality_delta", "cost_delta_usd", "latency_delta_ms", "failure_rate_delta", "approval_burden_delta"],
+      "properties": {
+        "episode_count": {"type": "integer", "minimum": 0},
+        "quality_delta": {"type": "number"},
+        "cost_delta_usd": {"type": "number"},
+        "latency_delta_ms": {"type": "number"},
+        "failure_rate_delta": {"type": "number"},
+        "approval_burden_delta": {"type": "number"}
+      }
+    },
+    "activation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reasons", "candidate_policy_revision"],
+      "properties": {
+        "status": {"enum": ["eligible", "blocked"]},
+        "reasons": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "candidate_policy_revision": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
+    "replay_ref": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "policy_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_revision", "mode", "metrics", "route_counts", "decisions"],
+      "properties": {
+        "policy_revision": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "mode": {"enum": ["static", "adaptive", "disabled"]},
+        "metrics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["total_episodes", "observed_samples", "missing_outcomes", "quality_mean", "quality_lower_bound", "cost_total_usd", "cost_mean_usd", "latency_mean_ms", "failure_rate", "approval_burden_mean"],
+          "properties": {
+            "total_episodes": {"type": "integer", "minimum": 0},
+            "observed_samples": {"type": "integer", "minimum": 0},
+            "missing_outcomes": {"type": "integer", "minimum": 0},
+            "quality_mean": {"type": "number", "minimum": 0, "maximum": 1},
+            "quality_lower_bound": {"type": "number", "minimum": 0, "maximum": 1},
+            "cost_total_usd": {"type": "number", "minimum": 0},
+            "cost_mean_usd": {"type": "number", "minimum": 0},
+            "latency_mean_ms": {"type": "number", "minimum": 0},
+            "failure_rate": {"type": "number", "minimum": 0, "maximum": 1},
+            "approval_burden_mean": {"type": "number", "minimum": 0}
+          }
+        },
+        "route_counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 1}},
+        "decisions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["episode_id", "status", "decision_ref"],
+            "properties": {
+              "episode_id": {"type": "string", "minLength": 1},
+              "route_id": {"type": "string", "minLength": 1},
+              "status": {"enum": ["observed", "missing_outcome", "unroutable"]},
+              "outcome_ref": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+              "decision_ref": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

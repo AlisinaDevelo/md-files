@@ -35,6 +35,40 @@ All notable changes to this project are documented here. The format is based on
   revision, watch delivery, snapshot, and compaction capabilities; digest-verified cursors and
   snapshots; ordering and duplicate checks; fail-closed gap, stale-watch, privacy, and compaction
   recovery fixtures; and a six-case offline matrix alongside the shared backend conformance suite.
+- **Deterministic model routing foundation** - added capability-, pin-, budget-, and replay-safety
+  filtering; digest-only route decisions with fallback and policy evidence; and offline baseline /
+  candidate replay gates for quality, cost, latency, failure, approval burden, confidence, and
+  sample sufficiency without raw content telemetry.
+- **Signed trace and provenance bridge** - added deterministic W3C trace correlation, pinned
+  OpenTelemetry workflow/agent/tool/effect/wait/GenAI mappings, digest-only privacy defaults,
+  an offline HMAC-signed in-toto/SLSA-shaped bundle, trust-policy rotation and revocation, and
+  tamper/reproducibility fixtures without mutating canonical runtime history.
+- **Deterministic chaos schedules** - added a seedable, digest-only runtime schedule DSL with
+  backend comparison, invariant classification, delta-debugging shrink, offline replay and
+  inspection, enforced backend-scoped failure predicates, and a bounded three-seed corpus covering
+  crashes, retries, fencing, cancellation, recovery, privacy, and distributed watch behavior.
+- **GitHub Agentic Workflows adapter** - added a pinned `forge-gh-aw-v1` projection with canonical
+  workflow specs, capability and graph digests, bounded dispatcher validation, protected-path
+  checks, staged policy effects, deterministic preview locks, and optional native compilation
+  through the official `gh aw` extension, plus a durable Forge episode bridge for staged dispatch,
+  worker lifecycle, receipts, cancellation, and replay-safe inspection.
+- **MCP Tasks 2026-07-28 adapter** - added a versioned, digest-only projection with opaque
+  authorization-bound handles, bounded input rounds, stale-response rejection, idempotent
+  update/cancel acknowledgements, expiry mapping, and a machine-readable contract schema. Live
+  MCP hosting and raw input persistence remain out of scope.
+- **DSSE/SLSA release attestation contract** - added canonical in-toto/DSSE verification for
+  release archives and SBOM subjects, explicit Ed25519 and local-HMAC trust profiles with
+  rotation/revocation, digest-only GitHub verification receipts, and deterministic tamper cases
+  in the local release gate. This does not claim a SLSA build level for local builds.
+- **Trajectory security evidence** - added a versioned digest-only agent trajectory corpus with
+  deterministic scope, delegation, approval, guardrail, replay, privacy, unsafe-action, and
+  terminal-outcome checks; bounded quality/cost/latency/failure/approval comparisons; and an
+  explicitly non-authoritative optional external judge boundary.
+- **Identity and delegated authority** - added a versioned offline authority bundle with explicit
+  host-proof and local-HMAC boundaries, scope/resource/tool/intent narrowing, audience and
+  workspace binding, expiry, revocation generations, nonce replay checks, legacy-principal
+  migration, policy-revision and worker-lease binding, and policy/approval/runtime/provider/
+  provenance digest bindings.
 
 ## [3.6.0] — 2026-08-03
 

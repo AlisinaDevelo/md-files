@@ -1,5 +1,7 @@
 # Competitive Audit
 
+Last reviewed: 2026-08-18.
+
 Reviewed repositories:
 
 - [alirezarezvani/claude-skills](https://github.com/alirezarezvani/claude-skills)
@@ -57,10 +59,27 @@ This does not make Forge a replacement for Graphite's hosted review UI or Aviato
 queue. It makes Forge a stronger cross-provider conductor: it knows which engine is in
 charge, applies a consistent safety policy, and verifies the real state afterward.
 
+## August 2026 Frontier Update
+
+The competitive bar now includes protocol versioning, agent authority, trajectory-level
+security evidence, portable release attestations, and native stacked delivery. MCP's
+2026-07-28 final specification is stateless at the core and puts long-running work in the
+Tasks extension. GitHub's native Stacked Pull Requests are in public preview, and GitHub
+issue dependencies are available as a first-party graph. These changes reward explicit
+adapter contracts and evidence more than another broad skill catalog.
+
+Forge's prioritized response is tracked in the [frontier roadmap](frontier-roadmap.md) and
+the release-scoped issues [#85](https://github.com/AlisinaDevelo/md-files/issues/85),
+[#86](https://github.com/AlisinaDevelo/md-files/issues/86),
+[#87](https://github.com/AlisinaDevelo/md-files/issues/87), and
+[#88](https://github.com/AlisinaDevelo/md-files/issues/88).
+
 ## Next Moves
 
-1. Add a real, idempotent GitHub issue sync backend for `.forge/tasks`.
-2. Import native GitHub Stack API state into `.forge/stack.json` without making two sources
-   of truth.
-3. Add focused plugin bundles if Codex/Claude marketplace UX benefits from smaller packs.
-4. Build a hosted docs/catalog page only after the generated local catalog is stable.
+1. Deliver the versioned MCP Tasks, portable attestation, and trajectory-evaluation contracts
+   as independently reviewable v3.7 slices.
+2. Import native GitHub Stack and issue-dependency state into Forge evidence without creating
+   a second source of truth.
+3. Deliver identity and delegated-authority binding before enabling more connected execution.
+4. Add focused plugin bundles only when install and activation evidence shows a real marketplace
+   benefit; keep the generated local catalog authoritative.

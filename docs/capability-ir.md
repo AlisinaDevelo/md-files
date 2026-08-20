@@ -126,9 +126,9 @@ Markdown as the reviewed authoring format.
 
 ## Current boundary
 
-The body-aware compiler, semantic evidence tools, and deterministic release-surface
-renderer are now in place. Release packaging renders host trees first, then archives the
-rendered Claude, Codex, and Agent Skills-compatible surfaces with resolved catalogs,
-bundles, workflows, manifests, schemas, and Zed install inputs. The remaining major
-follow-up is broader runtime consumption of this contract by the durable orchestration
-and GitHub Agentic Workflows backends.
+The body-aware compiler, semantic evidence tools, deterministic release-surface renderer, and
+durable gh-aw runtime/provider contracts are now in place. Release packaging renders host trees
+first, then archives the rendered Claude, Codex, and Agent Skills-compatible surfaces with
+resolved catalogs, bundles, workflows, manifests, schemas, and Zed install inputs. The remaining
+major follow-up is broader production consumption of this contract by deployed orchestration
+and GitHub Agentic Workflows control planes.

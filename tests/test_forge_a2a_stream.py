@@ -151,6 +151,18 @@ def test_opaque_context_references_cannot_be_urls():
         module.verify_streams(envelope)
 
 
+def test_time_regression_reports_the_event_location():
+    module = load_module()
+    envelope = copy.deepcopy(load_cases()[1]["envelope"])
+    envelope["streams"][0]["events"][1]["observed_at"] = "2026-08-18T09:59:59Z"
+
+    with pytest.raises(
+        module.A2AStreamError,
+        match=r"stream-time-regression:stream-1\.events\[2\]\.observed_at",
+    ):
+        module.verify_streams(envelope)
+
+
 @pytest.mark.parametrize(
     ("case_index", "error"),
     [

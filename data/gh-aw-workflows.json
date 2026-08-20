@@ -1,0 +1,99 @@
+{
+  "$schema": "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw/v1",
+  "schema_version": 1,
+  "adapter_revision": "forge-gh-aw-v1",
+  "upstream": {
+    "version": "v0.85.4",
+    "commit": "53843da968225dc56e1590978a7ed6407a8438ac",
+    "workflow_schema": "v4"
+  },
+  "defaults": {
+    "repository": "AlisinaDevelo/md-files",
+    "policy_profile": "gh-aw",
+    "max_fan_out": 4,
+    "max_effects": 4,
+    "protected_paths": [
+      "AGENTS.md",
+      "CLAUDE.md",
+      "SECURITY.md",
+      ".github/**",
+      ".forge/**",
+      "plugins/**",
+      "**/package-lock.json",
+      "**/pnpm-lock.yaml",
+      "**/yarn.lock",
+      "**/poetry.lock",
+      "**/Cargo.lock"
+    ],
+    "network_allowed": ["defaults", "github"],
+    "action_pins": {
+      "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+      "actions/download-artifact": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+      "actions/upload-artifact": "ea165f8d65b6e75b540449e92b4886f43607fa02",
+      "github/gh-aw/actions/setup": "53843da968225dc56e1590978a7ed6407a8438ac"
+    },
+    "engines": ["codex", "claude", "copilot", "gemini"]
+  },
+  "workflows": [
+    {
+      "id": "forge-dispatcher",
+      "name": "Forge bounded dispatcher",
+      "objective": "Select and dispatch only declared Forge workers for a bounded task request, preserving one episode identity and replay-safe effect keys.",
+      "source_workflow": "orchestrated-release",
+      "trigger": {"workflow_dispatch": {"inputs": {"activate": {"description": "Apply safe outputs after preview", "required": false, "default": "false", "type": "boolean"}}}},
+      "engine": "codex",
+      "capabilities": ["orchestration", "task-ledger", "/orchestrate"],
+      "safe_outputs": [{"type": "dispatch-workflow", "workflows": ["forge-issue-triage", "forge-ci-diagnosis", "forge-docs-maintenance", "forge-feature-planning"], "max": 4}],
+      "dispatches": ["forge-issue-triage", "forge-ci-diagnosis", "forge-docs-maintenance", "forge-feature-planning"],
+      "staged": true
+    },
+    {
+      "id": "forge-issue-triage",
+      "name": "Forge issue triage",
+      "objective": "Classify a newly opened issue, identify the smallest Forge route, and prepare one evidence-backed maintainer comment.",
+      "source_workflow": "ship-feature",
+      "trigger": {"issues": {"types": ["opened", "reopened"]}, "workflow_dispatch": {"inputs": {"activate": {"description": "Apply safe outputs after preview", "required": false, "default": "false", "type": "boolean"}}}},
+      "engine": "codex",
+      "capabilities": ["forge-catalog", "task-ledger", "orchestration"],
+      "safe_outputs": [{"type": "add-comment", "max": 1}],
+      "dispatches": [],
+      "staged": true
+    },
+    {
+      "id": "forge-ci-diagnosis",
+      "name": "Forge CI diagnosis",
+      "objective": "Inspect a failed check, distinguish infrastructure from product failure, and prepare one bounded issue with reproducible evidence.",
+      "source_workflow": "stabilize-flaky-system",
+      "trigger": {"workflow_run": {"workflows": ["CI"], "types": ["completed"], "branches": ["main"]}, "workflow_dispatch": {"inputs": {"activate": {"description": "Apply safe outputs after preview", "required": false, "default": "false", "type": "boolean"}}}},
+      "engine": "claude",
+      "capabilities": ["root-cause-debugging", "test-engineer", "observability"],
+      "safe_outputs": [{"type": "create-issue", "title-prefix": "[ci-diagnosis] ", "labels": ["ci", "triage"], "max": 1}],
+      "dispatches": [],
+      "staged": true
+    },
+    {
+      "id": "forge-docs-maintenance",
+      "name": "Forge documentation maintenance",
+      "objective": "Find one bounded documentation correction, preserve project terminology, and prepare a reviewable pull request limited to documentation files.",
+      "source_workflow": "production-hardening",
+      "trigger": {"schedule": [{"cron": "17 6 * * 1"}], "workflow_dispatch": {"inputs": {"activate": {"description": "Apply safe outputs after preview", "required": false, "default": "false", "type": "boolean"}}}},
+      "engine": "copilot",
+      "capabilities": ["technical-writing", "docs-writer", "forge-catalog"],
+      "safe_outputs": [{"type": "create-pull-request", "title-prefix": "[docs] ", "allowed-files": ["docs/**", "README.md"], "max": 1}],
+      "dispatches": [],
+      "staged": true
+    },
+    {
+      "id": "forge-feature-planning",
+      "name": "Forge bounded feature planning",
+      "objective": "Turn a feature request into a small dependency-aware plan with explicit acceptance evidence and no repository mutation.",
+      "source_workflow": "ship-feature",
+      "trigger": {"workflow_dispatch": {"inputs": {"activate": {"description": "Apply safe outputs after preview", "required": false, "default": "false", "type": "boolean"}}}},
+      "engine": "codex",
+      "capabilities": ["architect", "/orchestrate", "task-ledger"],
+      "safe_outputs": [{"type": "create-issue", "title-prefix": "[plan] ", "labels": ["planning"], "max": 1}],
+      "dispatches": [],
+      "staged": true
+    }
+  ]
+}

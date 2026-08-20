@@ -364,7 +364,9 @@ def _parse_stream(value: Any, stream_index: int) -> dict[str, Any]:
             event["observed_at"], f"stream-{stream_index}.events[{event_index}].observed_at"
         )
         if previous_time is not None and observed_at < previous_time:
-            raise A2AStreamError("stream-time-regression")
+            raise A2AStreamError(
+                f"stream-time-regression:stream-{stream_index}.events[{event_index}].observed_at"
+            )
         previous_time = observed_at
     first = events[0]
     if first["response_member"] == "message":

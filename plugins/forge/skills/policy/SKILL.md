@@ -31,6 +31,45 @@ argument, resource, principal, workspace, branch, file, or profile change invali
 the approval. Raw arguments, prompts, credentials, and tool payloads must never be
 placed in approval records or receipts.
 
+## Identity and delegated authority
+
+For agent or worker effects, bind the policy action to the versioned authority contract
+before the adapter runs:
+
+```bash
+python3 scripts/forge-authority.py evaluate \
+  --corpus tests/fixtures/authority/v1.jsonl --json
+```
+
+The authority verifier checks the actor identity, parent delegation, audience, workspace,
+capability, resource, tool, intent, expiry, revocation generation, nonce, policy revision,
+policy decision, approval, worker lease, runtime episode, provider operation, and provenance
+references. It accepts either
+a host-authenticated proof reference or a local HMAC trust boundary; private keys and host
+credentials remain outside Forge state. A legacy principal is supported only through the
+explicit `legacy-principal-v1` profile and remains scope-bound.
+
+Connected execution must call the verifier again immediately before its effect. Forge
+records digest-only bindings; authentication is the host's responsibility and is not
+inferred from model output or self-description.
+
+### Host-authenticated admission
+
+Connected hosts may provide a `forge-host-admission-v1` proof for one exact effect. The host
+must validate its OAuth, DPoP, mTLS, SPIFFE, or JWS cryptography before creating the proof.
+Forge validates the versioned shape and binds the host, audience, workspace, resource, request,
+authority, policy decision, approval, lease, runtime episode, provider operation, provenance,
+scopes, and policy revision. It also enforces a short lifetime, generation, nonce replay
+protection, sender-constrained versus bearer semantics, and exclusion of raw credentials.
+The proof is evidence of the host boundary, not a local cryptographic verification of the host.
+
+The deterministic corpus exercises the positive and replay-threat paths:
+
+```bash
+python3 scripts/forge-host-admission.py evaluate \
+  --corpus tests/fixtures/host-admission/v1.jsonl --json
+```
+
 ## Profiles
 
 Profiles live in `policies/` and are intentionally readable during review:

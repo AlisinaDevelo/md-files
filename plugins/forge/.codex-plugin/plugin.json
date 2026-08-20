@@ -31,7 +31,7 @@
     "shortDescription": "Engineering orchestration and stacked delivery for Codex",
     "longDescription": "Forge gives Codex a disciplined software-engineering toolkit: catalogs, orchestration, task ledgers, solve loops, GitHub-native stacked pull requests, code review, testing, debugging, security, architecture, documentation, and release workflows. Claude Code also gets specialist agents, slash commands, and hooks from the same repository.",
     "developerName": "Alisina Karimi",
-    "category": "Engineering",
+    "category": "Developer Tools",
     "capabilities": [
       "Interactive",
       "Read",
@@ -45,7 +45,7 @@
       "Create a Forge task ledger for this feature.",
       "Design and verify a stacked PR workflow for this feature."
     ],
-    "brandColor": "#F5B942",
+    "brandColor": "#A66B00",
     "composerIcon": "./assets/icon.png",
     "logo": "./assets/logo.png",
     "logoDark": "./assets/logo-dark.png",

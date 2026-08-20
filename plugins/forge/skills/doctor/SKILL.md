@@ -19,7 +19,15 @@ From the repository root:
 python3 scripts/forge-doctor.py
 python3 scripts/forge-doctor.py --json
 python3 scripts/forge-doctor.py --offline
+python3 scripts/forge-doctor.py --profile local-constellation --offline
 ```
+
+When run from a recognized constellation checkout, the default `auto` profile reports
+workspace and repository aliases plus a tracked-file language matrix. The explicit
+`local-constellation` profile is read-only, defensive-only, and has no external
+authority; it does not install tools, mutate policy, or authorize security actions.
+For a private consuming repository, keep its profile in that repository and out of the
+public Forge source tree.
 
 Use `--strict` in CI or a release gate when warnings and unknown checks should fail the
 caller. The default mode exits non-zero only for a `fail` check.

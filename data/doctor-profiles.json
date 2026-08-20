@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "local-constellation",
+      "name": "Local Constellation",
+      "workspace_aliases": [
+        "workspace",
+        "constellation",
+        "repositories",
+        "projects"
+      ],
+      "remote_owners": [],
+      "repository_aliases": {
+        "repository": ["repository", "repo", "service"]
+      },
+      "language_matrix": {
+        "markdown": [".md"],
+        "python": [".py"],
+        "go": [".go"],
+        "typescript": [".ts", ".tsx"],
+        "javascript": [".js", ".jsx"],
+        "json": [".json", ".jsonl"],
+        "yaml": [".yaml", ".yml"],
+        "shell": [".sh"],
+        "toml": [".toml"],
+        "sql": [".sql"],
+        "assets": [".png", ".jpg", ".jpeg", ".svg"],
+        "text": [".editorconfig", ".example", ".template", ".gitignore", ".gitattributes"]
+      },
+      "repository_languages": {
+        "repository": ["markdown", "json", "python", "yaml", "shell"]
+      },
+      "boundaries": {
+        "execution": "read-only",
+        "security": "defensive-only",
+        "external_authority": "none"
+      }
+    }
+  ]
+}

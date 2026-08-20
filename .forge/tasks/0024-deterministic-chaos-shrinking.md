@@ -1,7 +1,7 @@
 ---
 id: 0024
 title: Add deterministic chaos and schedule-shrinking harness
-status: planned
+status: done
 agent: test-engineer
 model: sonnet
 depends_on: [0019, 0020]
@@ -15,17 +15,17 @@ offline-replayable counterexamples.
 
 ## Acceptance criteria
 
-- [ ] A schedule DSL covers commit crashes, duplicate delivery, stale workers, lease expiry,
+- [x] A schedule DSL covers commit crashes, duplicate delivery, stale workers, lease expiry,
       wait/signal races, checkpoint corruption, cursor gaps, compaction, provider timeout, and
       ambiguous commit.
-- [ ] The same schedule runs against every backend and compares history, outcome, receipts, and
+- [x] The same schedule runs against every backend and compares history, outcome, receipts, and
       privacy evidence.
-- [ ] Invariants cover hash chains, event/effect atomicity, fencing, dedupe, cancellation,
+- [x] Invariants cover hash chains, event/effect atomicity, fencing, dedupe, cancellation,
       recovery, replay, and privacy.
-- [ ] Shrinking emits a digest-only minimal schedule that preserves failure classification.
-- [ ] CI runs a bounded deterministic seed corpus without wall-clock or network dependence.
-- [ ] CLI supports generate, run, shrink, replay, and inspect.
-- [ ] Regression schedules are promoted into conformance and release evidence.
+- [x] Shrinking emits a digest-only minimal schedule that preserves failure classification.
+- [x] CI runs a bounded deterministic seed corpus without wall-clock or network dependence.
+- [x] CLI supports generate, run, shrink, replay, and inspect.
+- [x] Regression schedules are promoted into conformance and release evidence.
 
 ## Research decisions
 
@@ -37,3 +37,16 @@ offline-replayable counterexamples.
 
 Track implementation and release evidence on GitHub issue #66. Preserve the seed and contract
 digest for every promoted regression.
+
+Implementation and release evidence:
+
+- `forge-chaos.py` defines the `forge-chaos-v1` schedule contract and digest-only result projection.
+- The generated schedule passes on all three facades: SQLite/WAL `11/13` plus two explicit
+  distributed degradations, memory-fault `11/13` plus the same degradations, and etcd-first `13/13`.
+- Cross-backend canonical history, state, effect, receipt, outcome, and privacy projections compare
+  with zero mismatches.
+- Backend-scoped `expected_failure` predicates fail closed when a classified regression disappears
+  or changes failure class.
+- Seeds `6601`, `6602`, and `6603` pass the bounded corpus with no network or wall-clock reads.
+- The focused chaos suite passes six tests; shrink tests preserve the `terminal_outcome_mismatch`
+  failure class while removing two irrelevant actions.

@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/release-attestation/v1",
+  "title": "Forge Release Attestation Contract",
+  "description": "DSSE, trust-root, and host-verification receipt shapes used for Forge release evidence.",
+  "oneOf": [
+    {"$ref": "#/$defs/envelope"},
+    {"$ref": "#/$defs/trust_root"},
+    {"$ref": "#/$defs/github_receipt"}
+  ],
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^(sha256:)?[0-9a-f]{64}$"
+    },
+    "envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["payloadType", "payload", "signatures", "forge"],
+      "properties": {
+        "payloadType": {
+          "enum": [
+            "application/vnd.in-toto+json",
+            "application/vnd.in-toto.provenance+json",
+            "application/vnd.in-toto.spdx+json"
+          ]
+        },
+        "payload": {"type": "string", "contentEncoding": "base64", "minLength": 1},
+        "signatures": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["keyid", "sig"],
+            "properties": {
+              "keyid": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"},
+              "sig": {"type": "string", "contentEncoding": "base64", "minLength": 1}
+            }
+          }
+        },
+        "forge": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_version", "profile", "canonical_json"],
+          "properties": {
+            "schema_version": {"const": 1},
+            "profile": {"enum": ["local-hmac-v1", "public-key-dsse-v1"]},
+            "canonical_json": {"const": true}
+          }
+        }
+      }
+    },
+    "trust_root": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "profile", "revision", "keys", "revoked_key_ids", "allowed_builder_ids"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "profile": {"const": "forge-trust-root-v1"},
+        "revision": {"type": "string", "minLength": 1},
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key_id", "algorithm", "status"],
+            "properties": {
+              "key_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$"},
+              "algorithm": {"enum": ["ed25519", "hmac-sha256"]},
+              "status": {"enum": ["active", "retired", "revoked"]},
+              "public_key_b64": {"type": "string", "contentEncoding": "base64"},
+              "key_b64": {"type": "string", "contentEncoding": "base64"}
+            }
+          }
+        },
+        "revoked_key_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "allowed_builder_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "github_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "profile",
+        "status",
+        "repository",
+        "workflow",
+        "source_ref",
+        "predicate_type",
+        "subjects",
+        "verification_digest",
+        "verifier"
+      ],
+      "properties": {
+        "schema_version": {"const": 1},
+        "profile": {"const": "github-artifact-v1"},
+        "status": {"const": "verified"},
+        "repository": {"const": "AlisinaDevelo/md-files"},
+        "workflow": {"type": "string", "minLength": 1},
+        "source_ref": {"type": "string", "minLength": 1},
+        "predicate_type": {"const": "https://slsa.dev/provenance/v1"},
+        "subjects": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "sha256"],
+            "properties": {"name": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/digest"}}
+          }
+        },
+        "verification_digest": {"$ref": "#/$defs/digest"},
+        "verifier": {"const": "gh attestation verify"}
+      }
+    }
+  }
+}

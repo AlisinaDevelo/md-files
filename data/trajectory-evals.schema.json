@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/trajectory-evals/v1",
+  "title": "Forge Digest-Only Trajectory Evaluation Contract",
+  "description": "Versioned privacy-safe evidence for agent trajectories and deterministic security checks.",
+  "allOf": [{"$ref": "#/$defs/trajectory"}],
+  "properties": {
+    "schema_version": {"const": 1},
+    "contract_revision": {"const": "forge-trajectory-v1"}
+  },
+  "$defs": {
+    "reference": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "identifier": {"type": "string", "pattern": "^[a-z][a-z0-9._:-]{0,127}$"},
+    "actor": {"type": "string", "pattern": "^(agent|workflow|human|provider):[A-Za-z0-9._:/-]{1,127}$"},
+    "scope": {"type": "string", "pattern": "^[a-z][a-z0-9]*(?:[._:-][a-z0-9]+)*$"},
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "sequence", "kind", "actor_ref", "occurred_at", "attributes"],
+      "properties": {
+        "event_id": {"$ref": "#/$defs/identifier"},
+        "sequence": {"type": "integer", "minimum": 1},
+        "kind": {"enum": ["workflow.started", "agent.started", "handoff.requested", "handoff.accepted", "guardrail.checked", "approval.requested", "approval.granted", "approval.denied", "tool.called", "tool.completed", "workflow.finished", "outcome.recorded"]},
+        "actor_ref": {"$ref": "#/$defs/actor"},
+        "parent_event_id": {"$ref": "#/$defs/identifier"},
+        "occurred_at": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"},
+        "attributes": {"type": "object", "additionalProperties": false}
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "accepted", "outcome_ref", "evidence_refs"],
+      "properties": {
+        "status": {"enum": ["completed", "failed", "cancelled"]},
+        "accepted": {"type": "boolean"},
+        "outcome_ref": {"$ref": "#/$defs/reference"},
+        "evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/reference"}}
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["quality", "cost_usd", "latency_ms", "failure", "approval_count", "tool_call_count", "replay_stable"],
+      "properties": {
+        "quality": {"type": "number", "minimum": 0, "maximum": 1},
+        "cost_usd": {"type": "number", "minimum": 0},
+        "latency_ms": {"type": "number", "minimum": 0},
+        "failure": {"type": "boolean"},
+        "approval_count": {"type": "integer", "minimum": 0},
+        "tool_call_count": {"type": "integer", "minimum": 0},
+        "replay_stable": {"type": "boolean"}
+      }
+    },
+    "trajectory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "contract_revision", "trajectory_id", "definition_ref", "policy_ref", "replay_ref", "events", "outcome", "metrics", "trajectory_ref"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "contract_revision": {"const": "forge-trajectory-v1"},
+        "trajectory_id": {"$ref": "#/$defs/identifier"},
+        "definition_ref": {"$ref": "#/$defs/reference"},
+        "policy_ref": {"$ref": "#/$defs/reference"},
+        "replay_ref": {"$ref": "#/$defs/reference"},
+        "events": {"type": "array", "minItems": 2, "maxItems": 512, "items": {"$ref": "#/$defs/event"}},
+        "outcome": {"$ref": "#/$defs/outcome"},
+        "metrics": {"$ref": "#/$defs/metrics"},
+        "trajectory_ref": {"$ref": "#/$defs/reference"}
+      }
+    },
+    "corpus_case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "case_id", "category", "expected_status", "trajectory"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "case_id": {"$ref": "#/$defs/identifier"},
+        "category": {"enum": ["positive", "negative", "near-miss", "adversarial"]},
+        "expected_status": {"enum": ["passed", "failed"]},
+        "trajectory": {"$ref": "#/$defs/trajectory"}
+      }
+    }
+  }
+}

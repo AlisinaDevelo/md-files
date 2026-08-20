@@ -59,6 +59,8 @@ def test_manifest_contains_three_host_archives_and_runtime_dependencies(tmp_path
     assert manifest["version_parity"]["marketplace_plugin"] == VERSION
     assert manifest["tag"] == f"v{VERSION}"
     assert manifest["verification"]["manifest_file"] == f"forge-{VERSION}-manifest.json"
+    assert manifest["attestation"]["predicate_type"] == "https://slsa.dev/provenance/v1"
+    assert manifest["attestation"]["profiles"] == ["local-hmac-v1", "public-key-dsse-v1", "github-artifact-v1"]
     assert all(any(item["path"].endswith("LICENSE") for item in artifact["contents"]) for artifact in manifest["artifacts"] if artifact["name"].endswith(".tar.gz"))
 
 

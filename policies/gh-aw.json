@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "profile": "gh-aw",
+  "description": "Forge policy for GitHub Agentic Workflows safe outputs and bounded dispatch.",
+  "default_decision": "deny",
+  "protected_paths": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    "SECURITY.md",
+    ".github/**",
+    ".forge/**",
+    "plugins/**",
+    "**/package-lock.json",
+    "**/pnpm-lock.yaml",
+    "**/yarn.lock",
+    "**/poetry.lock",
+    "**/Cargo.lock"
+  ],
+  "constraints": {
+    "allowed_domains": ["github.com"],
+    "max_cost_usd": 25,
+    "max_fan_out": 4
+  },
+  "rules": [
+    {
+      "id": "gh-aw-safe-output",
+      "decision": "require_approval",
+      "match": {
+        "tool": "gh-aw.safe-output",
+        "intent": {
+          "external": true,
+          "effect": ["github_comment_write", "github_issue_write", "github_pull_request_write", "github_workflow_dispatch"]
+        }
+      },
+      "constraints": {
+        "allowed_domains": ["github.com"],
+        "max_fan_out": 4
+      },
+      "reason": "Agent output is a request only; every GitHub mutation requires a separate scoped safe-output approval."
+    }
+  ]
+}

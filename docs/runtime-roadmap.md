@@ -1,6 +1,10 @@
 # Runtime Roadmap
 
-Last reviewed: 2026-08-05.
+Last reviewed: 2026-08-18.
+
+The cross-project frontier priorities are tracked in the [frontier roadmap](frontier-roadmap.md).
+This document remains the durable runtime plan; protocol, identity, evaluation, and release
+attestation work must integrate through explicit adapters rather than replace runtime history.
 
 This roadmap is the execution plan for Forge's durable runtime. The event history is the
 source of truth for a run; receipts, task ledgers, provider sessions, MCP Tasks, GitHub
@@ -31,7 +35,7 @@ workflows, and telemetry remain adapters or evidence surfaces.
 | Activities and effects | Temporal and AWS assume retries or duplicate delivery and require idempotent activities, stable keys, and an atomic outbox boundary. | Keep at-least-once delivery explicit; make adapter idempotency and provider request references mandatory. |
 | Worker ownership | Chubby uses a lock generation sequencer that protected services validate, closing the stale-client write window. | A lease claim must issue a monotonic generation or fencing token; owner and generation are required for heartbeat, completion, failure, and protected effect submission. |
 | Recovery | LangGraph, Microsoft Agent Framework, and Dapr persist checkpoints and durable retry state, including successful work that can be resumed after a sibling failure. | Add hashed checkpoints, suffix replay, crash recovery, and reviewed fail-closed migrations before calling the runtime durable at scale. |
-| Human interaction | MCP Tasks defines `input_required`, TTL, polling hints, cancellation, authorization binding, limits, and audit expectations; provider task state is not enough. | Model waits and signals in Forge history, then expose MCP Tasks as an adapter. |
+| Human interaction | The final MCP 2026-07-28 specification makes the core stateless and places long-running work in the Tasks extension, including `input_required`, TTL, polling hints, cancellation, and authorization expectations. | Keep waits and signals in Forge history; the versioned, digest-only adapter in [#85](https://github.com/AlisinaDevelo/md-files/issues/85) is now locally verified. |
 | Evidence | OpenTelemetry provides versioned agent/workflow/tool vocabulary; W3C Trace Context carries portable correlation; SLSA and in-toto bind evidence to immutable subjects and resolved inputs. | Add a privacy-safe, digest-bound episode lineage and receipt verifier with pinned mappings, without replacing canonical history or GitHub release attestations. |
 | GitHub delivery | GitHub Merge Queue validates checks on the latest target plus queued changes and requires `merge_group` reporting. | Preserve SHA-bound stack plans, queue-event correlation, explicit approval, and indeterminate stop states. |
 | Definition rollout | AWS durable execution pins qualified versions and requires deterministic replay; Temporal uses worker-version compatibility and reachability signals. | Pin every run to an immutable definition/build digest; aliases affect new runs only, and incompatible replay fails closed or crosses an explicit continue-as-new boundary. |
@@ -79,21 +83,63 @@ workflows, and telemetry remain adapters or evidence surfaces.
    from digest-verified snapshots plus contiguous replay. The shared backend matrix remains
    `12/12`, and the distributed matrix adds `6/6` deterministic cases.
 
+8. [#65 Signed trace-context and provenance bridge](https://github.com/AlisinaDevelo/md-files/issues/65)
+   This slice adds stable W3C trace correlation, pinned OpenTelemetry mappings, digest-only
+   privacy defaults, an offline HMAC-signed in-toto/SLSA-shaped subject envelope, trust-policy
+   rotation and revocation, and tamper/reproducibility fixtures without mutating runtime state.
+
+9. [#66 Deterministic chaos and schedule shrinking](https://github.com/AlisinaDevelo/md-files/issues/66)
+   This slice adds a seedable, digest-only schedule DSL and offline runner for the SQLite/WAL,
+   memory-fault, and etcd-first facades. It exercises commit crashes, ambiguous commits, duplicate
+   delivery, fencing, waits/signals, cancellation, checkpoint corruption, provider timeouts,
+   privacy boundaries, replay, cursor gaps, and compaction recovery. Delta-debugging preserves a
+   classified failure while removing irrelevant actions, and the bounded corpus promotes seeds
+   `6601`, `6602`, and `6603` into CI evidence.
+
 ### Next runtime slices
 
 These issues are the minimum credible v4 runtime contract. They are intentionally separate:
 recovery, evidence, interaction, and backend portability have different failure modes and
 must remain independently reviewable.
 
-- [#66 Deterministic chaos and schedule shrinking](https://github.com/AlisinaDevelo/md-files/issues/66)
-- [#65 Signed trace-context and provenance bridge](https://github.com/AlisinaDevelo/md-files/issues/65)
+The currently tracked runtime slices are complete; the later integrations below remain
+intentionally separate from the local-first runtime contract.
+
+### Frontier handoff
+
+The next release lane is deliberately outside the completed runtime baseline:
+
+- [#85 MCP Tasks adapter](https://github.com/AlisinaDevelo/md-files/issues/85) is locally complete
+  at the reference-only contract boundary. A live protocol claim still requires separate hosted
+  transport and discovery evidence.
+- [#86 release attestations](https://github.com/AlisinaDevelo/md-files/issues/86) now verifies
+  portable DSSE/SLSA v1.2 statements with explicit public-key, local-HMAC, and GitHub evidence
+  profiles without overstating local HMAC evidence as public-key provenance.
+- [#87 trajectory evaluations](https://github.com/AlisinaDevelo/md-files/issues/87) now has a
+  verified digest-only corpus contract; deterministic safety and replay checks stay ahead of
+  optional model-based judging.
+- [#88 delegated authority](https://github.com/AlisinaDevelo/md-files/issues/88) now has a locally
+  verified `forge-authority-v1` contract binding identity, policy revision, approval, worker
+  lease, action, runtime, provider, and provenance. Connected execution remains opt-in until a
+  host adapter supplies and verifies its authentication/proof-of-possession boundary.
+
+No hosted MCP server or external control plane is required for the current runtime release.
 
 ### Later integrations
 
-- [#21 GitHub Agentic Workflows](https://github.com/AlisinaDevelo/md-files/issues/21) comes
-  after the runtime can correlate dispatch, workers, safe outputs, and replay.
-- [#22 Adaptive model routing](https://github.com/AlisinaDevelo/md-files/issues/22) comes
-  after outcome evidence, budgets, policy gates, and offline replay are trustworthy.
+- [#21 GitHub Agentic Workflows](https://github.com/AlisinaDevelo/md-files/issues/21) now has a
+  pinned `forge-gh-aw-v1` adapter with deterministic sources, preview locks, policy-gated
+  effects, protected-path validation, a hosted gate for pinned native upstream compilation and
+  byte-identical reruns, structural permission and supply-chain admission, a pinned native job
+  graph, a digest-only native execution admission certificate, a fenced provider worker, and
+  operator-confirmed dispatch reconciliation, certificate-bound worker handoff, and
+  generation-fenced provider lease supervision. Live execution remains opt-in; the remaining
+  work is production deployment and an external durable control plane rather than treating the
+  workflow lock as canonical history.
+- [#22 Adaptive model routing](https://github.com/AlisinaDevelo/md-files/issues/22) now has a
+  deterministic capability filter, digest-only decision contract, pins/budgets/fallbacks, and
+  offline replay gate. Live adaptive activation and provider integrations remain gated follow-up
+  work after this foundation is reviewed.
 - [#8 Connected Control Plane](https://github.com/AlisinaDevelo/md-files/issues/8) and
   [#9 Evidence and Trust](https://github.com/AlisinaDevelo/md-files/issues/9) remain the
   compatibility and release tracks for GitHub synchronization, policy, attestations, and

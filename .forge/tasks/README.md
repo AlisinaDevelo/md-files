@@ -23,7 +23,33 @@
 | 0019 | Add durable human-input waits, signals, and cancellation | done | orchestration-specialist | sonnet | 0018 |
 | 0020 | Define portable backend adapter and conformance contract | done | architect | opus | 0019 |
 | 0021 | Add workflow definition versioning and replay compatibility gates | done | architect | opus | 0017, 0020 |
-| 0022 | Add signed trace-context and provenance bridge for runtime episodes | planned | observability-specialist | sonnet | 0018, 0020 |
+| 0022 | Add signed trace-context and provenance bridge for runtime episodes | done | observability-specialist | sonnet | 0018, 0020 |
 | 0023 | Add distributed revision and watch recovery adapter | done | concurrency-engineer | sonnet | 0020 |
-| 0024 | Add deterministic chaos and schedule-shrinking harness | planned | test-engineer | sonnet | 0019, 0020 |
-| 0025 | Add A2A StreamResponse evidence and concurrent-stream checks | review | interoperability-engineer | sonnet | 0020, 0021 |
+| 0024 | Add deterministic chaos and schedule-shrinking harness | done | test-engineer | sonnet | 0019, 0020 |
+| 0025 | Add deterministic adaptive-routing policy and offline replay foundation | done | data-engineer | sonnet | 0018, 0019, 0020, 0021 |
+| 0026 | Add bounded GitHub Agentic Workflows compiler adapter | done | devops-engineer | sonnet | 0018, 0020, 0024, 0025 |
+| 0027 | Bind gh-aw episodes to the durable Forge runtime | done | orchestration-specialist | sonnet | 0018, 0019, 0021, 0026 |
+| 0028 | Add a fenced gh-aw GitHub provider worker | done | security-engineer | sonnet | 0027 |
+| 0029 | Add reviewed adaptive-routing rollout certificates | done | architect | opus | 0025 |
+| 0030 | Add operator-confirmed gh-aw dispatch reconciliation | done | reliability-engineer | sonnet | 0028 |
+| 0031 | Gate pinned native gh-aw compilation | done | devops-engineer | sonnet | 0026, 0030 |
+| 0032 | Enforce reproducible native gh-aw output | done | devops-engineer | sonnet | 0031 |
+| 0033 | Verify native gh-aw supply-chain and job-graph admission | done | security-engineer | sonnet | 0032 |
+| 0034 | Add native gh-aw execution admission preflight | done | reliability-engineer | sonnet | 0033 |
+| 0035 | Consume native gh-aw admission in the fenced provider | done | security-engineer | sonnet | 0034 |
+| 0036 | Add native gh-aw worker handoff contract | done | reliability-engineer | sonnet | 0035 |
+| 0037 | Add native gh-aw provider lease supervision | done | reliability-engineer | sonnet | 0036 |
+| 0038 | Audit OpenAI universal Agent Plugin compatibility | done | architect | opus | 0037 |
+| 0039 | Add strict Codex marketplace contract validation | done | test-engineer | sonnet | 0038 |
+| 0040 | Prepare OpenAI skills-only submission evidence | done | docs-writer | sonnet | 0038, 0039 |
+| 0041 | Evaluate optional OpenAI MCP and UI extension | done | architect | opus | 0038 |
+| 0042 | Add generic constellation integration bundle | done | architect | opus | 0038, 0041 |
+| 0043 | Add installed-candidate replay evidence | done | test-engineer | sonnet | 0040 |
+| 0044 | Add MCP 2026-07-28 Tasks adapter contract | done | architect | opus | 0019, 0038 |
+| 0045 | Add DSSE and SLSA v1.2 artifact attestation verification | done | security-auditor | opus | 0022, 0033 |
+| 0046 | Add trajectory and agentic-security regression harness | done | test-engineer | sonnet | 0024, 0025 |
+| 0047 | Add agent identity and delegated authority contract | done | architect | opus | 0018, 0022, 0025 |
+| 0048 | Add host-authenticated admission evidence for connected effects | done | security-engineer | standard | 0047 |
+| 0049 | Validate signed A2A Agent Cards as bounded delegation evidence | done | security-engineer | standard | 0048 |
+| 0050 | Add bounded A2A task handoff and lifecycle evidence | done | interoperability-engineer | standard | 0049, 0047, 0048 |
+| 0051 | Add A2A StreamResponse evidence and concurrent-stream checks | review | interoperability-engineer | sonnet | 0020, 0021 |

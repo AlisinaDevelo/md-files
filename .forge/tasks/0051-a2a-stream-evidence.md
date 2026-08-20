@@ -1,5 +1,5 @@
 ---
-id: 0025
+id: 0051
 title: Add A2A StreamResponse evidence and concurrent-stream checks
 status: review
 agent: interoperability-engineer

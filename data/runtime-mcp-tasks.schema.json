@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/mcp-tasks/v1",
+  "title": "Forge MCP Tasks Adapter Contract",
+  "description": "Versioned, reference-only MCP Tasks projections over canonical Forge runtime history.",
+  "oneOf": [
+    {"$ref": "#/$defs/profile"},
+    {"$ref": "#/$defs/task"},
+    {"$ref": "#/$defs/ack"}
+  ],
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile", "protocolVersion", "extension", "extensions", "methods", "resultType",
+        "stateless", "sessionBound", "rawPayloads", "inputResponses", "sourceOfTruth"
+      ],
+      "properties": {
+        "profile": {"const": "mcp-2026-07-28"},
+        "protocolVersion": {"const": "2026-07-28"},
+        "extension": {"const": "io.modelcontextprotocol/tasks"},
+        "extensions": {
+          "type": "array",
+          "contains": {"const": "io.modelcontextprotocol/tasks"},
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "methods": {
+          "const": ["tasks/get", "tasks/update", "tasks/cancel"]
+        },
+        "resultType": {"const": "task"},
+        "stateless": {"const": true},
+        "sessionBound": {"const": false},
+        "rawPayloads": {"const": false},
+        "inputResponses": {"const": "digest-reference-only"},
+        "sourceOfTruth": {"const": "forge-runtime-history"}
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["taskId", "status", "createdAt", "lastUpdatedAt", "ttlMs", "pollIntervalMs", "_meta"],
+      "properties": {
+        "taskId": {"type": "string", "pattern": "^forge-task-v1\\.[A-Za-z0-9_-]+\\.[0-9a-f]{64}$"},
+        "status": {"enum": ["working", "input_required", "completed", "failed", "cancelled"]},
+        "createdAt": {"type": "string", "format": "date-time"},
+        "lastUpdatedAt": {"type": "string", "format": "date-time"},
+        "ttlMs": {"type": "integer", "minimum": 0},
+        "pollIntervalMs": {"type": "integer", "minimum": 1},
+        "_meta": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["forge"],
+          "properties": {"forge": {"$ref": "#/$defs/forgeMeta"}}
+        },
+        "inputRequests": {
+          "type": "object",
+          "propertyNames": {"$ref": "#/$defs/digest"},
+          "additionalProperties": {"$ref": "#/$defs/inputRequest"},
+          "minProperties": 1,
+          "maxProperties": 1
+        },
+        "result": {"$ref": "#/$defs/result"}
+      }
+    },
+    "forgeMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol_version", "extension", "operation", "source_of_truth", "request_binding_digest",
+        "run_id", "wait_id", "checkpoint_id", "checkpoint_sequence", "policy_revision",
+        "input_schema_digest", "resume_contract"
+      ],
+      "properties": {
+        "protocol_version": {"const": "2026-07-28"},
+        "extension": {"const": "io.modelcontextprotocol/tasks"},
+        "operation": {"enum": ["tasks/get", "tasks/update", "tasks/cancel"]},
+        "source_of_truth": {"const": "forge-runtime-history"},
+        "request_binding_digest": {"$ref": "#/$defs/digest"},
+        "run_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "wait_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "checkpoint_id": {"type": "string", "format": "uuid"},
+        "checkpoint_sequence": {"type": "integer", "minimum": 1},
+        "policy_revision": {"type": "string", "minLength": 1},
+        "input_schema_digest": {"$ref": "#/$defs/digest"},
+        "resume_contract": {"type": "string", "minLength": 1}
+      }
+    },
+    "inputRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "params", "_meta"],
+      "properties": {
+        "method": {"const": "forge/input"},
+        "params": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["inputSchemaDigest"],
+          "properties": {"inputSchemaDigest": {"$ref": "#/$defs/digest"}}
+        },
+        "_meta": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["forge"],
+          "properties": {
+            "forge": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["referenceOnly", "inputRequestId", "waitId"],
+              "properties": {
+                "referenceOnly": {"const": true},
+                "inputRequestId": {"$ref": "#/$defs/digest"},
+                "waitId": {"type": "string", "minLength": 1, "maxLength": 128}
+              }
+            }
+          }
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["_meta"],
+      "properties": {
+        "_meta": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["forge"],
+          "properties": {
+            "forge": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["submission_id", "input_digest"],
+              "properties": {
+                "submission_id": {"type": "string", "minLength": 1, "maxLength": 128},
+                "input_digest": {"$ref": "#/$defs/digest"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "ack": {
+      "type": "object",
+      "maxProperties": 0,
+      "additionalProperties": false
+    }
+  }
+}

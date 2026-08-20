@@ -26,9 +26,9 @@ lint-md:
 lint-sh:
     shellcheck plugins/forge/hooks/scripts/*.sh scripts/*.sh
 
-# Lint python hook scripts (requires ruff)
+# Lint Python hook, skill, utility, test, and eval scripts (requires ruff)
 lint-py:
-    ruff check plugins/forge/hooks/scripts plugins/forge/skills/*/scripts scripts/compile_capabilities.py scripts/render_capabilities.py scripts/diff_capabilities.py scripts/migrate_capabilities.py scripts/generate_catalog.py scripts/forge-runtime.py tests evals
+    ruff check plugins/forge/hooks/scripts plugins/forge/skills/*/scripts scripts/*.py tests evals
 
 # Compare two capability graph revisions without exposing instruction bodies
 diff-capabilities before after:
@@ -53,6 +53,10 @@ eval-llm:
 # Run shared cross-host scenarios; live host runners are opt-in.
 conformance:
     python3 evals/run_scenarios.py --adapter all --no-receipts
+
+# Run the complete release, install, and replay gate without hosted CI.
+release-check:
+    ./scripts/local-release-check.sh
 
 # Symlink agents/skills/commands into ~/.claude (dry run)
 install-dry:

@@ -7,6 +7,14 @@ ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 VERSION="$(jq -r '.version' "$ROOT/plugins/forge/.claude-plugin/plugin.json")"
 TMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/forge-marketplace-smoke.XXXXXX")"
 
+cleanup() {
+  if [ -d "$TMP_ROOT" ]; then
+    rm -rf "$TMP_ROOT"
+  fi
+}
+
+trap cleanup EXIT
+
 printf 'Running marketplace smoke for Forge %s from %s\n' "$VERSION" "$ROOT"
 
 export CLAUDE_CONFIG_DIR="$TMP_ROOT/claude-config"
@@ -43,4 +51,4 @@ if codex plugin list --json --available | jq -e 'any(.installed[]?; .pluginId ==
   exit 1
 fi
 
-printf 'Marketplace smoke passed; isolated state is at %s\n' "$TMP_ROOT"
+printf 'Marketplace smoke passed; isolated state was removed\n'

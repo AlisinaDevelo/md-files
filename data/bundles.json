@@ -36,6 +36,17 @@
       "name": "Frontend Product",
       "description": "User-facing frontend work, accessibility, docs, review, and tests.",
       "components": ["frontend-specialist", "accessibility-auditor", "technical-writing", "/docs", "code-reviewer", "test-engineer"]
+    },
+    {
+      "id": "constellation-integration",
+      "name": "Constellation Integration",
+      "description": "Read-only planning, cross-repository contracts, threat modeling, release qualification, and incident-quality documentation.",
+      "components": ["architect", "orchestration", "task-ledger", "code-reviewer", "threat-modeling", "doctor", "dependency-auditor", "incident-responder", "technical-writing"],
+      "boundaries": {
+        "execution": "read-only",
+        "security": "defensive-only",
+        "external_authority": "none"
+      }
     }
   ]
 }
