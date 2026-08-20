@@ -286,8 +286,12 @@ jobs:
           while IFS= read -r -d '' skill; do
             npx --yes skills-ref@0.1.5 validate "$skill"
           done < <(find plugins/forge/skills -mindepth 1 -maxdepth 1 -type d -print0 | sort -z)
-      - name: Install host CLIs
-        run: npm install --global @anthropic-ai/claude-code@2.1.181 @openai/codex@0.146.0
+      - name: Install host CLIs from lockfile
+        working-directory: .github/host-cli
+        run: |
+          set -euo pipefail
+          npm ci
+          echo "$GITHUB_WORKSPACE/.github/host-cli/node_modules/.bin" >> "$GITHUB_PATH"
       - name: Validate Claude plugin strictly
         run: claude plugin validate --strict plugins/forge
       - name: Validate the exact release candidate archive
@@ -334,8 +338,8 @@ jobs:
     name: OpenSSF Scorecard
     permissions:
       contents: read
-      id-token: write
-      security-events: write
+      id-token: write # Required by Scorecard to publish signed results
+      security-events: write # Required to upload the Scorecard SARIF report
     runs-on: ubuntu-latest
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
     steps:
