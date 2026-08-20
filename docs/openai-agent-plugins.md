@@ -1,6 +1,6 @@
 # OpenAI Agent Plugins Compatibility
 
-Last reviewed: 2026-08-18
+Last reviewed: 2026-08-20
 
 Forge is a skills-only OpenAI Agent Plugin candidate. Its local and repository Codex
 marketplace installs are supported today. Owner-provided OpenAI project portal evidence
@@ -19,6 +19,11 @@ and publish in ChatGPT and Codex. A package can contain:
 Skills-only is a supported shape. Forge does not need an MCP server or custom UI merely to
 be a valid plugin. Hooks and other capabilities may remain surface-specific, so the Claude
 plugin and the Codex plugin are intentionally not identical archives.
+
+The package guide requires `.codex-plugin/plugin.json` and permits a skills-only bundle;
+the submission guide treats the final skill bundle as the upload for that submission type.
+Local and repository marketplaces remain separate authoring and team-distribution sources,
+not evidence of universal directory publication.
 
 The follow-up evaluation is complete: Forge has no current workflow that requires a remote
 MCP server or visual interaction. The evidence-backed deferral and reopen criteria are in
@@ -47,8 +52,9 @@ Forge now validates those fields in the local gate and the hosted CI job.
 
 ## Public Submission Boundary
 
-The OpenAI submission portal is an external publication workflow. It requires publisher
-identity verification, listing and policy metadata, starter prompts, release notes, country
+The OpenAI submission portal is an external publication workflow. Creating or submitting a
+draft requires Apps Management write access and a verified developer or business identity;
+the form also requires listing and policy metadata, starter prompts, release notes, country
 availability, and test evidence. The current submission guidance asks for five positive and
 three negative test cases. A repository marketplace passing does not imply public approval.
 
