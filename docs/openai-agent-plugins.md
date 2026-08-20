@@ -31,12 +31,12 @@ The current OpenAI contract requires or recognizes the following surfaces:
 | Surface | Forge state | Evidence |
 |---|---|---|
 | `.codex-plugin/plugin.json` | Present | `plugins/forge/.codex-plugin/plugin.json` |
-| Stable name and strict semver | Passing | `forge`, `3.7.0` |
+| Stable name and strict semver | Passing | `forge`, `3.8.0` |
 | Publisher identity and HTTPS metadata | Present | author, homepage, repository, policy URLs |
 | Skills directory | Present | `skills: ./skills/` and 25 validated skills |
 | Interface metadata | Present | display name, descriptions, category, prompts, capabilities |
 | Directory assets | Present | icon, light logo, dark logo |
-| Skills-only submission ZIP | Passing | `forge-3.7.0-openai.zip`, root manifest and skills tree |
+| Skills-only submission ZIP | Passing | `forge-3.8.0-openai.zip`, root manifest and skills tree |
 | UI screenshots | Intentionally absent | Forge has no custom UI; OpenAI says screenshots are for UI plugins |
 | Codex repository marketplace | Present | `.agents/plugins/marketplace.json` |
 | MCP server and app template | Not included | Not needed for the current skills-only workflow |
