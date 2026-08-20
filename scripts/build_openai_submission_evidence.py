@@ -9,8 +9,8 @@ import importlib.util
 import json
 import subprocess
 import sys
-import tarfile
 import tempfile
+import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import urlparse
@@ -70,24 +70,16 @@ def _https(value: Any) -> bool:
 def _read_archive(path: Path) -> dict[str, bytes]:
     files: dict[str, bytes] = {}
     try:
-        with tarfile.open(path, "r:gz") as archive:
-            for member in archive.getmembers():
-                name = PurePosixPath(member.name)
-                if (
-                    not member.isfile()
-                    or name.is_absolute()
-                    or ".." in name.parts
-                    or not name.parts
-                    or name.parts[0] != "forge"
-                ):
-                    raise SubmissionEvidenceError(f"candidate archive contains an unsafe member: {member.name}")
-                if member.name in files:
-                    raise SubmissionEvidenceError(f"candidate archive contains a duplicate member: {member.name}")
-                source = archive.extractfile(member)
-                if source is None:
-                    raise SubmissionEvidenceError(f"candidate archive member is unreadable: {member.name}")
-                files[member.name] = source.read()
-    except (OSError, tarfile.TarError) as exc:
+        with zipfile.ZipFile(path, "r") as archive:
+            for member in archive.infolist():
+                name = PurePosixPath(member.filename)
+                if member.is_dir() or name.is_absolute() or "\\" in member.filename or ".." in name.parts or not name.parts:
+                    raise SubmissionEvidenceError(f"candidate archive contains an unsafe member: {member.filename}")
+                internal_name = f"forge/{member.filename}"
+                if internal_name in files:
+                    raise SubmissionEvidenceError(f"candidate archive contains a duplicate member: {member.filename}")
+                files[internal_name] = archive.read(member)
+    except (OSError, zipfile.BadZipFile) as exc:
         raise SubmissionEvidenceError(f"cannot read candidate archive: {exc}") from exc
     return files
 
@@ -193,7 +185,8 @@ def _submission_metadata(repo: Path, version: str) -> dict[str, Any]:
         "starter_prompts": interface["defaultPrompt"],
         "release_notes_url": f"{release_root}/blob/main/CHANGELOG.md",
         "candidate_release_url": f"{release_root}/releases/tag/v{version}",
-        "candidate_archive_url": f"{release_root}/releases/download/v{version}/forge-{version}-codex.tar.gz",
+        "candidate_archive_url": f"{release_root}/releases/download/v{version}/forge-{version}-openai.zip",
+        "candidate_codex_archive_url": f"{release_root}/releases/download/v{version}/forge-{version}-codex.tar.gz",
         "candidate_checksums_url": f"{release_root}/releases/download/v{version}/SHA256SUMS",
         "availability": {"status": "pending_external_submission", "scope": "not-yet-entered"},
     }
@@ -205,6 +198,7 @@ def _submission_metadata(repo: Path, version: str) -> dict[str, Any]:
         "release_notes_url",
         "candidate_release_url",
         "candidate_archive_url",
+        "candidate_codex_archive_url",
         "candidate_checksums_url",
     ):
         if not _https(listing[field]):
@@ -389,12 +383,12 @@ def _install_and_replay(
 ) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any]]:
     with tempfile.TemporaryDirectory(prefix="forge-openai-install-") as directory:
         try:
-            installed_root = validator.extract_archive(archive, Path(directory))
-        except (OSError, tarfile.TarError, ValueError) as exc:
+            installed_root = validator.extract_zip(archive, Path(directory))
+        except (OSError, zipfile.BadZipFile, ValueError) as exc:
             raise SubmissionEvidenceError(f"candidate installation failed: {exc}") from exc
-        validation_errors = validator.validate_plugin(installed_root, version)
+        validation_errors = validator.validate_openai_plugin(installed_root, version)
         if validation_errors:
-            raise SubmissionEvidenceError("installed candidate failed Codex validation: " + "; ".join(validation_errors))
+            raise SubmissionEvidenceError("installed candidate failed OpenAI skills-only validation: " + "; ".join(validation_errors))
         installed_files = _read_installed_tree(installed_root)
         if installed_files != archive_files:
             raise SubmissionEvidenceError("installed candidate does not match the release archive byte for byte")
@@ -462,10 +456,10 @@ def build_submission_evidence(repo: Path, output: Path | None = None, *, allow_d
         )
         release_manifest = dist / f"forge-{version}-manifest.json"
         verifier.verify_release(release_manifest, dist, expected_version=version, expected_commit=commit)
-        archive = dist / f"forge-{version}-codex.tar.gz"
-        validation_errors = validator.validate_archive(archive, version)
+        archive = dist / f"forge-{version}-openai.zip"
+        validation_errors = validator.validate_openai_zip(archive, version)
         if validation_errors:
-            raise SubmissionEvidenceError("candidate archive failed Codex validation: " + "; ".join(validation_errors))
+            raise SubmissionEvidenceError("candidate archive failed OpenAI skills-only validation: " + "; ".join(validation_errors))
         files = _read_archive(archive)
         archive_sha256 = _sha256(archive)
         cases, installation, replay = _install_and_replay(
@@ -496,8 +490,8 @@ def build_submission_evidence(repo: Path, output: Path | None = None, *, allow_d
             "submission_materials": metadata,
             "checks": [
                 {"id": "listing-fields", "status": "pass", "observations": ["listing, publisher, support, privacy, terms, starter prompts, release notes, and availability fields are represented"]},
-                {"id": "candidate-package", "status": "pass", "observations": ["release manifest, SHA-256 inventory, SPDX metadata, and Codex archive verify offline"]},
-                {"id": "candidate-installation", "status": "pass", "observations": ["the exact Codex archive installs into an isolated tree, matches byte for byte, and passes strict validation"]},
+                {"id": "candidate-package", "status": "pass", "observations": ["release manifest, SHA-256 inventory, SPDX metadata, and OpenAI skills-only ZIP verify offline"]},
+                {"id": "candidate-installation", "status": "pass", "observations": ["the exact OpenAI skills-only ZIP installs into an isolated tree, matches byte for byte, and passes strict validation"]},
                 {"id": "contract-replay", "status": "pass", "observations": ["five positive and three negative cases replay twice against the installed candidate and bound release policy with one stable digest"]},
             ],
             "cases": cases,
@@ -526,7 +520,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         report = build_submission_evidence(args.repo, args.output, allow_dirty=args.allow_dirty)
-    except (OSError, SubmissionEvidenceError, ValueError, json.JSONDecodeError, tarfile.TarError, subprocess.CalledProcessError) as exc:
+    except (OSError, SubmissionEvidenceError, ValueError, json.JSONDecodeError, zipfile.BadZipFile, subprocess.CalledProcessError) as exc:
         print(f"openai-submission-evidence: {exc}", file=sys.stderr)
         return 1
     positive = sum(item["polarity"] == "positive" for item in report["cases"])

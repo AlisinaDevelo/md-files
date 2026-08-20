@@ -6,6 +6,7 @@ import importlib.util
 import json
 import shutil
 import sys
+import zipfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -29,6 +30,7 @@ def test_directory_and_exact_codex_archive_validate(tmp_path):
     build.build_release(REPO, tmp_path, VERSION, source_epoch=1_754_000_000, enforce_clean=False)
 
     assert validate.validate_archive(tmp_path / f"forge-{VERSION}-codex.tar.gz", VERSION) == []
+    assert validate.validate_openai_zip(tmp_path / f"forge-{VERSION}-openai.zip", VERSION) == []
 
 
 def test_codex_marketplace_contract_and_local_source_validate():
@@ -87,3 +89,25 @@ def test_codex_plugin_rejects_non_square_logo(tmp_path):
 
     errors = validate.validate_plugin(plugin, VERSION)
     assert "interface.logo must be square (got 512x160)" in errors
+
+
+def test_openai_zip_rejects_mcp_payload_and_path_traversal(tmp_path):
+    validate = load(REPO / "scripts/validate_codex_plugin.py", "forge_openai_zip_hostile_validator")
+    hostile = tmp_path / "hostile.zip"
+    with zipfile.ZipFile(hostile, "w") as archive:
+        archive.writestr(".codex-plugin/plugin.json", (REPO / "plugins/forge/.codex-plugin/plugin.json").read_bytes())
+        archive.writestr("skills/example/SKILL.md", "---\nname: example\ndescription: example\n---\n")
+        archive.writestr("../escape.txt", b"no")
+
+    errors = validate.validate_openai_zip(hostile, VERSION)
+    assert any("unsafe member" in error for error in errors)
+
+    clean = tmp_path / "mcp.zip"
+    manifest = json.loads((REPO / "plugins/forge/.codex-plugin/plugin.json").read_text(encoding="utf-8"))
+    manifest["mcpServers"] = {}
+    with zipfile.ZipFile(clean, "w") as archive:
+        archive.writestr(".codex-plugin/plugin.json", json.dumps(manifest))
+        archive.writestr("skills/example/SKILL.md", "---\nname: example\ndescription: example\n---\n")
+
+    errors = validate.validate_openai_zip(clean, VERSION)
+    assert "skills-only plugin.json must not declare mcpServers" in errors

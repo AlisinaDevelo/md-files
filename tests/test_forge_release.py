@@ -6,6 +6,7 @@ import importlib.util
 import json
 import sys
 import tarfile
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -40,7 +41,7 @@ def test_same_source_epoch_produces_identical_archives_and_manifest(tmp_path):
     verify.verify_release(first / f"forge-{VERSION}-manifest.json", first, expected_version=VERSION)
 
 
-def test_manifest_contains_three_host_archives_and_runtime_dependencies(tmp_path):
+def test_manifest_contains_host_archives_openai_zip_and_runtime_dependencies(tmp_path):
     build = load(BUILD_SCRIPT, "forge_release_build_manifest")
 
     build.build_release(REPO, tmp_path, VERSION, source_epoch=1_754_000_000, enforce_clean=False)
@@ -50,6 +51,7 @@ def test_manifest_contains_three_host_archives_and_runtime_dependencies(tmp_path
         f"forge-{VERSION}-claude.tar.gz",
         f"forge-{VERSION}-codex.tar.gz",
         f"forge-{VERSION}-agents.tar.gz",
+        f"forge-{VERSION}-openai.zip",
         f"forge-{VERSION}-sbom.spdx.json",
     }
     assert {item["name"] for item in manifest["runtime_dependencies"]} == {"Python", "GitHub CLI"}
@@ -62,6 +64,14 @@ def test_manifest_contains_three_host_archives_and_runtime_dependencies(tmp_path
     assert manifest["attestation"]["predicate_type"] == "https://slsa.dev/provenance/v1"
     assert manifest["attestation"]["profiles"] == ["local-hmac-v1", "public-key-dsse-v1", "github-artifact-v1"]
     assert all(any(item["path"].endswith("LICENSE") for item in artifact["contents"]) for artifact in manifest["artifacts"] if artifact["name"].endswith(".tar.gz"))
+    openai = next(item for item in manifest["artifacts"] if item["name"].endswith("-openai.zip"))
+    assert openai["media_type"] == "application/zip"
+    assert {item["path"] for item in openai["contents"]} >= {
+        ".codex-plugin/plugin.json",
+        "assets/logo.png",
+        "data/capabilities.json",
+        "LICENSE",
+    }
 
 
 def test_archives_consume_host_rendered_surfaces(tmp_path):
@@ -78,6 +88,22 @@ def test_archives_consume_host_rendered_surfaces(tmp_path):
     assert "forge/data/projection-manifest.json" in codex_names
     assert "forge-agents/zed/install.sh" in agents_names
     assert "forge-agents/data/bundles.json" in agents_names
+
+
+def test_openai_zip_contains_only_the_skills_submission_surface(tmp_path):
+    build = load(BUILD_SCRIPT, "forge_release_build_openai_zip")
+    build.build_release(REPO, tmp_path, VERSION, source_epoch=1_754_000_000, enforce_clean=False)
+
+    with zipfile.ZipFile(tmp_path / f"forge-{VERSION}-openai.zip") as archive:
+        names = set(archive.namelist())
+
+    assert ".codex-plugin/plugin.json" in names
+    assert "assets/logo.png" in names
+    assert "skills/orchestration/SKILL.md" in names
+    assert "data/capabilities.json" in names
+    assert "LICENSE" in names
+    assert not any(name.startswith(".claude-plugin/") for name in names)
+    assert not any(name.startswith(prefix) for name in names for prefix in ("agents/", "commands/", "hooks/", "output-styles/"))
 
 
 def test_spdx_validation_rejects_missing_required_fields():

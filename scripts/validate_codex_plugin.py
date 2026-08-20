@@ -6,8 +6,11 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import stat
 import tarfile
 import tempfile
+import unicodedata
+import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import urlparse
@@ -37,6 +40,10 @@ CODEX_INTERFACE_CATEGORIES = {
     "Other",
 }
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+ZIP_MAX_ENTRIES = 5_000
+ZIP_MAX_COMPRESSED_BYTES = 100 * 1024 * 1024
+ZIP_MAX_UNCOMPRESSED_BYTES = 512 * 1024 * 1024
+OPENAI_TOP_LEVEL = {".codex-plugin", "skills", "assets", "data", "LICENSE"}
 
 
 def _https(value: Any) -> bool:
@@ -345,17 +352,155 @@ def validate_archive(archive_path: Path, expected_version: str | None = None) ->
         return validate_plugin(root, expected_version)
 
 
+def _safe_zip_member_name(raw: str) -> str:
+    if not raw or raw != raw.strip() or "\\" in raw or "\x00" in raw or len(raw) > 1024:
+        raise ValueError(f"archive contains an unsafe member: {raw!r}")
+    if any(ord(char) < 32 or ord(char) == 127 for char in raw):
+        raise ValueError(f"archive contains an unsafe member: {raw!r}")
+    name = raw.removesuffix("/")
+    if not name or "/" in name and any(part == "" for part in name.split("/")):
+        raise ValueError(f"archive contains an unsafe member: {raw!r}")
+    path = PurePosixPath(name)
+    if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+        raise ValueError(f"archive contains an unsafe member: {raw!r}")
+    return name
+
+
+def extract_zip(archive_path: Path, destination: Path) -> Path:
+    """Safely extract an OpenAI skills-only ZIP and return its plugin root."""
+
+    destination.mkdir(parents=True, exist_ok=True)
+    names: list[tuple[zipfile.ZipInfo, str, bool]] = []
+    normalized: set[str] = set()
+    total_uncompressed = 0
+    with zipfile.ZipFile(archive_path, "r") as archive:
+        members = archive.infolist()
+        if not members:
+            raise ValueError("archive is empty")
+        if len(members) > ZIP_MAX_ENTRIES:
+            raise ValueError(f"archive has too many entries: {len(members)}")
+        for member in members:
+            raw = member.filename
+            name = _safe_zip_member_name(raw)
+            is_directory = member.is_dir() or raw.endswith("/")
+            key = unicodedata.normalize("NFC", name).casefold()
+            if key in normalized:
+                raise ValueError(f"archive contains duplicate members after normalization: {raw}")
+            normalized.add(key)
+            if member.compress_size > ZIP_MAX_COMPRESSED_BYTES:
+                raise ValueError(f"archive member is too large when compressed: {raw}")
+            mode = (member.external_attr >> 16) & 0o177777
+            file_type = stat.S_IFMT(mode)
+            if stat.S_ISLNK(mode) or (file_type and not is_directory and file_type != stat.S_IFREG):
+                raise ValueError(f"archive contains an unsupported member type: {raw}")
+            if not is_directory:
+                total_uncompressed += member.file_size
+                if total_uncompressed > ZIP_MAX_UNCOMPRESSED_BYTES:
+                    raise ValueError("archive exceeds the uncompressed size limit")
+            names.append((member, name, is_directory))
+
+        file_names = {name for _member, name, is_directory in names if not is_directory}
+        for _member, name, _is_directory in names:
+            parts = PurePosixPath(name).parts
+            if any("/".join(parts[:index]) in file_names for index in range(1, len(parts))):
+                raise ValueError(f"archive has a file/directory path conflict: {name}")
+
+        manifest_names = [
+            name
+            for _member, name, is_directory in names
+            if not is_directory and (name == ".codex-plugin/plugin.json" or name.endswith("/.codex-plugin/plugin.json"))
+        ]
+        direct_manifest = ".codex-plugin/plugin.json" in manifest_names
+        if direct_manifest:
+            if len(manifest_names) != 1:
+                raise ValueError("archive has multiple plugin roots")
+            root_prefix = ""
+        else:
+            top_levels = {PurePosixPath(name).parts[0] for _member, name, _is_directory in names}
+            if len(top_levels) != 1:
+                raise ValueError("archive must contain exactly one top-level plugin directory")
+            root_prefix = next(iter(top_levels))
+            if manifest_names != [f"{root_prefix}/.codex-plugin/plugin.json"]:
+                raise ValueError("archive has no single top-level .codex-plugin/plugin.json")
+
+        for member, name, is_directory in names:
+            target = destination / name
+            if is_directory:
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.is_symlink():
+                raise ValueError(f"archive extraction encountered a symlink: {name}")
+            data = archive.read(member)
+            if len(data) != member.file_size:
+                raise ValueError(f"archive member size changed while reading: {name}")
+            target.write_bytes(data)
+            mode = (member.external_attr >> 16) & 0o777
+            target.chmod(mode or 0o644)
+    return destination / root_prefix if root_prefix else destination
+
+
+def validate_openai_plugin(plugin_root: Path, expected_version: str | None = None) -> list[str]:
+    """Validate the stricter skills-only shape accepted by the OpenAI portal."""
+
+    errors = validate_plugin(plugin_root, expected_version)
+    plugin_root = plugin_root.resolve()
+    manifest_path = plugin_root / ".codex-plugin/plugin.json"
+    if not manifest_path.is_file():
+        return errors
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return errors
+    if "mcpServers" in manifest:
+        errors.append("skills-only plugin.json must not declare mcpServers")
+    if "apps" in manifest:
+        errors.append("skills-only plugin.json must not declare apps")
+    interface = manifest.get("interface")
+    if isinstance(interface, dict) and interface.get("screenshots"):
+        errors.append("skills-only plugin.json must not declare screenshots")
+    for path in plugin_root.rglob("*"):
+        if path.is_file() and path.name in {".mcp.json", ".app.json"}:
+            errors.append(f"skills-only plugin must not include {path.name}")
+    top_levels = {
+        path.relative_to(plugin_root).parts[0]
+        for path in plugin_root.rglob("*")
+        if path.relative_to(plugin_root).parts
+    }
+    unexpected = sorted(top_levels - OPENAI_TOP_LEVEL)
+    errors.extend(f"skills-only plugin has unsupported top-level path: {name}" for name in unexpected)
+    skills_root = plugin_root / "skills"
+    skill_directories = (
+        [path for path in skills_root.iterdir() if path.is_dir() and not path.name.startswith(".")]
+        if skills_root.is_dir()
+        else []
+    )
+    if not skill_directories:
+        errors.append("skills-only plugin must contain at least one skill")
+    return errors
+
+
+def validate_openai_zip(archive_path: Path, expected_version: str | None = None) -> list[str]:
+    with tempfile.TemporaryDirectory(prefix="forge-openai-zip-validate-") as directory:
+        try:
+            root = extract_zip(archive_path.resolve(), Path(directory))
+        except (OSError, ValueError, zipfile.BadZipFile) as exc:
+            return [str(exc)]
+        return validate_openai_plugin(root, expected_version)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate a Codex plugin directory or Forge release archive.")
     parser.add_argument("plugin_path", nargs="?", type=Path)
     parser.add_argument("--archive", type=Path)
+    parser.add_argument("--zip", type=Path)
     parser.add_argument("--marketplace", type=Path)
     parser.add_argument("--root", type=Path, help="Repository root for local marketplace source checks")
     parser.add_argument("--version", dest="expected_version")
     args = parser.parse_args(argv)
-    targets = [bool(args.plugin_path), bool(args.archive), bool(args.marketplace)]
+    targets = [bool(args.plugin_path), bool(args.archive), bool(args.zip), bool(args.marketplace)]
     if sum(targets) != 1:
-        parser.error("provide exactly one plugin path, --archive, or --marketplace")
+        parser.error("provide exactly one plugin path, --archive, --zip, or --marketplace")
     if args.root and not args.marketplace:
         parser.error("--root is only valid with --marketplace")
     if args.marketplace:
@@ -364,11 +509,15 @@ def main(argv: list[str] | None = None) -> int:
     elif args.archive:
         errors = validate_archive(args.archive, args.expected_version)
         success_message = "Codex plugin validation passed."
+    elif args.zip:
+        errors = validate_openai_zip(args.zip, args.expected_version)
+        success_message = "OpenAI skills-only ZIP validation passed."
     else:
         errors = validate_plugin(args.plugin_path, args.expected_version)
         success_message = "Codex plugin validation passed."
     if errors:
-        print(f"{('Codex marketplace' if args.marketplace else 'Codex plugin')} validation failed:")
+        label = "Codex marketplace" if args.marketplace else "OpenAI skills-only ZIP" if args.zip else "Codex plugin"
+        print(f"{label} validation failed:")
         print("\n".join(f"- {error}" for error in errors))
         return 1
     print(success_message)

@@ -15,6 +15,8 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
+import zipfile
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
@@ -60,6 +62,13 @@ RENDERED_BUNDLE_SPECS: dict[str, tuple[tuple[str, str], ...]] = {
         ("agentskills/LICENSE", "forge-agents"),
     ),
 }
+OPENAI_BUNDLE_SPECS: tuple[tuple[str, str], ...] = (
+    ("plugins/forge/.codex-plugin", ".codex-plugin"),
+    ("plugins/forge/skills", "skills"),
+    ("plugins/forge/assets", "assets"),
+    ("data", "data"),
+    ("LICENSE", ""),
+)
 RUNTIME_DEPENDENCIES = (
     {
         "name": "Python",
@@ -224,6 +233,38 @@ def _archive(bundle: str, entries: Iterable[tuple[str, Path, str]], source_epoch
             info.uname = "root"
             info.gname = "root"
             archive.addfile(info, io.BytesIO(data))
+    return output.getvalue(), content
+
+
+def _openai_bundle_files(repo: Path, tracked: Mapping[str, str]) -> list[tuple[str, Path, str]]:
+    entries: list[tuple[str, Path, str]] = []
+    seen: set[str] = set()
+    for source, prefix in OPENAI_BUNDLE_SPECS:
+        source_root = repo / source
+        source_files = _source_files(repo, source, tracked)
+        for relative, path, mode in source_files:
+            suffix = Path(relative).relative_to(source).as_posix() if source_root.is_dir() else Path(relative).name
+            archive_path = f"{prefix}/{suffix}" if prefix else suffix
+            if archive_path in seen:
+                raise ReleaseBuildError(f"duplicate archive path in openai bundle: {archive_path}")
+            seen.add(archive_path)
+            entries.append((archive_path, path, mode))
+    return sorted(entries, key=lambda item: item[0])
+
+
+def _zip(entries: Iterable[tuple[str, Path, str]], source_epoch: int) -> tuple[bytes, list[dict[str, Any]]]:
+    content: list[dict[str, Any]] = []
+    output = io.BytesIO()
+    date_time = time.gmtime(source_epoch)[:6]
+    with zipfile.ZipFile(output, mode="w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+        for archive_path, path, mode in entries:
+            data = path.read_bytes()
+            content.append({"path": archive_path, "size": len(data), "sha256": _sha256_bytes(data)})
+            info = zipfile.ZipInfo(archive_path, date_time=date_time)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.create_system = 3
+            info.external_attr = (0o100755 if mode == "100755" else 0o100644) << 16
+            archive.writestr(info, data)
     return output.getvalue(), content
 
 
@@ -409,6 +450,19 @@ def build_release(
             name = f"forge-{version}-{surface}.tar.gz"
             _write(output / name, data)
             bundles.append({"surface": surface, "name": name, "size": len(data), "sha256": _sha256_bytes(data), "contents": contents})
+    openai_data, openai_contents = _zip(_openai_bundle_files(repo, tracked), source_epoch)
+    openai_name = f"forge-{version}-openai.zip"
+    _write(output / openai_name, openai_data)
+    bundles.append(
+        {
+            "surface": "openai",
+            "name": openai_name,
+            "media_type": "application/zip",
+            "size": len(openai_data),
+            "sha256": _sha256_bytes(openai_data),
+            "contents": openai_contents,
+        }
+    )
     sbom_name = f"forge-{version}-sbom.spdx.json"
     sbom = _spdx_document(repo, version, tag, commit, source_epoch, bundles)
     sbom_bytes = _canonical(sbom).encode("utf-8")

@@ -9,7 +9,8 @@ import json
 import re
 import sys
 import tarfile
-from pathlib import Path
+import zipfile
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 
@@ -116,24 +117,45 @@ def _verify_archives(manifest: dict[str, Any], root: Path) -> None:
         expected = {str(item["path"]): item for item in contents}
         path = _safe_artifact_path(root, str(artifact["name"]))
         try:
-            with tarfile.open(path, mode="r:gz") as archive:
-                all_members = archive.getmembers()
-                members = [member for member in all_members if member.isfile()]
-                if len(members) != len(all_members):
-                    raise ReleaseVerificationError(f"archive contains a non-regular member: {artifact['name']}")
-                actual_names = {member.name for member in members}
-                if actual_names != set(expected):
-                    raise ReleaseVerificationError(f"archive contents differ for {artifact['name']}")
-                for member in members:
-                    member_path = Path(member.name)
-                    if member_path.is_absolute() or ".." in member_path.parts:
-                        raise ReleaseVerificationError(f"archive member escapes its root: {artifact['name']}:{member.name}")
-                    extracted = archive.extractfile(member)
-                    data = extracted.read() if extracted else b""
-                    expected_item = expected[member.name]
-                    if len(data) != expected_item["size"] or hashlib.sha256(data).hexdigest() != expected_item["sha256"]:
-                        raise ReleaseVerificationError(f"archive content hash mismatch: {artifact['name']}:{member.name}")
-        except (OSError, tarfile.TarError) as exc:
+            if path.name.endswith(".zip"):
+                with zipfile.ZipFile(path, mode="r") as archive:
+                    members = archive.infolist()
+                    if any(member.is_dir() for member in members):
+                        raise ReleaseVerificationError(f"archive contains a directory member: {artifact['name']}")
+                    actual_names = {member.filename for member in members}
+                    if actual_names != set(expected):
+                        raise ReleaseVerificationError(f"archive contents differ for {artifact['name']}")
+                    for member in members:
+                        member_path = PurePosixPath(member.filename)
+                        if (
+                            member_path.is_absolute()
+                            or "\\" in member.filename
+                            or any(part in {"", ".", ".."} for part in member_path.parts)
+                        ):
+                            raise ReleaseVerificationError(f"archive member escapes its root: {artifact['name']}:{member.filename}")
+                        data = archive.read(member)
+                        expected_item = expected[member.filename]
+                        if len(data) != expected_item["size"] or hashlib.sha256(data).hexdigest() != expected_item["sha256"]:
+                            raise ReleaseVerificationError(f"archive content hash mismatch: {artifact['name']}:{member.filename}")
+            else:
+                with tarfile.open(path, mode="r:gz") as archive:
+                    all_members = archive.getmembers()
+                    members = [member for member in all_members if member.isfile()]
+                    if len(members) != len(all_members):
+                        raise ReleaseVerificationError(f"archive contains a non-regular member: {artifact['name']}")
+                    actual_names = {member.name for member in members}
+                    if actual_names != set(expected):
+                        raise ReleaseVerificationError(f"archive contents differ for {artifact['name']}")
+                    for member in members:
+                        member_path = Path(member.name)
+                        if member_path.is_absolute() or ".." in member_path.parts:
+                            raise ReleaseVerificationError(f"archive member escapes its root: {artifact['name']}:{member.name}")
+                        extracted = archive.extractfile(member)
+                        data = extracted.read() if extracted else b""
+                        expected_item = expected[member.name]
+                        if len(data) != expected_item["size"] or hashlib.sha256(data).hexdigest() != expected_item["sha256"]:
+                            raise ReleaseVerificationError(f"archive content hash mismatch: {artifact['name']}:{member.name}")
+        except (OSError, tarfile.TarError, zipfile.BadZipFile) as exc:
             raise ReleaseVerificationError(f"cannot inspect archive {artifact['name']}: {exc}") from exc
 
 

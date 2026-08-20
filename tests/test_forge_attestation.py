@@ -86,7 +86,7 @@ def test_public_key_and_hmac_profiles_bind_release_subjects(tmp_path):
     )
     assert result["status"] == "verified"
     assert result["profile"] == module.PUBLIC_PROFILE
-    assert result["subject_count"] == 4
+    assert result["subject_count"] == 5
     assert result["payload_digest"].startswith("sha256:")
 
     hmac_module, hmac_manifest, hmac_root, hmac_policy, _statement, hmac_envelope, hmac_trust_root, _material = signed_fixture(
