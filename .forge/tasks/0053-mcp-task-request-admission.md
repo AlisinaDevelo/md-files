@@ -38,10 +38,9 @@ entry in every task request before returning a task view or acknowledging a task
 
 ## Verification
 
-- Focused adapter suite: `PYTHONDONTWRITEBYTECODE=1 python3 -m pytest tests/test_forge_mcp_tasks.py -q -ra` -> 7 passed.
-- Full local release gate at implementation commit `86b2fb59b4da8205337c3832c9c0dcbc9626b3c9`: `395 passed`; static evals `333/334` with one warning and zero failures; 12 cross-host scenarios and all contract corpora passed; Ruff, Markdown lint, skills-ref, Claude validation, and ShellCheck passed.
-- Release builds were byte-identical; offline archive, marketplace, and attestation validation passed.
-- Installed candidate replay passed with 2 identical attempts over 8 cases; candidate `forge-3.6.0-codex.tar.gz` SHA-256 `c614852a8d470ddfcb9a925690e3d42b65c1d3b7f01deeb01209f52c022971cd`, 112 installed files, 25 installed skills.
-- Evidence file: `/tmp/forge-mcp-task-admission-evidence.json`.
-- Ready stacked PR: [#102](https://github.com/AlisinaDevelo/md-files/pull/102), based on
-  `feature/gh-aw-runtime-profile` and related to issue #85.
+- Focused adapter suite: `PYTHONDONTWRITEBYTECODE=1 python3 -m pytest tests/test_forge_mcp_tasks.py -q -ra` -> 8 passed, including a negative matrix for every task operation entrypoint.
+- Full local release gate passed on implementation/test commit `913bb3e630d360e6e1f8019c78c6c7256a2a07f4`: 416 tests; static evals `333/334` with one warning and zero failures; trajectory, authority, host-admission, A2A card/task, cross-host, backend, and deterministic chaos checks passed.
+- Python compilation, Ruff, Markdown lint, skills-ref, strict Claude validation, and ShellCheck passed; 7 release artifacts were byte-identical across two builds.
+- Offline release, Codex archive, OpenAI skills-only ZIP, marketplace, and attestation validation passed.
+- Installed candidate replay passed with 2 identical attempts over 8 cases; `forge-3.7.0-openai.zip` SHA-256 `c3549d31fc9ecf34af6acbae77ccdc089ae8e64b4273ed6393cb76f09a85b381`, 119 installed files, 25 installed skills.
+- The implementation was previously reviewed in stacked PR [#102](https://github.com/AlisinaDevelo/md-files/pull/102), which merged into its feature parent. This branch is the focused mainline reconciliation; its new PR link is recorded when published.
