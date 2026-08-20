@@ -14,11 +14,11 @@ the graph and renderer together.
 
 ## Acceptance criteria
 
-- [ ] `validate.sh`, `justfile`, CI Ruff scope, and release packaging invoke the renderer.
-- [ ] Capability IR docs describe v2 bodies, adapter contracts, migration, and current
+- [x] `validate.sh`, `justfile`, CI Ruff scope, and release packaging invoke the renderer.
+- [x] Capability IR docs describe v2 bodies, adapter contracts, migration, and current
       release boundaries accurately.
-- [ ] README evidence counts and links match the verified suite.
-- [ ] The focused feature is ready for a reviewable PR with follow-up boundaries stated.
+- [x] README evidence counts and links match the verified suite.
+- [x] The focused feature is ready for a reviewable PR with follow-up boundaries stated.
 
 ## Context
 
