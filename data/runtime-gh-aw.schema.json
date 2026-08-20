@@ -68,7 +68,26 @@
               }
             },
             "disable_justification": {"type": "string", "minLength": 20, "maxLength": 512}
-          }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "runtime_profile": {"enum": ["docker-sudo-iptables", "gvisor", "docker-sbx", "cloud-hypervisor"]}
+                }
+              },
+              "then": {"required": ["runtime_justification"]}
+            },
+            {
+              "if": {"properties": {"sandbox_mode": {"const": "disabled"}}},
+              "then": {
+                "properties": {
+                  "runtime_profile": {"const": "docker"},
+                  "mcp_gateway": {"properties": {"enabled": {"const": false}}}
+                }
+              }
+            }
+          ]
         },
         "action_pins": {
           "type": "object",

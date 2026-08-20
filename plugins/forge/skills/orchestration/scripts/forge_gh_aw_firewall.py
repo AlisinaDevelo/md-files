@@ -245,6 +245,8 @@ def normalize_policy(value: Mapping[str, Any]) -> dict[str, Any]:
         or gateway_port > 65535
     ):
         raise FirewallPolicyError("mcp_gateway.port must be an integer from 1024 to 65535")
+    if gateway_enabled and sandbox_mode == "disabled":
+        raise FirewallPolicyError("mcp_gateway requires an enabled AWF sandbox")
     allowed = sorted({_domain(item, "allowed_domains") for item in _list(value.get("allowed_domains"), "allowed_domains")})
     blocked = sorted({_domain(item, "blocked_domains") for item in _list(value.get("blocked_domains", []), "blocked_domains")})
     overlap = sorted(set(allowed) & set(blocked))

@@ -136,8 +136,9 @@ cannot be combined with a disabled sandbox. The compiler renders the profile int
 The optional `mcp_gateway` decision records only `enabled` and a bounded port. When enabled, the
 compiler emits the upstream `mcp-gateway` feature and `sandbox.mcp.port`. Forge never accepts,
 stores, or emits an API-key value; the upstream secret configuration remains outside the Forge
-admission envelope. Gateway routing is therefore auditable as configuration evidence, not claimed
-as a live MCP connection.
+admission envelope. Gateway enablement requires an enabled AWF sandbox; a disabled sandbox cannot
+carry an active gateway. Gateway routing is therefore auditable as configuration evidence, not
+claimed as a live MCP connection.
 
 ## Durable runtime bridge
 

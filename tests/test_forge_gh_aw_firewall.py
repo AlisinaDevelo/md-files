@@ -102,6 +102,14 @@ def test_runtime_and_gateway_policy_fail_closed():
         module.normalize_policy(policy)
 
     policy = base_policy()
+    policy["mcp_gateway"] = {"enabled": True, "port": 8080}
+    policy["sandbox_mode"] = "disabled"
+    policy["firewall_mode"] = "disabled"
+    policy["disable_justification"] = "offline fixture with no agent network access"
+    with pytest.raises(module.FirewallPolicyError, match="mcp_gateway.*enabled AWF sandbox"):
+        module.normalize_policy(policy)
+
+    policy = base_policy()
     policy["mcp_gateway"] = {"enabled": True, "port": 80}
     with pytest.raises(module.FirewallPolicyError, match="1024"):
         module.normalize_policy(policy)
