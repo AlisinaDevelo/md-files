@@ -115,9 +115,7 @@ def _list(value: Any, label: str) -> list[str]:
 
 
 def _host(value: str, label: str) -> str:
-    host = value.lower()
-    if host.startswith("*."):
-        host = host[2:]
+    host = value.lower().removeprefix("*.")
     if "*" in host or "." not in host or not DOMAIN_RE.fullmatch(value.lower()):
         raise FirewallPolicyError(f"{label} is not a safe domain pattern")
     try:
