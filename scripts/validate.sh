@@ -150,6 +150,13 @@ else
   err "Codex marketplace source '$codex_source' has no plugin.json"
 fi
 
+if python3 scripts/validate_codex_plugin.py \
+  --marketplace .agents/plugins/marketplace.json --root . >/dev/null 2>&1; then
+  ok "Codex marketplace policy and source contract is valid"
+else
+  err "Codex marketplace policy or source contract is invalid"
+fi
+
 # --- Canonical capability graph is up to date ---
 printf '\nCanonical capability graph\n'
 if python3 scripts/compile_capabilities.py --check >/dev/null 2>&1; then

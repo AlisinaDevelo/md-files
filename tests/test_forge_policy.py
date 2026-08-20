@@ -309,3 +309,37 @@ def test_action_validation_rejects_unknown_fields_and_bad_effect_shape():
     value["intent"]["external"] = "yes"
     with pytest.raises(module.PolicyValidationError, match="external"):
         module.ActionEnvelope.from_mapping(value)
+
+
+def test_authority_references_round_trip_through_policy_and_approval_evidence(tmp_path):
+    module = load_module()
+    value = action(
+        module,
+        authority_contract_revision="forge-authority-v1",
+        actor_identity_ref="sha256:" + "a" * 64,
+        authority_ref="sha256:" + "b" * 64,
+        audience_ref="host:forge",
+        delegation_generation=3,
+    )
+    engine = module.PolicyEngine(profile(module), approvals_path=tmp_path / "approvals.jsonl")
+    evaluation = engine.evaluate(value)
+    assert evaluation.decision.authority_contract_revision == "forge-authority-v1"
+    assert evaluation.decision.actor_identity_ref == value.actor_identity_ref
+    assert evaluation.decision.authority_ref == value.authority_ref
+    assert evaluation.decision.audience_ref == "host:forge"
+    assert evaluation.decision.delegation_generation == 3
+    issued = engine.issue_approval(value)
+    record = issued.as_dict()
+    assert record["actor_identity_ref"] == value.actor_identity_ref
+    assert record["authority_ref"] == value.authority_ref
+    assert record["delegation_generation"] == 3
+
+
+def test_authority_references_match_the_versioned_contract_shape():
+    module = load_module()
+    with pytest.raises(module.PolicyValidationError, match="unsupported authority contract revision"):
+        action(module, authority_contract_revision="forge-authority-v2")
+    with pytest.raises(module.PolicyValidationError, match="sha256 reference"):
+        action(module, authority_contract_revision="forge-authority-v1", actor_identity_ref="agent:worker")
+    with pytest.raises(module.PolicyValidationError, match="sha256 reference"):
+        action(module, authority_contract_revision="forge-authority-v1", authority_ref="delegation:worker")

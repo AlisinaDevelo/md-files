@@ -11,6 +11,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
 import sys
 import uuid
 from collections.abc import Callable, Mapping
@@ -26,8 +27,24 @@ except ImportError:  # pragma: no cover - Windows does not expose fcntl.
 
 
 SCHEMA_VERSION = 1
+AUTHORITY_CONTRACT_REVISION = "forge-authority-v1"
+AUTHORITY_REF_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 DECISIONS = ("allow", "deny", "require_approval", "constrain", "transform")
-ACTION_KEYS = {"schema_version", "action_id", "tool", "arguments", "resource", "principal", "workspace", "intent"}
+ACTION_KEYS = {
+    "schema_version",
+    "action_id",
+    "tool",
+    "arguments",
+    "resource",
+    "principal",
+    "workspace",
+    "intent",
+    "authority_contract_revision",
+    "actor_identity_ref",
+    "authority_ref",
+    "audience_ref",
+    "delegation_generation",
+}
 RESOURCE_KEYS = {"repository", "branch", "paths", "domains"}
 INTENT_KEYS = {"effect", "external", "risk", "cost_usd", "fan_out"}
 PROFILE_KEYS = {"schema_version", "profile", "description", "default_decision", "protected_paths", "constraints", "rules"}
@@ -121,6 +138,13 @@ def _string(value: Any, label: str, *, allow_empty: bool = False) -> str:
     return value
 
 
+def _authority_ref(value: Any, label: str) -> str:
+    candidate = _string(value, label)
+    if not AUTHORITY_REF_RE.fullmatch(candidate):
+        raise PolicyValidationError(f"{label} must be a sha256 reference")
+    return candidate
+
+
 def _string_list(value: Any, label: str) -> list[str]:
     if not isinstance(value, list) or any(not isinstance(item, str) or not item.strip() for item in value):
         raise PolicyValidationError(f"{label} must be a list of non-empty strings")
@@ -194,6 +218,11 @@ class ActionEnvelope:
     principal: str
     workspace: str
     intent: dict[str, Any]
+    authority_contract_revision: str | None = None
+    actor_identity_ref: str | None = None
+    authority_ref: str | None = None
+    audience_ref: str | None = None
+    delegation_generation: int | None = None
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> ActionEnvelope:
@@ -223,6 +252,23 @@ class ActionEnvelope:
         risk = _string(intent.get("risk"), "intent.risk")
         cost = _number(intent.get("cost_usd", 0), "intent.cost_usd")
         fan_out = _positive_int(intent.get("fan_out", 1), "intent.fan_out")
+        authority_contract_revision = data.get("authority_contract_revision")
+        if authority_contract_revision is not None:
+            authority_contract_revision = _string(authority_contract_revision, "action.authority_contract_revision")
+            if authority_contract_revision != AUTHORITY_CONTRACT_REVISION:
+                raise PolicyValidationError("unsupported authority contract revision")
+        actor_identity_ref = data.get("actor_identity_ref")
+        if actor_identity_ref is not None:
+            actor_identity_ref = _authority_ref(actor_identity_ref, "action.actor_identity_ref")
+        authority_ref = data.get("authority_ref")
+        if authority_ref is not None:
+            authority_ref = _authority_ref(authority_ref, "action.authority_ref")
+        audience_ref = data.get("audience_ref")
+        if audience_ref is not None:
+            audience_ref = _string(audience_ref, "action.audience_ref")
+        delegation_generation = data.get("delegation_generation")
+        if delegation_generation is not None:
+            delegation_generation = _positive_int(delegation_generation, "action.delegation_generation")
         return cls(
             schema_version=SCHEMA_VERSION,
             action_id=action_id,
@@ -243,10 +289,15 @@ class ActionEnvelope:
                 "cost_usd": int(cost) if cost.is_integer() else cost,
                 "fan_out": fan_out,
             },
+            authority_contract_revision=authority_contract_revision,
+            actor_identity_ref=actor_identity_ref,
+            authority_ref=authority_ref,
+            audience_ref=audience_ref,
+            delegation_generation=delegation_generation,
         )
 
     def as_mapping(self) -> dict[str, Any]:
-        return {
+        result = {
             "schema_version": self.schema_version,
             "action_id": self.action_id,
             "tool": self.tool,
@@ -256,6 +307,16 @@ class ActionEnvelope:
             "workspace": self.workspace,
             "intent": copy.deepcopy(self.intent),
         }
+        for key, value in (
+            ("authority_contract_revision", self.authority_contract_revision),
+            ("actor_identity_ref", self.actor_identity_ref),
+            ("authority_ref", self.authority_ref),
+            ("audience_ref", self.audience_ref),
+            ("delegation_generation", self.delegation_generation),
+        ):
+            if value is not None:
+                result[key] = value
+        return result
 
 
 @dataclass(frozen=True)
@@ -355,6 +416,11 @@ class PolicyDecision:
     constraints: dict[str, Any]
     approval_required: bool
     transformed_action_digest: str | None = None
+    authority_contract_revision: str | None = None
+    actor_identity_ref: str | None = None
+    authority_ref: str | None = None
+    audience_ref: str | None = None
+    delegation_generation: int | None = None
 
     def as_dict(self) -> dict[str, Any]:
         result = {
@@ -375,6 +441,15 @@ class PolicyDecision:
         }
         if self.transformed_action_digest:
             result["transformed_action_digest"] = self.transformed_action_digest
+        for key, value in (
+            ("authority_contract_revision", self.authority_contract_revision),
+            ("actor_identity_ref", self.actor_identity_ref),
+            ("authority_ref", self.authority_ref),
+            ("audience_ref", self.audience_ref),
+            ("delegation_generation", self.delegation_generation),
+        ):
+            if value is not None:
+                result[key] = value
         return result
 
 
@@ -402,9 +477,14 @@ class ApprovalRecord:
     issued_at: str
     expires_at: str
     uses: int = 1
+    authority_contract_revision: str | None = None
+    actor_identity_ref: str | None = None
+    authority_ref: str | None = None
+    audience_ref: str | None = None
+    delegation_generation: int | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "schema_version": self.schema_version,
             "approval_id": self.approval_id,
             "action_digest": self.action_digest,
@@ -421,6 +501,16 @@ class ApprovalRecord:
             "expires_at": self.expires_at,
             "uses": self.uses,
         }
+        for key, value in (
+            ("authority_contract_revision", self.authority_contract_revision),
+            ("actor_identity_ref", self.actor_identity_ref),
+            ("authority_ref", self.authority_ref),
+            ("audience_ref", self.audience_ref),
+            ("delegation_generation", self.delegation_generation),
+        ):
+            if value is not None:
+                result[key] = value
+        return result
 
 
 @dataclass(frozen=True)
@@ -502,6 +592,11 @@ class ApprovalStore:
             reason=evaluation.decision.reason,
             issued_at=timestamp(now),
             expires_at=timestamp(now + timedelta(seconds=ttl_seconds)),
+            authority_contract_revision=evaluation.action.authority_contract_revision,
+            actor_identity_ref=evaluation.action.actor_identity_ref,
+            authority_ref=evaluation.action.authority_ref,
+            audience_ref=evaluation.action.audience_ref,
+            delegation_generation=evaluation.action.delegation_generation,
         )
 
         def append(handle: Any) -> ApprovalRecord:
@@ -555,6 +650,15 @@ class ApprovalStore:
                 issued_at=str(issued["issued_at"]),
                 expires_at=str(issued["expires_at"]),
                 uses=int(issued.get("uses", 1)),
+                authority_contract_revision=issued.get("authority_contract_revision"),
+                actor_identity_ref=issued.get("actor_identity_ref"),
+                authority_ref=issued.get("authority_ref"),
+                audience_ref=issued.get("audience_ref"),
+                delegation_generation=(
+                    None
+                    if issued.get("delegation_generation") is None
+                    else int(issued["delegation_generation"])
+                ),
             )
             handle.seek(0, 2)
             handle.write(canonical_json({"event": "consumed", "schema_version": SCHEMA_VERSION, "approval_id": approval_id, "consumed_at": timestamp(self.clock())}) + "\n")
@@ -786,6 +890,11 @@ class PolicyEngine:
             constraints=constraints,
             approval_required=decision == "require_approval",
             transformed_action_digest=transformed_digest,
+            authority_contract_revision=envelope.authority_contract_revision,
+            actor_identity_ref=envelope.actor_identity_ref,
+            authority_ref=envelope.authority_ref,
+            audience_ref=envelope.audience_ref,
+            delegation_generation=envelope.delegation_generation,
         )
         return PolicyEvaluation(envelope, effective, policy_decision)
 
@@ -815,6 +924,15 @@ class PolicyEngine:
             "decision": decision.decision,
             "profile": decision.profile,
         }
+        for key, value in (
+            ("authority_contract_revision", decision.authority_contract_revision),
+            ("actor_identity_ref", decision.actor_identity_ref),
+            ("authority_ref", decision.authority_ref),
+            ("audience_ref", decision.audience_ref),
+            ("delegation_generation", decision.delegation_generation),
+        ):
+            if value is not None:
+                attributes[key] = value
         attributes.update(dict(extra or {}))
         module.ReceiptStore(receipts_path).append(
             module.make_event(
@@ -1004,19 +1122,32 @@ class PolicySession:
         risk: str,
         cost_usd: float = 0,
         fan_out: int = 1,
+        authority_contract_revision: str | None = None,
+        actor_identity_ref: str | None = None,
+        authority_ref: str | None = None,
+        audience_ref: str | None = None,
+        delegation_generation: int | None = None,
     ) -> ActionEnvelope:
-        return ActionEnvelope.from_mapping(
-            {
-                "schema_version": SCHEMA_VERSION,
-                "action_id": action_id,
-                "tool": tool,
-                "arguments": dict(arguments),
-                "resource": {"repository": repository, "branch": branch, "paths": paths, "domains": domains},
-                "principal": self.principal,
-                "workspace": self.workspace,
-                "intent": {"effect": effect, "external": True, "risk": risk, "cost_usd": cost_usd, "fan_out": fan_out},
-            }
-        )
+        value = {
+            "schema_version": SCHEMA_VERSION,
+            "action_id": action_id,
+            "tool": tool,
+            "arguments": dict(arguments),
+            "resource": {"repository": repository, "branch": branch, "paths": paths, "domains": domains},
+            "principal": self.principal,
+            "workspace": self.workspace,
+            "intent": {"effect": effect, "external": True, "risk": risk, "cost_usd": cost_usd, "fan_out": fan_out},
+        }
+        for key, item in (
+            ("authority_contract_revision", authority_contract_revision),
+            ("actor_identity_ref", actor_identity_ref),
+            ("authority_ref", authority_ref),
+            ("audience_ref", audience_ref),
+            ("delegation_generation", delegation_generation),
+        ):
+            if item is not None:
+                value[key] = item
+        return ActionEnvelope.from_mapping(value)
 
     def authorize(self, action: ActionEnvelope, *, approval_id: str | None = None, staged: bool = False) -> PolicyAuthorization:
         return self.engine.authorize(action, approval_id=approval_id, staged=staged, receipts_path=self.receipts_path)

@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw/v1",
+  "title": "Forge GitHub Agentic Workflows Adapter",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "adapter_revision", "upstream", "defaults", "workflows"],
+  "properties": {
+    "$schema": {"const": "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw/v1"},
+    "schema_version": {"const": 1},
+    "adapter_revision": {"const": "forge-gh-aw-v1"},
+    "upstream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "commit", "workflow_schema"],
+      "properties": {
+        "version": {"type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "workflow_schema": {"type": "string", "minLength": 1}
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository", "policy_profile", "max_fan_out", "max_effects", "protected_paths",
+        "network_allowed", "action_pins", "engines"
+      ],
+      "properties": {
+        "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+        "policy_profile": {"type": "string", "minLength": 1},
+        "max_fan_out": {"type": "integer", "minimum": 1, "maximum": 50},
+        "max_effects": {"type": "integer", "minimum": 1, "maximum": 50},
+        "protected_paths": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "network_allowed": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "action_pins": {
+          "type": "object",
+          "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+        },
+        "engines": {
+          "type": "array",
+          "items": {"enum": ["copilot", "claude", "codex", "gemini"]},
+          "uniqueItems": true
+        }
+      }
+    },
+    "workflows": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id", "name", "objective", "source_workflow", "trigger", "engine", "capabilities",
+          "safe_outputs", "dispatches", "staged"
+        ],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+          "name": {"type": "string", "minLength": 1},
+          "objective": {"type": "string", "minLength": 1},
+          "source_workflow": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+          "trigger": {"type": "object", "minProperties": 1},
+          "engine": {"enum": ["copilot", "claude", "codex", "gemini"]},
+          "capabilities": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "string", "minLength": 1},
+            "uniqueItems": true
+          },
+          "safe_outputs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true,
+              "required": ["type", "max"],
+              "properties": {
+                "type": {"type": "string", "minLength": 1},
+                "max": {"type": "integer", "minimum": 1, "maximum": 50}
+              }
+            }
+          },
+          "dispatches": {
+            "type": "array",
+            "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+            "uniqueItems": true
+          },
+          "staged": {"type": "boolean"}
+        }
+      }
+    }
+  }
+}

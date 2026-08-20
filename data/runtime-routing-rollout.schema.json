@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/routing-rollout/v1",
+  "title": "Forge Runtime Routing Rollout Certificate",
+  "description": "Digest-bound reviewed rollout state for explicitly enabling or disabling adaptive routing.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract_revision",
+    "rollout_id",
+    "status",
+    "stage",
+    "baseline_policy_revision",
+    "candidate_policy_revision",
+    "replay_ref",
+    "evidence_ref",
+    "traffic_percent",
+    "reasons",
+    "activation",
+    "rollout_ref"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "contract_revision": {"const": "forge-routing-v1"},
+    "rollout_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "status": {"enum": ["activated", "staged", "blocked"]},
+    "stage": {"enum": ["preview", "canary", "active", "rollback", "retired"]},
+    "baseline_policy_revision": {"$ref": "#/$defs/reference"},
+    "candidate_policy_revision": {"$ref": "#/$defs/reference"},
+    "replay_ref": {"$ref": "#/$defs/reference"},
+    "evidence_ref": {"$ref": "#/$defs/reference"},
+    "approval_ref": {"$ref": "#/$defs/reference"},
+    "approval_scope": {"type": "string", "enum": ["routing.adaptive.activate", "routing.adaptive.rollback", "routing.adaptive.retire"]},
+    "traffic_percent": {"type": "number", "minimum": 0, "maximum": 100},
+    "reasons": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"}},
+    "activation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "cohort", "fallback"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "cohort": {"const": "request-digest"},
+        "fallback": {"const": "static"}
+      }
+    },
+    "rollout_ref": {"$ref": "#/$defs/reference"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"stage": {"enum": ["canary", "active"]}}},
+      "then": {
+        "required": ["approval_ref", "approval_scope"],
+        "properties": {"approval_scope": {"const": "routing.adaptive.activate"}}
+      }
+    },
+    {
+      "if": {"properties": {"stage": {"const": "rollback"}}},
+      "then": {
+        "required": ["approval_ref", "approval_scope"],
+        "properties": {"approval_scope": {"const": "routing.adaptive.rollback"}}
+      }
+    },
+    {
+      "if": {"properties": {"stage": {"const": "retired"}}},
+      "then": {
+        "required": ["approval_ref", "approval_scope"],
+        "properties": {"approval_scope": {"const": "routing.adaptive.retire"}}
+      }
+    },
+    {
+      "if": {"properties": {"stage": {"const": "preview"}}},
+      "then": {"not": {"anyOf": [{"required": ["approval_ref"]}, {"required": ["approval_scope"]}]}}
+    },
+    {
+      "if": {"properties": {"stage": {"const": "canary"}}},
+      "then": {"properties": {"traffic_percent": {"exclusiveMinimum": 0, "exclusiveMaximum": 100}}}
+    },
+    {
+      "if": {"properties": {"stage": {"const": "active"}}},
+      "then": {"properties": {"traffic_percent": {"const": 100}}}
+    },
+    {
+      "if": {"properties": {"stage": {"enum": ["preview", "rollback", "retired"]}}},
+      "then": {"properties": {"traffic_percent": {"const": 0}}}
+    }
+  ],
+  "$defs": {
+    "reference": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

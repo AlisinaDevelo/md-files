@@ -217,6 +217,12 @@ def test_tampering_fails_after_bundle_digest_is_recomputed(tmp_path):
     with pytest.raises(module.ProvenanceError, match="signature|invocation"):
         module.verify_bundle(changed, policy_path)
 
+    changed = copy.deepcopy(bundle)
+    changed["traces"][0]["spans"].reverse()
+    redigest_bundle(module, changed)
+    with pytest.raises(module.ProvenanceError, match="trace projection"):
+        module.verify_bundle(changed, policy_path)
+
 
 def test_policy_revision_is_bound_to_lineage(tmp_path):
     module, _database, key_path, policy_path, bundle, _database_before = export_bundle(tmp_path / "valid")
@@ -239,12 +245,6 @@ def test_policy_revision_is_bound_to_lineage(tmp_path):
     changed["signature"] = module._signature(changed["provenance"], "key-a", key_path.read_bytes())
     redigest_bundle(module, changed)
     with pytest.raises(module.ProvenanceError, match="policy_revision does not match lineage"):
-        module.verify_bundle(changed, policy_path)
-
-    changed = copy.deepcopy(bundle)
-    changed["traces"][0]["spans"].reverse()
-    redigest_bundle(module, changed)
-    with pytest.raises(module.ProvenanceError, match="trace projection"):
         module.verify_bundle(changed, policy_path)
 
 

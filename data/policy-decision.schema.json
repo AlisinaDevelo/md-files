@@ -20,6 +20,11 @@
     "resource": {"type": "object"},
     "intent": {"type": "object"},
     "constraints": {"type": "object"},
-    "approval_required": {"type": "boolean"}
+    "approval_required": {"type": "boolean"},
+    "authority_contract_revision": {"type": "string", "const": "forge-authority-v1"},
+    "actor_identity_ref": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "authority_ref": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "audience_ref": {"type": "string", "minLength": 1},
+    "delegation_generation": {"type": "integer", "minimum": 1}
   }
 }

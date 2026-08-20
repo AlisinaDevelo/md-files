@@ -60,7 +60,8 @@ python3 scripts/forge-runtime.py --db .forge/runtime.sqlite3 submit-input \
   --input-schema-digest sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
   --authorization-context-digest sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 python3 scripts/forge-mcp-tasks.py --db .forge/runtime.sqlite3 get \
-  --run-id run-demo --wait-id approval-1
+  --run-id run-demo --wait-id approval-1 \
+  --authorization-context-digest sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 
 python3 scripts/forge-lineage.py export \
   --db .forge/runtime.sqlite3 --output .forge/lineage.json
@@ -85,6 +86,7 @@ The database schemas are versioned in [`data/runtime-events.schema.json`](../dat
 [`data/runtime-restore.schema.json`](../data/runtime-restore.schema.json), and
 [`data/runtime-migrations.schema.json`](../data/runtime-migrations.schema.json), and
 [`data/runtime-waits.schema.json`](../data/runtime-waits.schema.json),
+[`data/runtime-mcp-tasks.schema.json`](../data/runtime-mcp-tasks.schema.json),
 [`data/runtime-backend.schema.json`](../data/runtime-backend.schema.json), and
 [`data/runtime-backend-evidence.schema.json`](../data/runtime-backend-evidence.schema.json), and
 [`data/runtime-conformance.schema.json`](../data/runtime-conformance.schema.json),
@@ -136,9 +138,48 @@ policy; no wall-clock read can silently change the outcome.
 
 Cancellation records request, acknowledgement, and terminal cancellation evidence. A
 terminal cancellation is sticky: late task completion, input, expiry, or provider callbacks
-cannot resurrect the run. The MCP Tasks adapter in `scripts/forge-mcp-tasks.py` is a view over
-this state. Its task IDs, TTL, polling hints, result references, and cancellation operations
-map to Forge identifiers; notifications are best-effort and never canonical.
+cannot resurrect the run.
+
+### MCP Tasks 2026-07-28 adapter
+
+The reference-only adapter in `scripts/forge-mcp-tasks.py` negotiates the final
+`2026-07-28` protocol revision and the `io.modelcontextprotocol/tasks` extension. It projects
+canonical Forge history through `tasks/get`, `tasks/update`, and `tasks/cancel`; it is not a
+hosted MCP server, does not implement `server/discover`, and does not persist raw
+`inputResponses`.
+
+Inspect the negotiated profile before using the adapter:
+
+```bash
+python3 scripts/forge-mcp-tasks.py profile \
+  --protocol-version 2026-07-28 \
+  --extension io.modelcontextprotocol/tasks
+```
+
+Every read and mutation proves the wait's authorization-context digest. `tasks/get` returns an
+opaque, authorization-bound `forge-task-v1` handle. If a caller supplies a request-identity
+digest, the handle is stable across reconnects; without one, the adapter adds a random nonce so
+handles cannot be enumerated. `inputRequests` contains only a schema digest and a digest-only
+input-request key. Submit a digest reference, never raw input:
+
+```bash
+python3 scripts/forge-mcp-tasks.py --db .forge/runtime.sqlite3 update-by-id \
+  --task-id TASK_HANDLE \
+  --authorization-context-digest sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb \
+  --input-digest sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc \
+  --input-schema-digest sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+  --input-request-id INPUT_REQUEST_ID
+```
+
+The update and cancellation acknowledgements are empty results, as required by the Tasks
+extension. Poll the same handle with `get-by-id`; repeated updates are idempotent only when the
+persisted event payload matches exactly. A later input round receives a new request key, so a
+stale response fails closed. Notifications remain a best-effort legacy convenience and are not
+the canonical history.
+
+This boundary follows the [MCP 2026-07-28 release](https://blog.modelcontextprotocol.io/posts/2026-07-28/),
+the [Tasks extension](https://modelcontextprotocol.io/extensions/tasks/overview), and the
+[TypeScript SDK migration guidance](https://ts.sdk.modelcontextprotocol.io/v2/migration/support-2026-07-28).
 
 ## Checkpointed recovery
 
@@ -225,6 +266,48 @@ boundary and consult the [etcd API guarantees](https://etcd.io/docs/v3.7/learnin
 [CloudEvents specification](https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md)
 when implementing a live provider.
 
+## Deterministic chaos and schedule shrinking
+
+Runtime conformance fixtures prove selected contracts; the chaos harness explores replayable
+interleavings around those contracts. A schedule is a seed, an ordered list of symbolic actions,
+and an optional expected failure predicate. It never carries prompts, credentials, provider
+bodies, absolute paths, or wall-clock values. The schedule reference and every result are
+SHA-256 references over canonical JSON.
+
+Generate, inspect, run, replay, and shrink schedules offline:
+
+```bash
+python3 scripts/forge-chaos.py generate --seed 6601 --output /tmp/forge-schedule.json
+python3 scripts/forge-chaos.py inspect --schedule /tmp/forge-schedule.json
+python3 scripts/forge-chaos.py run --schedule /tmp/forge-schedule.json --backend all
+python3 scripts/forge-chaos.py replay --schedule /tmp/forge-schedule.json --backend etcd
+python3 scripts/forge-chaos.py shrink --schedule /tmp/failing-schedule.json --backend memory
+```
+
+The generated schedule covers pre- and post-commit crashes, ambiguous commits, duplicate
+delivery, lease expiry and stale-worker mutation, wait/signal ordering, cancellation, checkpoint
+corruption, provider timeout, privacy rejection, replay verification, cursor gaps, and
+compaction recovery. SQLite/WAL and memory explicitly report distributed-only actions as
+unsupported degradation; etcd must execute those actions. Backend comparison checks canonical
+history, terminal state, effect and receipt projections, action outcomes, and privacy evidence.
+
+The bounded release corpus is the promoted seed set `6601`, `6602`, and `6603`:
+
+```bash
+python3 scripts/forge-chaos.py corpus --output /tmp/forge-chaos-corpus.json
+```
+
+When a schedule fails, retain the schedule JSON and its digest-only result as regression evidence.
+Run `shrink` against the failing backend, review the minimized schedule, then promote its seed or
+schedule reference into the corpus and conformance evidence. A minimized schedule must preserve
+the same failure class. An `expected_failure` predicate can scope a regression to a backend and
+failure class; a missing or changed failure is reported as `expected_failure_mismatch` with
+digest-only evidence. CI remains bounded and deterministic; the corpus is high-signal coverage,
+not a claim of exhaustive interleavings. See
+[`data/runtime-chaos-schedule.schema.json`](../data/runtime-chaos-schedule.schema.json),
+[`data/runtime-chaos-result.schema.json`](../data/runtime-chaos-result.schema.json), and
+[`data/runtime-chaos-corpus.schema.json`](../data/runtime-chaos-corpus.schema.json).
+
 ## External effect protocol
 
 Pass an effect descriptor when appending the event that schedules an external operation. Forge
@@ -254,12 +337,14 @@ and provider request IDs. Prompts, raw content, tool arguments/results, credenti
 and provider response bodies are rejected at the persistence boundary. The effect hash also
 makes direct outbox tampering detectable before inspection or delivery.
 
-Adaptive routing remains follow-up work under
-[#22](https://github.com/AlisinaDevelo/md-files/issues/22). The portable backend contract is
-executable: `forge-backends.py` negotiates capabilities and consistency, keeps Forge history
-canonical, normalizes remote metadata through a reference-only evidence envelope, runs the same
-12-case fixture matrix against the SQLite/WAL reference, in-memory fault, and etcd-first facades,
-and adds a six-case distributed revision/watch recovery matrix.
+Deterministic model routing is documented in [`docs/routing.md`](routing.md) and exposed through
+`scripts/forge-routing.py`. Capability and policy constraints filter routes before scoring;
+static decisions remain the live default, and adaptive decisions fail closed until an offline
+replay satisfies its sample, confidence, regression, cost, failure, approval, and budget gates.
+The portable backend contract is executable: `forge-backends.py` negotiates capabilities and
+consistency, keeps Forge history canonical, normalizes remote metadata through a reference-only
+evidence envelope, runs the same 12-case fixture matrix against the SQLite/WAL reference,
+in-memory fault, and etcd-first facades, and adds a six-case distributed revision/watch matrix.
 
 ## Boundary
 

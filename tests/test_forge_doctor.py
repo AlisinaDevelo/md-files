@@ -28,6 +28,7 @@ def load_module():
     [
         ("https://github.com/AlisinaDevelo/md-files.git", ("AlisinaDevelo", "md-files")),
         ("git@github.com:AlisinaDevelo/md-files", ("AlisinaDevelo", "md-files")),
+        ("git@github-personal:AlisinaDevelo/md-files.git", ("AlisinaDevelo", "md-files")),
         ("ssh://git@github.com/AlisinaDevelo/md-files.git", ("AlisinaDevelo", "md-files")),
         ("https://gitlab.com/example/project.git", None),
     ],
@@ -66,6 +67,26 @@ def test_offline_mode_never_calls_github_api(monkeypatch):
     assert report["summary"]["unknown"] == 4
 
 
+def test_local_constellation_profile_reports_aliases_language_matrix_and_boundaries(tmp_path):
+    doctor = load_module()
+    repo = tmp_path / "workspace" / "repository"
+    repo.mkdir(parents=True)
+    for name in ("README.md", "config.json", "check.py", "policy.yaml", "run.sh"):
+        (repo / name).write_text("fixture\n")
+    instance = doctor.Doctor(repo, offline=True, profile="local-constellation")
+    instance.check_profile()
+
+    assert len(instance.checks) == 1
+    finding = instance.checks[0]
+    assert finding.check_id == "forge.profile"
+    assert finding.status == "pass"
+    assert any("repository alias repository" in item for item in finding.evidence)
+    assert any("language matrix:" in item and "markdown=" in item for item in finding.evidence)
+    assert "execution=read-only" in finding.evidence
+    assert "security=defensive-only" in finding.evidence
+    assert "external_authority=none" in finding.evidence
+
+
 def test_manifest_drift_is_a_failure(tmp_path):
     doctor = load_module()
     (tmp_path / "plugins/forge/.claude-plugin").mkdir(parents=True)
@@ -82,6 +103,48 @@ def test_manifest_drift_is_a_failure(tmp_path):
 
     assert instance.checks[0].status == "fail"
     assert "disagree" in instance.checks[0].summary
+
+
+def test_host_checks_allow_slow_cli_startup(tmp_path, monkeypatch):
+    doctor = load_module()
+    manifest = tmp_path / "plugins/forge/.codex-plugin/plugin.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text('{"version":"3.6.0"}\n')
+    calls = []
+
+    monkeypatch.setattr(doctor.shutil, "which", lambda executable: executable)
+
+    def command(args, timeout=15):
+        calls.append((args, timeout))
+        if args[1:] == ["--version"]:
+            return subprocess.CompletedProcess(args, 0, f"{args[0]} 1.0\n", "")
+        if args[0] == "claude":
+            payload = [{"id": "forge@forge", "version": "3.6.0"}]
+        else:
+            payload = {"installed": [{"pluginId": "forge@forge", "version": "3.6.0"}]}
+        return subprocess.CompletedProcess(args, 0, json.dumps(payload), "")
+
+    instance = doctor.Doctor(tmp_path, offline=True)
+    monkeypatch.setattr(instance, "command", command)
+    instance.check_executables()
+
+    assert [timeout for _, timeout in calls] == [
+        doctor.HOST_VERSION_TIMEOUT_SECONDS,
+        doctor.HOST_VERSION_TIMEOUT_SECONDS,
+        doctor.HOST_VERSION_TIMEOUT_SECONDS,
+        doctor.HOST_VERSION_TIMEOUT_SECONDS,
+    ]
+    assert doctor.HOST_VERSION_TIMEOUT_SECONDS == 30
+
+    calls.clear()
+    instance.check_plugin_surfaces()
+
+    assert instance.checks[-1].status == "pass"
+    assert [timeout for _, timeout in calls] == [
+        doctor.PLUGIN_LIST_TIMEOUT_SECONDS,
+        doctor.PLUGIN_LIST_TIMEOUT_SECONDS,
+    ]
+    assert doctor.PLUGIN_LIST_TIMEOUT_SECONDS == 45
 
 
 def test_cli_json_output_is_parseable():

@@ -39,6 +39,7 @@ def test_release_surface_derives_metadata_and_install_inputs(tmp_path):
     assert any(item["resolved_components"] for item in bundles["bundles"])
     assert any(item["resolved_steps"] for item in workflows["workflows"])
     assert (tmp_path / "claude/data/runtime-events.schema.json").is_file()
+    assert (tmp_path / "claude/data/doctor-profiles.json").is_file()
     assert (tmp_path / "codex/data/runtime-state.schema.json").is_file()
     assert (tmp_path / "claude/data/runtime-outbox.schema.json").is_file()
     assert (tmp_path / "codex/data/runtime-inbox.schema.json").is_file()
@@ -47,6 +48,21 @@ def test_release_surface_derives_metadata_and_install_inputs(tmp_path):
     assert (tmp_path / "claude/data/runtime-restore.schema.json").is_file()
     assert (tmp_path / "codex/data/runtime-migrations.schema.json").is_file()
     assert (tmp_path / "claude/data/runtime-waits.schema.json").is_file()
+    assert (tmp_path / "claude/data/runtime-mcp-tasks.schema.json").is_file()
+    assert (tmp_path / "claude/data/release-attestation.schema.json").is_file()
+    assert (tmp_path / "claude/data/trajectory-evals.schema.json").is_file()
+    assert (tmp_path / "claude/data/runtime-authority.schema.json").is_file()
+    assert (tmp_path / "claude/data/runtime-host-admission.schema.json").is_file()
+    assert (tmp_path / "claude/data/runtime-a2a-card.schema.json").is_file()
+    assert (tmp_path / "claude/data/runtime-a2a-task.schema.json").is_file()
+    assert (
+        tmp_path
+        / "codex/plugins/forge/skills/orchestration/scripts/forge-a2a-card.py"
+    ).is_file()
+    assert (
+        tmp_path
+        / "codex/plugins/forge/skills/orchestration/scripts/forge-a2a-task.py"
+    ).is_file()
     assert (tmp_path / "codex/plugins/forge/skills/orchestration/scripts/forge-mcp-tasks.py").is_file()
     assert (tmp_path / "claude/data/runtime-receipts.schema.json").is_file()
     assert (tmp_path / "codex/data/runtime-lineage.schema.json").is_file()
@@ -55,14 +71,38 @@ def test_release_surface_derives_metadata_and_install_inputs(tmp_path):
     assert (tmp_path / "claude/data/runtime-backend-evidence.schema.json").is_file()
     assert (tmp_path / "codex/data/runtime-conformance.schema.json").is_file()
     assert (tmp_path / "claude/data/runtime-distributed.schema.json").is_file()
+    assert (tmp_path / "claude/data/runtime-chaos-schedule.schema.json").is_file()
+    assert (tmp_path / "codex/data/runtime-chaos-result.schema.json").is_file()
+    assert (tmp_path / "claude/data/runtime-chaos-corpus.schema.json").is_file()
     assert (tmp_path / "claude/data/runtime-definitions.schema.json").is_file()
     assert (tmp_path / "codex/data/runtime-compatibility.schema.json").is_file()
+    assert (tmp_path / "claude/data/runtime-routing-policy.schema.json").is_file()
+    assert (tmp_path / "codex/data/runtime-routing-decision.schema.json").is_file()
+    assert (tmp_path / "claude/data/runtime-routing-replay.schema.json").is_file()
+    assert (tmp_path / "claude/data/runtime-routing-rollout.schema.json").is_file()
+    assert (tmp_path / "claude/data/runtime-gh-aw.schema.json").is_file()
+    assert (tmp_path / "claude/data/runtime-gh-aw-episode.schema.json").is_file()
+    assert (tmp_path / "claude/data/runtime-gh-aw-admission.schema.json").is_file()
+    assert (tmp_path / "claude/data/runtime-gh-aw-worker-handoff.schema.json").is_file()
+    assert (tmp_path / "codex/data/runtime-gh-aw-provider-request.schema.json").is_file()
+    assert (
+        tmp_path
+        / "codex/plugins/forge/skills/orchestration/scripts/forge-gh-aw-provider.py"
+    ).is_file()
+    assert (tmp_path / "codex/data/gh-aw-workflows.json").is_file()
+    assert (tmp_path / "claude/policies/gh-aw.json").is_file()
     assert (tmp_path / "claude/plugins/forge/skills/observability/scripts/forge-lineage.py").is_file()
     assert (tmp_path / "codex/plugins/forge/skills/observability/scripts/forge-lineage.py").is_file()
     assert (tmp_path / "agentskills/zed/install.sh").stat().st_mode & 0o111
     manifest = json.loads((tmp_path / "codex/data/projection-manifest.json").read_text(encoding="utf-8"))
     assert manifest["hosts"]["codex"]["components"] == 25
-    assert manifest["metadata"]["bundles"]["count"] == 6
+    assert manifest["metadata"]["bundles"]["count"] == 7
+    constellation = next(item for item in bundles["bundles"] if item["id"] == "constellation-integration")
+    assert constellation["boundaries"] == {
+        "execution": "read-only",
+        "security": "defensive-only",
+        "external_authority": "none",
+    }
 
 
 def test_release_surface_is_byte_deterministic(tmp_path):

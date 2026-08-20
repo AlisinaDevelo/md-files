@@ -17,6 +17,19 @@ class ReleaseVerificationError(RuntimeError):
     """Raised when a release artifact or its inventory cannot be trusted."""
 
 
+EXPECTED_ATTESTATION_CONTRACT = {
+    "schema_version": 1,
+    "envelope_type": "application/vnd.in-toto+dsse",
+    "payload_type": "application/vnd.in-toto+json",
+    "statement_type": "https://in-toto.io/Statement/v1",
+    "predicate_type": "https://slsa.dev/provenance/v1",
+    "build_type": "https://github.com/AlisinaDevelo/md-files/forge/release/v1",
+    "subject_rule": "release-manifest-artifacts-v1",
+    "profiles": ["local-hmac-v1", "public-key-dsse-v1", "github-artifact-v1"],
+    "offline_verifier": "python3 scripts/forge-attestation.py verify-release",
+}
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -124,6 +137,11 @@ def _verify_archives(manifest: dict[str, Any], root: Path) -> None:
             raise ReleaseVerificationError(f"cannot inspect archive {artifact['name']}: {exc}") from exc
 
 
+def _verify_attestation_contract(manifest: dict[str, Any]) -> None:
+    if manifest.get("attestation") != EXPECTED_ATTESTATION_CONTRACT:
+        raise ReleaseVerificationError("release attestation contract is missing or unsupported")
+
+
 def verify_release(manifest_path: Path, root: Path, *, expected_version: str | None = None, expected_commit: str | None = None) -> dict[str, Any]:
     manifest = _load(manifest_path)
     if manifest.get("schema_version") != 1 or manifest.get("project") != "forge":
@@ -135,6 +153,7 @@ def verify_release(manifest_path: Path, root: Path, *, expected_version: str | N
     _verify_hashes(manifest, root)
     _verify_archives(manifest, root)
     _verify_spdx(manifest, root)
+    _verify_attestation_contract(manifest)
     return {"status": "verified", "version": manifest["version"], "commit": manifest["commit"], "artifact_count": len(manifest["artifacts"])}
 
 

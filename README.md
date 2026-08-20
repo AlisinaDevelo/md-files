@@ -12,8 +12,8 @@ maximize the efficacy of LLMs in software engineering.**
 [![Agents](https://img.shields.io/badge/agents-20-8b5cf6.svg)](plugins/forge/agents/)
 [![Skills](https://img.shields.io/badge/skills-25-06b6d4.svg)](plugins/forge/skills/)
 [![Commands](https://img.shields.io/badge/commands-22-22c55e.svg)](plugins/forge/commands/)
-[![Tests](https://img.shields.io/badge/tests-239%20passing-success.svg)](tests/)
-[![Prompt evals](https://img.shields.io/badge/prompt%20evals-312%20checks-success.svg)](evals/)
+[![Tests](https://img.shields.io/badge/tests-382%20passing-success.svg)](tests/)
+[![Prompt evals](https://img.shields.io/badge/prompt%20evals-333%2F334%20checks-success.svg)](evals/)
 
 </div>
 
@@ -87,14 +87,19 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   auto-format edits, inject repo context at session start, and notify you on completion —
   deterministically, without relying on the model to remember.
 - **Proven, not asserted.** A real eval harness scores prompts and high-risk behavior
-  contracts (312 deterministic checks plus cross-host scenarios and an opt-in LLM judge);
-  239 tests cover safety hooks, task sync, receipts, durable runtime replay, external effect
+  contracts (333/334 deterministic checks, one warning, plus cross-host scenarios and an opt-in
+  LLM judge); 382 tests cover safety hooks, task sync, receipts, durable runtime replay, external effect
   delivery, doctor, policy,
   stacks, marketplace readiness, capability graph, rendering, semantic evidence, and conformance. Run
   them yourself — `just check`.
 - **Auditable & self-validating.** Read every prompt and script. CI validates structure,
   runs the tests, and scores the evals on every push. GitHub-backed task ledgers add stable
   issue identity, native task graphs, conflict stops, and resumable evidence.
+- **GitHub-native workflow bridge.** A pinned `gh-aw` adapter projects Forge orchestration
+  into deterministic workflow sources, read-only agent jobs, staged safe outputs, and
+  source-to-lock drift checks. Its optional provider worker adds fenced leases, exact one-use
+  approvals, account verification, idempotent recovery, and reference-only GitHub receipts
+  without committing credentials.
 
 ## Install
 
@@ -333,6 +338,8 @@ scripts/               validation, installation, release, and marketplace checks
 - [Bundles & workflows](docs/bundles-and-workflows.md) — focused capability sets and ordered playbooks
 - [Quality bar](docs/quality-bar.md) — validation and safety standards for Forge components
 - [Competitive audit](docs/competitive-audit.md) — what Forge borrows from larger skill libraries
+- [Frontier roadmap](docs/frontier-roadmap.md) — research-backed interoperability, identity,
+  evaluation, release evidence, and connected-execution priorities
 - [Stacked changes](docs/stacked-changes.md) — GitHub-native stacks, provider adapters,
   safety model, review flow, CI, and recovery
 - [GitHub native stacks](docs/github-native-stacks.md) — remote inspect/import, SHA-guarded
@@ -345,6 +352,10 @@ scripts/               validation, installation, release, and marketplace checks
   attestations, offline verification, and threat model
 - [Marketplace readiness](docs/marketplace-readiness.md) — honest directory status,
   publisher surfaces, asset policy, and submission smoke-test matrix
+- [OpenAI Agent Plugins compatibility](docs/openai-agent-plugins.md) — current universal
+  plugin contract, Forge audit, submission boundary, and staged compatibility plan
+- [OpenAI submission packet](docs/openai-agent-plugin-submission.md) — reproducible candidate
+  archive evidence, five positive/three negative cases, and the external publication boundary
 - [Capability IR](docs/capability-ir.md) — body-aware graph, deterministic host renderer,
   adapter contract, migration workflow, and current compiler boundary
 - [Durable runtime](docs/runtime.md) — local SQLite/WAL history, deterministic replay,
@@ -354,6 +365,8 @@ scripts/               validation, installation, release, and marketplace checks
   hash-chain verification, and explicit at-least-once boundaries
 - [Runtime provenance](docs/provenance.md) — signed trace correlation, privacy defaults,
   offline trust verification, key rotation, retention, and incident response
+- [GitHub Agentic Workflows](docs/gh-aw.md) — pinned gh-aw compilation, read-only agents,
+  staged safe outputs, policy evidence, native lock verification, and durable episode correlation
 - [Architecture](docs/architecture.md) — how the repo is organized and why
 - [Design rationale](docs/design-rationale.md) — the decisions and trade-offs behind Forge
 - [CI & headless usage](docs/ci-and-headless.md) — run Forge in pipelines and automated review

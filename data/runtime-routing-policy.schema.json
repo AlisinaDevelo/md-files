@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/routing-policy/v1",
+  "title": "Forge Runtime Routing Policy",
+  "description": "Capability, budget, pin, fallback, and offline-adaptation gates for deterministic model routing.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract_revision",
+    "policy_id",
+    "mode",
+    "budgets",
+    "activation",
+    "routes"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "contract_revision": {"const": "forge-routing-v1"},
+    "policy_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "policy_revision": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "mode": {"enum": ["static", "adaptive", "disabled"]},
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_input_tokens",
+        "max_output_tokens",
+        "max_cost_usd",
+        "max_latency_ms",
+        "max_concurrency"
+      ],
+      "properties": {
+        "max_input_tokens": {"type": "integer", "minimum": 0},
+        "max_output_tokens": {"type": "integer", "minimum": 0},
+        "max_cost_usd": {"type": "number", "minimum": 0},
+        "max_latency_ms": {"type": "integer", "minimum": 1},
+        "max_concurrency": {"type": "integer", "minimum": 1}
+      }
+    },
+    "activation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "min_samples",
+        "min_confidence",
+        "max_quality_regression",
+        "max_cost_increase_usd",
+        "max_failure_rate_increase",
+        "max_approval_burden_increase",
+        "max_replay_cost_usd"
+      ],
+      "properties": {
+        "min_samples": {"type": "integer", "minimum": 1},
+        "min_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "max_quality_regression": {"type": "number", "minimum": 0, "maximum": 1},
+        "max_cost_increase_usd": {"type": "number", "minimum": 0},
+        "max_failure_rate_increase": {"type": "number", "minimum": 0, "maximum": 1},
+        "max_approval_burden_increase": {"type": "number", "minimum": 0},
+        "max_replay_cost_usd": {"type": "number", "minimum": 0}
+      }
+    },
+    "routes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "route_id",
+          "provider",
+          "model",
+          "static_score",
+          "capabilities",
+          "cost_usd_per_1k_input",
+          "cost_usd_per_1k_output",
+          "latency_ms"
+        ],
+        "properties": {
+          "route_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+          "provider": {"type": "string", "minLength": 1},
+          "model": {"type": "string", "minLength": 1},
+          "static_score": {"type": "number", "minimum": 0, "maximum": 1},
+          "cost_usd_per_1k_input": {"type": "number", "minimum": 0},
+          "cost_usd_per_1k_output": {"type": "number", "minimum": 0},
+          "latency_ms": {"type": "integer", "minimum": 1},
+          "fallback_route_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"}
+          },
+          "capabilities": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tools",
+              "structured_output",
+              "context_tokens",
+              "modalities",
+              "regions",
+              "hosts",
+              "data_policies",
+              "replay_safe"
+            ],
+            "properties": {
+              "tools": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+              "structured_output": {"type": "boolean"},
+              "context_tokens": {"type": "integer", "minimum": 1},
+              "modalities": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+              "regions": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+              "hosts": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+              "data_policies": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+              "replay_safe": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

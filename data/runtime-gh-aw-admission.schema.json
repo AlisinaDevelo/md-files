@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw-admission/v1",
+  "title": "Forge Native GitHub Agentic Workflows Admission Certificate",
+  "description": "Privacy-safe proof that one verified native gh-aw lock is bound to one durable Forge episode and request.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schema_version", "contract_revision", "admission_id", "mode", "repository",
+    "episode_id", "request_digest", "dispatcher_workflow_id", "dispatcher_source_workflow",
+    "runtime_definition_digest", "gh_aw_definition_digest", "graph_digest", "spec_digest",
+    "effect_set_digest", "upstream", "artifacts", "native_job_roles", "dispatch_targets",
+    "safe_outputs", "history_sequence", "history_head"
+  ],
+  "properties": {
+    "$schema": {"const": "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw-admission/v1"},
+    "schema_version": {"const": 1},
+    "contract_revision": {"const": "forge-gh-aw-admission-v1"},
+    "admission_id": {"$ref": "#/$defs/ref"},
+    "mode": {"const": "upstream-gh-aw"},
+    "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+    "episode_id": {"type": "string", "pattern": "^gh-aw:[A-Za-z0-9._:/-]+$"},
+    "request_digest": {"$ref": "#/$defs/ref"},
+    "dispatcher_workflow_id": {"$ref": "#/$defs/workflowId"},
+    "dispatcher_source_workflow": {"$ref": "#/$defs/workflowId"},
+    "runtime_definition_digest": {"$ref": "#/$defs/ref"},
+    "gh_aw_definition_digest": {"$ref": "#/$defs/ref"},
+    "graph_digest": {"$ref": "#/$defs/ref"},
+    "spec_digest": {"$ref": "#/$defs/ref"},
+    "effect_set_digest": {"$ref": "#/$defs/ref"},
+    "upstream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "commit", "workflow_schema"],
+      "properties": {
+        "version": {"type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "workflow_schema": {"type": "string", "minLength": 1}
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "lock"],
+      "properties": {
+        "source": {"$ref": "#/$defs/sourceArtifact"},
+        "lock": {"$ref": "#/$defs/lockArtifact"}
+      }
+    },
+    "native_job_roles": {
+      "type": "array",
+      "minItems": 5,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$"}
+    },
+    "dispatch_targets": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/workflowId"}
+    },
+    "safe_outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "max"],
+        "properties": {
+          "type": {"enum": ["add-comment", "create-issue", "create-pull-request", "dispatch-workflow"]},
+          "max": {"type": "integer", "minimum": 1, "maximum": 50}
+        }
+      }
+    },
+    "history_sequence": {"type": "integer", "minimum": 1},
+    "history_head": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "ref": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "workflowId": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,127}$"},
+    "sourceArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path", "sha256"],
+      "properties": {
+        "kind": {"const": "source"},
+        "path": {"type": "string", "pattern": "^workflows/[a-z0-9][a-z0-9-]{0,127}\\.md$"},
+        "sha256": {"$ref": "#/$defs/ref"}
+      }
+    },
+    "lockArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path", "sha256"],
+      "properties": {
+        "kind": {"const": "lock"},
+        "path": {"type": "string", "pattern": "^workflows/[a-z0-9][a-z0-9-]{0,127}\\.lock\\.yml$"},
+        "sha256": {"$ref": "#/$defs/ref"}
+      }
+    }
+  }
+}

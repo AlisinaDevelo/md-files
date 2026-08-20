@@ -76,9 +76,11 @@ applying a reviewed migration. To pause for human input, use the runtime `wait` 
 checkpoints before `wait.created`, binds the input schema and authorization context by digest,
 and persists TTL, polling, expiry policy, and a bounded resume contract. Accept only one
 matching `submit-input`; use `signal` for ordered reference-only notifications. Cancellation
-is a three-event request/acknowledgement/terminal protocol, and the MCP Tasks view in
-`scripts/forge-mcp-tasks.py` maps task IDs, status, TTL, polling, result references, and
-cancellation back to Forge history without becoming a second source of truth.
+is a three-event request/acknowledgement/terminal protocol. The MCP Tasks view in
+`scripts/forge-mcp-tasks.py` negotiates the `2026-07-28` Tasks extension, maps opaque task
+handles, status, TTL, polling, digest-only input requests, and empty update/cancel acknowledgements
+back to Forge history without becoming a second source of truth. It is a local adapter contract,
+not a hosted MCP server.
 
 Pin every run to an immutable definition descriptor before dispatch: workflow and definition
 version, workflow code/schema digests, worker/build identity, policy and feature-flag digests,
@@ -147,6 +149,252 @@ in the reference-only envelope returned by `adapter_evidence`; its schema is
 `data/runtime-backend-evidence.schema.json`. Forge event IDs, sequence numbers, hash-chain
 parents, leases, and provider idempotency remain canonical. The contract promises at-least-once
 delivery with idempotent effects, never exactly-once provider execution.
+
+For deterministic race coverage, use the chaos schedule harness. It is seedable and offline: the
+schedule contains symbolic faults and references only, while the runner drives the real backend
+adapters and compares canonical history, outcomes, receipts, and privacy evidence. Keep the CI
+corpus bounded; a passing seed set is evidence, not an exhaustive interleaving proof. Retain a
+failing schedule and digest-only result, then shrink it before promoting the minimized seed into
+regression evidence. Backend-scoped `expected_failure` predicates are enforced during replay;
+missing or changed failure classes fail closed with digest-only mismatch evidence:
+
+```bash
+python3 scripts/forge-chaos.py generate --seed 6601 --output /tmp/forge-schedule.json
+python3 scripts/forge-chaos.py run --schedule /tmp/forge-schedule.json --backend all
+python3 scripts/forge-chaos.py shrink --schedule /tmp/failing-schedule.json --backend memory
+python3 scripts/forge-chaos.py corpus
+```
+
+## Deterministic model routing
+
+Use the routing contract when a workflow has more than one provider/model route. Capability and
+policy constraints are evaluated before scoring: required tools, structured output, context
+window, modality, host, region, data policy, replay safety, pins, and budgets can only exclude a
+route, never be outweighed by a score. The decision record contains candidate status, exclusion
+reason, score source, fallback plan, budget state, policy revision, request digest, and outcome
+evidence digests. Raw prompts, tool content, credentials, and provider bodies are rejected at the
+boundary.
+
+Live decisions are deterministic static decisions by default. An adaptive policy fails closed in
+`decide` until an offline replay proves its minimum-sample, confidence, quality-regression, cost,
+failure, approval-burden, and replay-budget gates. Pin a provider, model, or route per workflow;
+set `disable_adaptation` for an individual request when a workflow requires static behavior.
+Replay is an offline comparison only and does not mutate policy or activate itself:
+
+```bash
+python3 scripts/forge-routing.py inspect --policy POLICY.json
+python3 scripts/forge-routing.py decide --policy POLICY.json --request REQUEST.json
+python3 scripts/forge-routing.py replay \
+  --baseline-policy BASELINE.json \
+  --candidate-policy CANDIDATE.json \
+  --episodes EPISODES.json
+```
+
+Issue a reviewed, digest-bound rollout certificate before enabling adaptive decisions. Preview,
+canary, active, rollback, and retired stages are explicit; canary cohorts are derived from the
+request digest and outside requests fall back to static scoring. The default adaptive `decide`
+path remains denied without an activated certificate:
+
+```bash
+python3 scripts/forge-routing.py activate \
+  --baseline-policy BASELINE.json \
+  --candidate-policy CANDIDATE.json \
+  --episodes EPISODES.json \
+  --rollout ROLLOUT.json \
+  --output ROUTING-CERTIFICATE.json
+python3 scripts/forge-routing.py decide \
+  --policy CANDIDATE.json \
+  --request REQUEST.json \
+  --certificate ROUTING-CERTIFICATE.json
+```
+
+See `docs/routing.md` and the versioned contracts in `data/runtime-routing-*.schema.json` for
+the input and output shapes. Replay evidence is numeric and digest-only; an agent's confidence
+field is never accepted as ground-truth quality.
+
+## GitHub Agentic Workflows
+
+Use the bounded `forge-gh-aw-v1` adapter when a Forge workflow needs a GitHub Agentic
+Workflows projection. The adapter validates the canonical capability graph, pins the upstream
+`gh aw` compiler, rejects dispatcher cycles and protected-file writes, and turns every external
+operation into a staged policy effect. The agent job stays read-only; safe outputs are the only
+mutation boundary.
+
+Inspect and compile from the repository root:
+
+```bash
+python3 scripts/forge-gh-aw.py plan --spec data/gh-aw-workflows.json --json
+python3 scripts/forge-gh-aw.py compile --spec data/gh-aw-workflows.json --output build/gh-aw
+python3 scripts/forge-gh-aw.py check --spec data/gh-aw-workflows.json --output build/gh-aw
+```
+
+The default lock is an offline contract preview and stops before mutation. Install the exact
+upstream extension and add `--upstream` to produce native locks. Native locks can contain
+known upstream provider/auth secret names, but Forge never commits their values and rejects
+unknown references. Read [GitHub Agentic Workflows](../../../../docs/gh-aw.md) for the full
+contract, release surface, and runtime integration boundary.
+
+### Durable gh-aw episodes
+
+Bind a dispatcher to the Forge SQLite/WAL runtime when the workflow must survive process
+boundaries. The bridge pins the compiled gh-aw manifest and Forge definition, stages one
+approval-gated dispatch effect per declared worker, and exposes only digest/reference receipts
+at the provider boundary:
+
+```bash
+python3 scripts/forge-gh-aw-runtime.py start \
+  --dispatcher forge-dispatcher \
+  --request-digest sha256:REQUEST_DIGEST
+python3 scripts/forge-gh-aw-runtime.py dispatch \
+  --dispatcher forge-dispatcher --episode-id EPISODE_ID \
+  --request-digest sha256:REQUEST_DIGEST
+python3 scripts/forge-gh-aw-runtime.py claim \
+  --dispatcher forge-dispatcher --episode-id EPISODE_ID \
+  --worker-id gh-aw-provider --limit 4
+```
+
+After the provider verifies the approval and performs its idempotent GitHub operation, acknowledge
+the lease with `ack --receipt-json`, then record `worker-start`, `worker-complete` or
+`worker-fail`. Claim and acknowledge worker safe outputs through the same outbox; use `finish`
+only after every task and effect gate passes, or `cancel` for the durable request/acknowledgement/
+terminal cancellation protocol. `inspect` returns the privacy-safe projection defined by
+`data/runtime-gh-aw-episode.schema.json`; it never includes effect payloads or raw provider
+receipts. The bridge is local-first and does not call GitHub itself.
+
+For native worker admission, run the read-only preflight after `start` and before any external
+effect:
+
+```bash
+python3 scripts/forge-gh-aw-runtime.py preflight \
+  --output build/gh-aw-native --db .forge/runtime.sqlite3 \
+  --dispatcher forge-dispatcher --episode-id EPISODE_ID \
+  --request-digest sha256:REQUEST_DIGEST \
+  --certificate .forge/gh-aw-admission.json
+```
+
+It requires verified `upstream-gh-aw` artifacts, binds the deterministic request-derived episode
+ID and current Forge definition, and emits the digest-only certificate described by
+`data/runtime-gh-aw-admission.schema.json`. It does not append runtime history or call GitHub;
+the fenced provider consumes the certificate and still passes lease authorization.
+
+Native workers claim one exact effect through the certificate-bound handoff contract:
+
+```bash
+python3 scripts/forge-gh-aw-runtime.py native-handoff \
+  --output build/gh-aw-native --db .forge/runtime.sqlite3 \
+  --dispatcher forge-dispatcher --episode-id EPISODE_ID \
+  --effect-id EFFECT_ID --worker-id gh-aw-native-worker \
+  --certificate .forge/gh-aw-admission.json \
+  --handoff .forge/gh-aw-worker-handoff.json \
+  --request-ref sha256:REQUEST_REF
+```
+
+The handoff is strict and digest-only: it binds admission, episode, effect, request reference,
+worker, and lease generation without carrying raw provider data or filesystem paths. It claims
+only the selected effect, is idempotent for the same live lease, and fails closed on owner,
+generation, request, or certificate drift. Pass `--handoff` alongside `--admission` to every
+provider `plan`, `approve`, `execute`, and `reconcile` stage. The handoff is an offline/local
+runtime contract; production deployment remains an explicit integration gate.
+
+Keep a long-running native worker inside the pinned lease policy with the same owner and
+generation:
+
+```bash
+python3 scripts/forge-gh-aw-runtime.py heartbeat \
+  --output build/gh-aw-native --db .forge/runtime.sqlite3 \
+  --dispatcher forge-dispatcher --episode-id EPISODE_ID \
+  --effect-id EFFECT_ID --worker-id gh-aw-native-worker \
+  --lease-generation GENERATION
+```
+
+The fenced provider also heartbeats before and after authenticated login and every GitHub
+transport request. Lease loss fails closed; a call that returns after loss is recovered through
+the journal/reconciliation path rather than retried blindly.
+
+For a live GitHub effect, keep the secret-free request envelope outside runtime history and use
+the fenced provider stages. Planning is no-effect; approval is one-use and bound to the exact
+effect/request/operation digests; execution additionally requires the expected `gh` login and an
+explicit flag:
+
+```bash
+python3 scripts/forge-gh-aw-provider.py plan \
+  --request REQUEST.json --effect-id EFFECT_ID \
+  --worker-id gh-aw-provider --lease-generation GENERATION \
+  --admission .forge/gh-aw-admission.json --handoff .forge/gh-aw-worker-handoff.json
+python3 scripts/forge-gh-aw-provider.py approve \
+  --request REQUEST.json --effect-id EFFECT_ID \
+  --worker-id gh-aw-provider --lease-generation GENERATION \
+  --admission .forge/gh-aw-admission.json --handoff .forge/gh-aw-worker-handoff.json
+python3 scripts/forge-gh-aw-provider.py execute \
+  --request REQUEST.json --effect-id EFFECT_ID \
+  --worker-id gh-aw-provider --lease-generation GENERATION \
+  --approval-id APPROVAL_ID --expected-login LOGIN \
+  --admission .forge/gh-aw-admission.json \
+  --handoff .forge/gh-aw-worker-handoff.json --execute
+python3 scripts/forge-gh-aw-provider.py reconcile \
+  --request REQUEST.json --effect-id EFFECT_ID \
+  --worker-id gh-aw-provider --lease-generation GENERATION \
+  --approval-id APPROVAL_ID --expected-login LOGIN --run-id RUN_ID \
+  --admission .forge/gh-aw-admission.json \
+  --handoff .forge/gh-aw-worker-handoff.json --reconcile
+```
+
+The provider supports only the four compiled safe-output types. It revalidates title/label,
+comment, dispatch, and PR file constraints, compares PR head/file evidence immediately before
+creation, asks the current GitHub API for workflow-dispatch run details, and writes only bounded
+authorization/receipt evidence to its 0600 hash-chained journal. Never retry an ambiguous
+dispatch blindly; use the explicit `reconcile` operation first. Reconciliation performs one
+read-only run lookup and requires the compiled lock workflow, dispatch event, ref, repository URL,
+and run ID to match before acknowledging the existing fenced effect. Native artifacts require
+`--admission`; preview artifacts omit it. The contract is at-least-once with idempotent recovery,
+not exactly-once provider execution. See
+`data/runtime-gh-aw-provider-request.schema.json` and
+[GitHub Agentic Workflows](../../../../docs/gh-aw.md).
+
+## A2A Agent Card trust evidence
+
+When a workflow receives an A2A Agent Card from configuration, a registry, or a host,
+treat it as untrusted discovery metadata. Use the bounded `forge-a2a-card-v1` verifier
+before using the card to select an agent:
+
+```bash
+python3 scripts/forge-a2a-card.py verify \
+  --input CARD.json \
+  --host-ref host:codex \
+  --audience audience:a2a \
+  --workspace workspace:md-files \
+  --resource resource:repo/md-files
+```
+
+The verifier binds secure interfaces, protocol versions, required skills, declared
+security schemes, required extensions, and the card digest to the explicit Forge context.
+It emits only references and counts. A signed card receives an external-verification
+reference; Forge does not fetch keys, verify JWS cryptography, acquire credentials, or
+grant authority from card metadata. Bind any later remote effect to the authority,
+policy, host-admission, lease, and provenance contracts as well.
+
+Read [A2A Agent Card Evidence](../../../../docs/a2a.md) and the
+`tests/fixtures/a2a-card/v1.jsonl` corpus for the supported offline boundary.
+
+## A2A task handoff evidence
+
+After a card has been admitted, validate one bounded task lifecycle before a provider
+adapter treats the remote task as an execution handoff:
+
+```bash
+python3 scripts/forge-a2a-task.py verify --input TASK-ENVELOPE.json
+```
+
+The `forge-a2a-task-v1` contract requires the card, audience, workspace, resource,
+authority, host-admission, lease, runtime episode, provider operation, and provenance
+references. It checks ordered A2A 1.0 states, input-required and auth-required
+interruptions, terminal closure, message and cancel idempotency, optional stream markers,
+and digest-only push configuration. AUTH_REQUIRED is not authorization. The report never
+contains prompts, message parts, artifacts, provider bodies, credentials, or webhook
+secrets, and the verifier never contacts the remote agent.
+
+Read [A2A Task Handoff Evidence](../../../../docs/a2a-task.md) and the
+`tests/fixtures/a2a-task/v1.jsonl` corpus before adapting a live A2A client.
 
 ## How to delegate well (this makes or breaks it)
 

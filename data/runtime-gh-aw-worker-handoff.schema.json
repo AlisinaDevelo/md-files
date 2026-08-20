@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw-worker-handoff/v1",
+  "title": "Forge Native GitHub Agentic Workflows Worker Handoff",
+  "description": "Digest-only binding from one native gh-aw admission to one leased Forge effect.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schema_version", "contract_revision", "handoff_id", "admission_id",
+    "episode_id", "dispatcher_workflow_id", "effect_id", "worker_id", "effect_type",
+    "workflow_id", "safe_output_type", "request_ref", "lease_generation"
+  ],
+  "properties": {
+    "$schema": {"const": "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw-worker-handoff/v1"},
+    "schema_version": {"const": 1},
+    "contract_revision": {"const": "forge-gh-aw-worker-handoff-v1"},
+    "handoff_id": {"$ref": "#/$defs/ref"},
+    "admission_id": {"$ref": "#/$defs/ref"},
+    "episode_id": {"type": "string", "pattern": "^gh-aw:[A-Za-z0-9._:/-]+$"},
+    "dispatcher_workflow_id": {"$ref": "#/$defs/workflowId"},
+    "effect_id": {"type": "string", "minLength": 1, "maxLength": 256},
+    "worker_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/_-]{0,127}$"},
+    "effect_type": {"type": "string", "minLength": 1, "maxLength": 128},
+    "workflow_id": {"$ref": "#/$defs/workflowId"},
+    "safe_output_type": {"enum": ["add-comment", "create-issue", "create-pull-request", "dispatch-workflow"]},
+    "request_ref": {"$ref": "#/$defs/ref"},
+    "lease_generation": {"type": "integer", "minimum": 1}
+  },
+  "$defs": {
+    "ref": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "workflowId": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,127}$"}
+  }
+}

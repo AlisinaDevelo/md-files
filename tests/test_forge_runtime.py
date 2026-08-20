@@ -886,6 +886,38 @@ def test_heartbeat_extends_current_lease_with_pinned_policy_and_evidence(tmp_pat
         }
 
 
+def test_authorize_rejects_terminal_run_before_provider_boundary(tmp_path):
+    module = load_module()
+    store = start(module, tmp_path / "runtime.sqlite3")
+    store.append_event(
+        "run-1",
+        "task.scheduled",
+        {"task_id": "build", "depends_on": []},
+        idempotency_key="task-build-scheduled",
+        effect=make_effect(),
+        occurred_at="2026-08-04T08:03:00Z",
+    )
+    effect_id = store.list_outbox("run-1")[0]["effect_id"]
+    claimed = store.claim_outbox(
+        "worker-a", now="2026-08-04T08:10:00Z", lease_seconds=30
+    )[0]
+    store.append_event(
+        "run-1",
+        "run.failed",
+        {"error_ref": "sha256:" + "f" * 64},
+        idempotency_key="run.failed",
+        occurred_at="2026-08-04T08:10:01Z",
+    )
+
+    with pytest.raises(module.RuntimeStoreError, match="run is not running"):
+        store.authorize_outbox_effect(
+            effect_id,
+            "worker-a",
+            lease_generation=claimed["lease_generation"],
+            now="2026-08-04T08:10:02Z",
+        )
+
+
 def test_reclaim_advances_generation_and_fences_stale_same_worker(tmp_path):
     module = load_module()
     store = start(module, tmp_path / "runtime.sqlite3")
