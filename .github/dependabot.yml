@@ -9,3 +9,11 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
+  - package-ecosystem: "pip"
+    directory: "/.github"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "dependencies"
