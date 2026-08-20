@@ -158,7 +158,7 @@ def _domain(value: Any, label: str) -> str:
         return lowered
     if not DOMAIN_RE.fullmatch(lowered):
         raise FirewallPolicyError(f"{label} is not a known ecosystem or safe domain")
-    return "*." + _host(lowered, label) if lowered.startswith("*.") else lowered
+    return "*." + _host(lowered, label) if lowered.startswith("*.") else _host(lowered, label)
 
 
 def _url_pattern(value: Any, label: str) -> str:

@@ -68,6 +68,7 @@ def test_policy_preserves_single_leading_wildcards():
     ("field", "value", "message"),
     [
         ("allowed_domains", ["${{ secrets.BAD }}"], "expression"),
+        ("allowed_domains", ["127.0.0.1"], "IP address"),
         ("allowed_domains", ["https://api.example.com/path"], "ambiguous"),
         ("allowed_domains", ["http://api.example.com"], "insecure"),
         ("allowed_url_patterns", ["http://api.example.com/v1/*"], "HTTPS"),
