@@ -121,5 +121,7 @@ def test_compiler_manifest_and_lock_carry_firewall_evidence(tmp_path):
     lock = (output / "workflows/forge-dispatcher.lock.yml").read_text(encoding="utf-8")
     assert "forge-firewall-policy-digest" in source
     assert "sandbox:" in source
+    network = source.split("network:", 1)[1].split("on:", 1)[0]
+    assert "firewall:" not in network
     assert "FORGE_FIREWALL_POLICY_DIGEST" in lock
     assert "firewall:" in lock

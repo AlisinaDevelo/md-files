@@ -523,18 +523,19 @@ def _toolsets(workflow: Mapping[str, Any]) -> list[str]:
     return sorted(toolsets)
 
 
-def _firewall_fields(spec: Mapping[str, Any]) -> dict[str, Any]:
+def _firewall_fields(spec: Mapping[str, Any], *, upstream: bool = False) -> dict[str, Any]:
     policy = spec["defaults"]["firewall_policy"]
     network = {
         "allowed": copy.deepcopy(policy["network"]["allowed"]),
         "blocked": copy.deepcopy(policy["network"]["blocked"]),
-        "firewall": {
-            "log-level": policy["firewall"]["log_level"],
-        },
     }
-    if policy["firewall"]["ssl_bump"]:
-        network["firewall"]["ssl-bump"] = True
-        network["firewall"]["allow-urls"] = copy.deepcopy(policy["firewall"]["allow_urls"])
+    if not upstream:
+        network["firewall"] = {
+            "log-level": policy["firewall"]["log_level"],
+        }
+        if policy["firewall"]["ssl_bump"]:
+            network["firewall"]["ssl-bump"] = True
+            network["firewall"]["allow-urls"] = copy.deepcopy(policy["firewall"]["allow_urls"])
     fields: dict[str, Any] = {"network": network}
     if policy["sandbox"]["mode"] == "awf":
         fields["sandbox"] = {"agent": "awf"}
@@ -577,7 +578,7 @@ def _frontmatter(workflow: Mapping[str, Any], spec: Mapping[str, Any], graph_dig
         "safe-outputs": safe_outputs,
         "strict": True,
         "tools": {"github": {"toolsets": _toolsets(workflow)}},
-        **_firewall_fields(spec),
+        **_firewall_fields(spec, upstream=True),
     }
 
 
