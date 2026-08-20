@@ -90,7 +90,7 @@
       "additionalProperties": false,
       "required": ["revision", "firewall_policy_digest", "source_digest", "lock_digest"],
       "properties": {
-        "revision": {"const": "forge-gh-aw-firewall-v1"},
+        "revision": {"const": "forge-gh-aw-firewall-v2"},
         "firewall_policy_digest": {"$ref": "#/$defs/sha256Ref"},
         "source_digest": {"$ref": "#/$defs/sha256Ref"},
         "lock_digest": {"$ref": "#/$defs/sha256Ref"}

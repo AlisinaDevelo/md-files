@@ -11,9 +11,9 @@ from collections.abc import Mapping
 from typing import Any
 from urllib.parse import urlsplit
 
-SCHEMA_VERSION = 1
-REVISION = "forge-gh-aw-firewall-v1"
-SCHEMA = "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw-firewall/v1"
+SCHEMA_VERSION = 2
+REVISION = "forge-gh-aw-firewall-v2"
+SCHEMA = "https://github.com/AlisinaDevelo/md-files/schema/runtime/gh-aw-firewall/v2"
 KNOWN_ECOSYSTEMS = frozenset(
     {
         "defaults",
@@ -61,6 +61,10 @@ LOG_LEVELS = frozenset({"debug", "info", "warn", "error"})
 FIREWALL_MODES = frozenset({"awf", "disabled"})
 INTEGRITY_THRESHOLDS = frozenset({"strict", "standard"})
 UNTRUSTED_CONTENT_ACTIONS = frozenset({"redact", "reject"})
+RUNTIME_PROFILES = frozenset(
+    {"docker", "docker-sudo-iptables", "gvisor", "docker-sbx", "cloud-hypervisor"}
+)
+MCP_GATEWAY_DEFAULT_PORT = 8080
 DOMAIN_RE = re.compile(
     r"^(?:\*\.)?[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$"
 )
@@ -197,6 +201,9 @@ def normalize_policy(value: Mapping[str, Any]) -> dict[str, Any]:
             "untrusted_content",
             "sandbox_mode",
             "disable_justification",
+            "runtime_profile",
+            "runtime_justification",
+            "mcp_gateway",
         },
         "firewall_policy",
     )
@@ -210,6 +217,36 @@ def normalize_policy(value: Mapping[str, Any]) -> dict[str, Any]:
         raise FirewallPolicyError("firewall_mode and sandbox_mode must be awf or disabled")
     if firewall_mode != sandbox_mode:
         raise FirewallPolicyError("firewall_mode and sandbox_mode must agree")
+    runtime_profile = value.get("runtime_profile", "docker")
+    if runtime_profile not in RUNTIME_PROFILES:
+        raise FirewallPolicyError("runtime_profile is unsupported")
+    runtime_justification = value.get("runtime_justification")
+    if runtime_profile == "docker":
+        if runtime_justification is not None:
+            raise FirewallPolicyError("runtime_justification is only valid for a non-default runtime")
+    else:
+        if sandbox_mode == "disabled":
+            raise FirewallPolicyError("non-default runtime requires an enabled AWF sandbox")
+        if not isinstance(runtime_justification, str) or len(runtime_justification.strip()) < 20:
+            raise FirewallPolicyError("non-default runtime requires a literal justification of at least 20 characters")
+        _text(runtime_justification, "runtime_justification", maximum=512)
+    raw_gateway = value.get("mcp_gateway", {})
+    if not isinstance(raw_gateway, Mapping):
+        raise FirewallPolicyError("mcp_gateway must be an object")
+    _unknown(raw_gateway, {"enabled", "port"}, "mcp_gateway")
+    gateway_enabled = raw_gateway.get("enabled", False)
+    if not isinstance(gateway_enabled, bool):
+        raise FirewallPolicyError("mcp_gateway.enabled must be a boolean")
+    gateway_port = raw_gateway.get("port", MCP_GATEWAY_DEFAULT_PORT)
+    if (
+        isinstance(gateway_port, bool)
+        or not isinstance(gateway_port, int)
+        or gateway_port < 1024
+        or gateway_port > 65535
+    ):
+        raise FirewallPolicyError("mcp_gateway.port must be an integer from 1024 to 65535")
+    if gateway_enabled and sandbox_mode == "disabled":
+        raise FirewallPolicyError("mcp_gateway requires an enabled AWF sandbox")
     allowed = sorted({_domain(item, "allowed_domains") for item in _list(value.get("allowed_domains"), "allowed_domains")})
     blocked = sorted({_domain(item, "blocked_domains") for item in _list(value.get("blocked_domains", []), "blocked_domains")})
     overlap = sorted(set(allowed) & set(blocked))
@@ -257,8 +294,12 @@ def normalize_policy(value: Mapping[str, Any]) -> dict[str, Any]:
         "sandbox": {
             "agent": "awf" if sandbox_mode == "awf" else False,
             "mode": sandbox_mode,
+            "runtime": runtime_profile,
+            "mcp_gateway": {"enabled": gateway_enabled, "port": gateway_port},
         },
     }
     if firewall_mode == "disabled":
         normalized["sandbox"]["justification"] = justification.strip()
+    if runtime_profile != "docker":
+        normalized["sandbox"]["runtime_justification"] = runtime_justification.strip()
     return normalized

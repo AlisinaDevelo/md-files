@@ -39,11 +39,12 @@
           "required": [
             "schema_version", "contract_revision", "firewall_mode", "allowed_domains",
             "blocked_domains", "allowed_url_patterns", "log_level", "ssl_bump",
-            "content_integrity_threshold", "untrusted_content", "sandbox_mode"
+            "content_integrity_threshold", "untrusted_content", "sandbox_mode", "runtime_profile",
+            "mcp_gateway"
           ],
           "properties": {
-            "schema_version": {"const": 1},
-            "contract_revision": {"const": "forge-gh-aw-firewall-v1"},
+            "schema_version": {"const": 2},
+            "contract_revision": {"const": "forge-gh-aw-firewall-v2"},
             "firewall_mode": {"enum": ["awf", "disabled"]},
             "allowed_domains": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
             "blocked_domains": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
@@ -53,8 +54,40 @@
             "content_integrity_threshold": {"enum": ["strict", "standard"]},
             "untrusted_content": {"enum": ["redact", "reject"]},
             "sandbox_mode": {"enum": ["awf", "disabled"]},
+            "runtime_profile": {
+              "enum": ["docker", "docker-sudo-iptables", "gvisor", "docker-sbx", "cloud-hypervisor"]
+            },
+            "runtime_justification": {"type": "string", "minLength": 20, "maxLength": 512},
+            "mcp_gateway": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["enabled", "port"],
+              "properties": {
+                "enabled": {"type": "boolean"},
+                "port": {"type": "integer", "minimum": 1024, "maximum": 65535}
+              }
+            },
             "disable_justification": {"type": "string", "minLength": 20, "maxLength": 512}
-          }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "runtime_profile": {"enum": ["docker-sudo-iptables", "gvisor", "docker-sbx", "cloud-hypervisor"]}
+                }
+              },
+              "then": {"required": ["runtime_justification"]}
+            },
+            {
+              "if": {"properties": {"sandbox_mode": {"const": "disabled"}}},
+              "then": {
+                "properties": {
+                  "runtime_profile": {"const": "docker"},
+                  "mcp_gateway": {"properties": {"enabled": {"const": false}}}
+                }
+              }
+            }
+          ]
         },
         "action_pins": {
           "type": "object",

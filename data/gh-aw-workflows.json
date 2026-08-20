@@ -27,8 +27,8 @@
     ],
     "network_allowed": ["defaults", "github"],
     "firewall_policy": {
-      "schema_version": 1,
-      "contract_revision": "forge-gh-aw-firewall-v1",
+      "schema_version": 2,
+      "contract_revision": "forge-gh-aw-firewall-v2",
       "firewall_mode": "awf",
       "allowed_domains": ["defaults", "github"],
       "blocked_domains": [],
@@ -37,7 +37,12 @@
       "ssl_bump": false,
       "content_integrity_threshold": "strict",
       "untrusted_content": "redact",
-      "sandbox_mode": "awf"
+      "sandbox_mode": "awf",
+      "runtime_profile": "docker",
+      "mcp_gateway": {
+        "enabled": false,
+        "port": 8080
+      }
     },
     "action_pins": {
       "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",

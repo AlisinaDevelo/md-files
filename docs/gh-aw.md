@@ -111,7 +111,7 @@ source, and lock digests. Provider request files must repeat the target workflow
 ```json
 {
   "contract_evidence": {
-    "revision": "forge-gh-aw-firewall-v1",
+    "revision": "forge-gh-aw-firewall-v2",
     "firewall_policy_digest": "sha256:...",
     "source_digest": "sha256:...",
     "lock_digest": "sha256:..."
@@ -126,6 +126,19 @@ reference in the host provider-operation binding and execution digest. This is o
 Forge does not execute AWF, inspect HTTPS traffic, fetch content, or contact a provider here.
 The policy shape follows the upstream [AWF network permissions](https://github.github.com/gh-aw/reference/network/)
 and [sandbox configuration](https://github.github.com/gh-aw/reference/sandbox/) contracts.
+
+The v2 policy also records the selected `sandbox.agent.runtime` profile. `docker` is the secure
+default; `gvisor`, `docker-sbx`, and `cloud-hypervisor` require a literal runtime justification,
+and `docker-sudo-iptables` is treated as an explicit privileged profile. A non-default profile
+cannot be combined with a disabled sandbox. The compiler renders the profile into native
+`sandbox.agent.runtime` fields without pretending to launch that runtime.
+
+The optional `mcp_gateway` decision records only `enabled` and a bounded port. When enabled, the
+compiler emits the upstream `mcp-gateway` feature and `sandbox.mcp.port`. Forge never accepts,
+stores, or emits an API-key value; the upstream secret configuration remains outside the Forge
+admission envelope. Gateway enablement requires an enabled AWF sandbox; a disabled sandbox cannot
+carry an active gateway. Gateway routing is therefore auditable as configuration evidence, not
+claimed as a live MCP connection.
 
 ## Durable runtime bridge
 
