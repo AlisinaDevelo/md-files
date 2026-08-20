@@ -180,6 +180,7 @@ def _submission_metadata(repo: Path, version: str) -> dict[str, Any]:
     if not isinstance(author.get("name"), str) or not author["name"].strip() or not _https(author.get("url")):
         raise SubmissionEvidenceError("publisher metadata must include a name and HTTPS URL")
 
+    release_root = "https://github.com/AlisinaDevelo/md-files"
     listing = {
         "display_name": interface["displayName"],
         "description": interface["longDescription"],
@@ -190,7 +191,10 @@ def _submission_metadata(repo: Path, version: str) -> dict[str, Any]:
         "privacy_policy_url": interface["privacyPolicyURL"],
         "terms_of_service_url": interface["termsOfServiceURL"],
         "starter_prompts": interface["defaultPrompt"],
-        "release_notes_url": "https://github.com/AlisinaDevelo/md-files/blob/main/CHANGELOG.md",
+        "release_notes_url": f"{release_root}/blob/main/CHANGELOG.md",
+        "candidate_release_url": f"{release_root}/releases/tag/v{version}",
+        "candidate_archive_url": f"{release_root}/releases/download/v{version}/forge-{version}-codex.tar.gz",
+        "candidate_checksums_url": f"{release_root}/releases/download/v{version}/SHA256SUMS",
         "availability": {"status": "pending_external_submission", "scope": "not-yet-entered"},
     }
     for field in (
@@ -199,6 +203,9 @@ def _submission_metadata(repo: Path, version: str) -> dict[str, Any]:
         "privacy_policy_url",
         "terms_of_service_url",
         "release_notes_url",
+        "candidate_release_url",
+        "candidate_archive_url",
+        "candidate_checksums_url",
     ):
         if not _https(listing[field]):
             raise SubmissionEvidenceError(f"listing.{field} must be an absolute HTTPS URL")
