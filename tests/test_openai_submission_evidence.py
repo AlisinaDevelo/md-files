@@ -30,6 +30,15 @@ def test_submission_evidence_has_five_positive_and_three_negative_cases(tmp_path
     assert sum(item["polarity"] == "positive" for item in report["cases"]) == 5
     assert sum(item["polarity"] == "negative" for item in report["cases"]) == 3
     assert all(item["status"] == "pass" for item in report["cases"])
+    required_case_fields = {"prompt", "expected_behavior", "expected_result_shape", "fixture_data"}
+    assert all(required_case_fields <= set(item) for item in report["cases"])
+    assert all(
+        isinstance(item[field], str) and item[field].strip()
+        for item in report["cases"]
+        for field in required_case_fields
+    )
+    assert len({item["id"] for item in report["cases"]}) == 8
+    assert len({item["prompt"] for item in report["cases"]}) == 8
     assert report["execution_mode"] == "offline-release-candidate-contract"
     assert report["submission_materials"]["publication"]["status"] == "not_submitted"
     assert report["submission_materials"]["publisher"]["identity_verification"] == "not_repository_verifiable"

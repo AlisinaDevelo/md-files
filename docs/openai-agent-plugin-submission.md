@@ -25,6 +25,13 @@ The JSON report records the source commit, source epoch, archive and manifest di
 installed file and skill counts, installed-tree digest, replay digest, observations, and
 external blockers.
 
+Each `cases` entry is ready to transfer into the platform test form: `prompt` is the user
+input, `expected_behavior` is the workflow contract, `expected_result_shape` describes the
+result to look for, and `fixture_data` states the data needed to replay it. The fixture
+statement explicitly keeps these checks offline and free of accounts, credentials, private
+data, and network targets. Archive-bound observations remain alongside those fields so the
+repository evidence can be distinguished from the portal's own test run.
+
 ## Submission fields
 
 | Field | Repository evidence | External state |
