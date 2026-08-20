@@ -63,7 +63,9 @@ jobs:
         with:
           python-version: "3.x"
       - name: Install pytest
-        run: pip install pytest
+        run: >-
+          python -m pip install --require-hashes --only-binary=:all:
+          -r .github/requirements-ci.txt
       - name: Run hook tests
         run: pytest tests/ -v
 
