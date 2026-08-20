@@ -109,7 +109,8 @@ intentionally separate from the local-first runtime contract.
 
 The next release lane is deliberately outside the completed runtime baseline:
 
-- [#85 MCP Tasks adapter](https://github.com/AlisinaDevelo/md-files/issues/85) is locally complete
+- [#85 MCP Tasks adapter](https://github.com/AlisinaDevelo/md-files/issues/85) is locally complete,
+  including v2 per-request capability admission
   at the reference-only contract boundary. A live protocol claim still requires separate hosted
   transport and discovery evidence.
 - [#86 release attestations](https://github.com/AlisinaDevelo/md-files/issues/86) now verifies

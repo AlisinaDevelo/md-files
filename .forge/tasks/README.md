@@ -53,3 +53,4 @@
 | 0049 | Validate signed A2A Agent Cards as bounded delegation evidence | done | security-engineer | standard | 0048 |
 | 0050 | Add bounded A2A task handoff and lifecycle evidence | done | interoperability-engineer | standard | 0049, 0047, 0048 |
 | 0051 | Add A2A StreamResponse evidence and concurrent-stream checks | done | interoperability-engineer | sonnet | 0020, 0021 |
+| 0053 | Enforce MCP Tasks per-request capability admission | done | interoperability-engineer | standard | 0044 |
