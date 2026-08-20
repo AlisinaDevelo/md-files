@@ -45,6 +45,14 @@ def test_submission_evidence_has_five_positive_and_three_negative_cases(tmp_path
     assert report["submission_materials"]["publication"]["portal_draft"] == "not_repository_verifiable"
     assert report["submission_materials"]["publication"]["availability_review"] == "public_directory_unverified"
     assert "Project-level portal approval" in report["external_blockers"][0]
+    listing = report["submission_materials"]["listing"]
+    version = report["plugin"]["version"]
+    release_root = "https://github.com/AlisinaDevelo/md-files"
+    assert listing["candidate_release_url"] == f"{release_root}/releases/tag/v{version}"
+    assert listing["candidate_archive_url"] == (
+        f"{release_root}/releases/download/v{version}/forge-{version}-codex.tar.gz"
+    )
+    assert listing["candidate_checksums_url"] == f"{release_root}/releases/download/v{version}/SHA256SUMS"
     candidate = report["candidate"]
     assert candidate["archive_sha256"]
     assert candidate["installation"]["status"] == "pass"

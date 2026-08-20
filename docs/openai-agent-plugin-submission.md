@@ -32,6 +32,15 @@ statement explicitly keeps these checks offline and free of accounts, credential
 data, and network targets. Archive-bound observations remain alongside those fields so the
 repository evidence can be distinguished from the portal's own test run.
 
+## Candidate release
+
+The current public candidate is [Forge 3.6.0](https://github.com/AlisinaDevelo/md-files/releases/tag/v3.6.0).
+Use its [Codex archive](https://github.com/AlisinaDevelo/md-files/releases/download/v3.6.0/forge-3.6.0-codex.tar.gz)
+and verify it against the published [SHA-256 inventory](https://github.com/AlisinaDevelo/md-files/releases/download/v3.6.0/SHA256SUMS)
+before uploading it. The generated report also records these URLs under
+`submission_materials.listing.candidate_*` alongside the exact source commit and archive
+digest. Do not mix a locally rebuilt archive with evidence generated for the public release.
+
 ## Submission fields
 
 | Field | Repository evidence | External state |
