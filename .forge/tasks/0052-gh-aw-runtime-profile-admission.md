@@ -1,7 +1,7 @@
 ---
 id: 0052
 title: Admit gh-aw sandbox runtime profiles and MCP Gateway configuration
-status: review
+status: done
 agent: security-engineer
 model: standard
 depends_on: []
@@ -22,7 +22,7 @@ the experimental MCP Gateway without accepting credentials or claiming live exec
 - [x] Render runtime and gateway decisions into native gh-aw fields and bind them through the
       existing policy digest, native admission, and provider evidence.
 - [x] Add deterministic normalization, rendering, schema, and rejection tests.
-- [x] Run the full local release gate and prepare one ready mainline PR.
+- [x] Run the full local release gate and publish one ready mainline PR.
 
 ## Research decisions
 
@@ -65,3 +65,4 @@ The complete local release gate passed at implementation head `3e8dec62006e5b061
   OpenAI ZIP, marketplace, and attestation checks passed (2 profiles, 6 negative cases).
 - Installed replay passed with two identical attempts over 8 cases, 119 files, and 25 skills.
 - The generated OpenAI candidate for this head was `b650481fb9b35ad76bc59230b1c4df34376f5647a3a374cb162545e3b6c7d9e7`.
+- Mainline PR: [#112](https://github.com/AlisinaDevelo/md-files/pull/112), ready for review.
