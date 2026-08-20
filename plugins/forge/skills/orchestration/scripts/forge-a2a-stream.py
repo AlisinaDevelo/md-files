@@ -14,7 +14,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
 SCHEMA_VERSION = 2
 CONTRACT_REVISION = "forge-a2a-stream-v2"
 SCHEMA_URI = "https://github.com/AlisinaDevelo/md-files/schema/runtime/a2a-stream/v2"
