@@ -17,9 +17,9 @@ jobs:
     name: Package, attest, and publish
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      id-token: write
-      attestations: write
+      contents: write # Required to create and upload the GitHub release
+      id-token: write # Required to sign release provenance through GitHub OIDC
+      attestations: write # Required to publish artifact and SBOM attestations
     steps:
       - name: Check out the tagged commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

@@ -1,0 +1,9 @@
+{
+  "name": "forge-ci-host-clis",
+  "private": true,
+  "version": "0.0.0",
+  "dependencies": {
+    "@anthropic-ai/claude-code": "2.1.181",
+    "@openai/codex": "0.146.0"
+  }
+}
