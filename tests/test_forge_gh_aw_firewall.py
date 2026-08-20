@@ -70,6 +70,9 @@ def test_runtime_profile_and_mcp_gateway_render_as_native_admission_fields(tmp_p
     assert normalized["sandbox"]["mcp_gateway"] == {"enabled": True, "port": 9090}
 
     compiler = load_compiler()
+    assert compiler._firewall_fields({"defaults": {"firewall_policy": normalized}})["sandbox"]["agent"] == {
+        "runtime": "gvisor"
+    }
     spec = json.loads(SPEC_PATH.read_text(encoding="utf-8"))
     spec["defaults"]["firewall_policy"] = policy
     output = tmp_path / "gh-aw"
@@ -80,6 +83,16 @@ def test_runtime_profile_and_mcp_gateway_render_as_native_admission_fields(tmp_p
     assert "runtime: gvisor" in source
     assert "mcp-gateway: true" in source
     assert "port: 9090" in source
+
+
+def test_default_runtime_is_explicit_in_native_admission_fields():
+    firewall = load_policy()
+    compiler = load_compiler()
+    normalized = firewall.normalize_policy(base_policy())
+
+    fields = compiler._firewall_fields({"defaults": {"firewall_policy": normalized}})
+
+    assert fields["sandbox"]["agent"] == {"runtime": "docker"}
 
 
 def test_runtime_and_gateway_policy_fail_closed():

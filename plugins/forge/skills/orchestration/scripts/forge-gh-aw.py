@@ -538,10 +538,8 @@ def _firewall_fields(spec: Mapping[str, Any]) -> dict[str, Any]:
     fields: dict[str, Any] = {"network": network}
     features: dict[str, Any] = {}
     if policy["sandbox"]["mode"] == "awf":
-        sandbox: dict[str, Any] = {"agent": "awf"}
         runtime = policy["sandbox"]["runtime"]
-        if runtime != "docker":
-            sandbox["agent"] = {"runtime": runtime}
+        sandbox: dict[str, Any] = {"agent": {"runtime": runtime}}
     else:
         features["dangerously-disable-sandbox-agent"] = policy["sandbox"]["justification"]
         sandbox = {"agent": False}
