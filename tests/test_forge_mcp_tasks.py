@@ -132,6 +132,41 @@ def test_task_operations_require_per_request_capability_admission(tmp_path):
     assert module.McpTasksAdapter.negotiate_request(REQUEST_META)["requestNegotiation"] == "per-request"
 
 
+def test_every_task_operation_requires_per_request_capability_admission(tmp_path):
+    module = load_module()
+    store = start_wait(module, tmp_path / "runtime.sqlite3")
+    adapter = module.McpTasksAdapter(store)
+    view = adapter.get_task("run-1", "wait-1", AUTH, request_meta=REQUEST_META)
+    task_handle = view["taskId"]
+    input_request_id = request_id(view)
+
+    calls = (
+        lambda: adapter.get_task("run-1", "wait-1", AUTH),
+        lambda: adapter.get_task_by_id(task_handle, AUTH),
+        lambda: adapter.get_result("run-1", "wait-1", AUTH),
+        lambda: adapter.update(
+            "run-1",
+            "wait-1",
+            "sha256:" + "c" * 64,
+            AUTH,
+            input_schema_digest=SCHEMA,
+            input_request_id=input_request_id,
+        ),
+        lambda: adapter.update_by_id(
+            task_handle,
+            AUTH,
+            "sha256:" + "c" * 64,
+            input_schema_digest=SCHEMA,
+            input_request_id=input_request_id,
+        ),
+        lambda: adapter.cancel("run-1", "wait-1", AUTH),
+        lambda: adapter.cancel_by_id(task_handle, AUTH),
+    )
+    for call in calls:
+        with pytest.raises(module.McpTaskError, match="request metadata"):
+            call()
+
+
 def test_mcp_view_result_and_reference_only_input_round_trip(tmp_path):
     module = load_module()
     store = start_wait(module, tmp_path / "runtime.sqlite3")
