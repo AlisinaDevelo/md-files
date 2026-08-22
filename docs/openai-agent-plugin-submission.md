@@ -35,9 +35,9 @@ repository evidence can be distinguished from the portal's own test run.
 
 ## Candidate release
 
-The current public candidate is [Forge 3.8.0](https://github.com/AlisinaDevelo/md-files/releases/tag/v3.8.0).
-Use its [OpenAI skills-only ZIP](https://github.com/AlisinaDevelo/md-files/releases/download/v3.8.0/forge-3.8.0-openai.zip)
-and verify it against the published [SHA-256 inventory](https://github.com/AlisinaDevelo/md-files/releases/download/v3.8.0/SHA256SUMS)
+The current public candidate is [Forge 3.9.0](https://github.com/AlisinaDevelo/md-files/releases/tag/v3.9.0).
+Use its [OpenAI skills-only ZIP](https://github.com/AlisinaDevelo/md-files/releases/download/v3.9.0/forge-3.9.0-openai.zip)
+and verify it against the published [SHA-256 inventory](https://github.com/AlisinaDevelo/md-files/releases/download/v3.9.0/SHA256SUMS)
 before uploading it. The generated report also records these URLs under
 `submission_materials.listing.candidate_*` alongside the exact source commit and archive
 digest. Do not mix a locally rebuilt archive with evidence generated for the public release.
@@ -62,7 +62,7 @@ creating a draft, the submitting organization needs Apps Management write access
 verified individual or business developer identity. The portal currently uses this flow:
 
 1. Create a plugin submission and choose **Skills only**.
-2. Upload the published [OpenAI skills-only ZIP](https://github.com/AlisinaDevelo/md-files/releases/download/v3.8.0/forge-3.8.0-openai.zip), after checking its [SHA-256 inventory](https://github.com/AlisinaDevelo/md-files/releases/download/v3.8.0/SHA256SUMS).
+2. Upload the published [OpenAI skills-only ZIP](https://github.com/AlisinaDevelo/md-files/releases/download/v3.9.0/forge-3.9.0-openai.zip), after checking its [SHA-256 inventory](https://github.com/AlisinaDevelo/md-files/releases/download/v3.9.0/SHA256SUMS).
 3. Complete the listing, publisher, policy URLs, starter prompts, five positive and three
    negative test cases, country availability, and release notes.
 4. Review the complete draft and policy attestations, then choose **Submit for Review**.

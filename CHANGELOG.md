@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [3.9.0] — 2026-08-22
+
+### Added
+
+- **OpenCode Agent Skills compatibility** - added stable project configuration, global-safe
+  `AGENTS.md` instructions, a copy/symlink installer, specialist and command projections,
+  and documented host boundaries for OpenCode.
+- **Portable Forge doctor command** - made the `.agents` doctor shim resolve the installed
+  global script or a Forge checkout without assuming the target repository layout.
+
 ## [3.8.0] — 2026-08-20
 
 ### Added
@@ -365,7 +375,8 @@ plugin under `plugins/forge/`.
 - **Docs** — getting started, usage patterns, architecture, design rationale, and CI &
   headless usage guides.
 
-[Unreleased]: https://github.com/AlisinaDevelo/md-files/compare/v3.8.0...HEAD
+[Unreleased]: https://github.com/AlisinaDevelo/md-files/compare/v3.9.0...HEAD
+[3.9.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.9.0
 [3.8.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.8.0
 [3.7.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.7.0
 [3.6.0]: https://github.com/AlisinaDevelo/md-files/releases/tag/v3.6.0
