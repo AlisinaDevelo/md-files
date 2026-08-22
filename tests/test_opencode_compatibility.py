@@ -37,6 +37,13 @@ def test_opencode_skill_projection_has_expected_surfaces():
         assert "\nname: " in content
         assert "\ndescription: " in content
 
+    doctor_command = (REPO / "zed/skills/commands/forge-cmd-doctor.md").read_text(
+        encoding="utf-8"
+    )
+    assert "python3 ~/.agents/skills/doctor/scripts/forge-doctor.py" in doctor_command
+    assert "python3 plugins/forge/skills/doctor/scripts/forge-doctor.py" in doctor_command
+    assert "python3 scripts/forge-doctor.py" not in doctor_command
+
 
 def test_opencode_installer_copy_projection(tmp_path):
     skills_dir = tmp_path / "skills"
@@ -58,6 +65,11 @@ def test_opencode_installer_copy_projection(tmp_path):
     installed = sorted(skills_dir.glob("*/SKILL.md"))
     assert len(installed) == 67
     assert "Installed 67 Forge skill surfaces" in result.stdout
+    assert (skills_dir / "doctor/scripts/forge-doctor.py").is_file()
+    installed_doctor = (skills_dir / "forge-cmd-doctor/SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    assert "~/.agents/skills/doctor/scripts/forge-doctor.py" in installed_doctor
     assert (config_dir / "AGENTS.md").read_text(encoding="utf-8") == (
         REPO / "AGENTS.md"
     ).read_text(encoding="utf-8")
