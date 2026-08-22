@@ -1,7 +1,7 @@
 # Getting Started
 
-Forge is a Claude Code toolkit and Codex-compatible skill pack. You can use it several
-ways, from lowest to highest commitment.
+Forge is a Claude Code toolkit and Agent Skills-compatible pack for Codex, Zed, and
+OpenCode. You can use it several ways, from lowest to highest commitment.
 
 ## Option 1 — Install as a Claude Code plugin (recommended)
 
@@ -40,16 +40,26 @@ cd md-files
 ./scripts/install.sh            # symlink (or --copy, or --dry-run)
 ```
 
-## Option 4 — Install `.agents` skills for Codex or Zed
+## Option 4 — Install `.agents` skills for Codex, Zed, or OpenCode
 
 This installs the Forge methodology skills plus specialist and command shims into
-`~/.agents/skills`, which both Zed and this Codex environment can read.
+`~/.agents/skills`, which Codex, Zed, and OpenCode can read.
 
 ```bash
 git clone https://github.com/AlisinaDevelo/md-files.git
 cd md-files/zed
 ./install.sh            # symlink (or --copy, or --dry-run)
 ```
+
+For an OpenCode-only install that does not change Zed configuration, run the repository
+installer from the checkout root:
+
+```bash
+cd md-files
+./scripts/install-opencode.sh --copy
+```
+
+See [OpenCode support](opencode.md) for the installed locations and verification steps.
 
 ## Option 5 — Cherry-pick
 

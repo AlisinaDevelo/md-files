@@ -2,7 +2,7 @@
 
 # 🔨 Forge
 
-**An enterprise-grade Claude Code and Codex toolkit — specialized agents,
+**An enterprise-grade Claude Code, Codex, and OpenCode toolkit — specialized agents,
 progressive-disclosure skills, orchestration loops, slash commands, and safety hooks that
 maximize the efficacy of LLMs in software engineering.**
 
@@ -19,8 +19,8 @@ maximize the efficacy of LLMs in software engineering.**
 
 ---
 
-Forge is a curated, batteries-included configuration for [Claude Code](https://docs.claude.com/en/docs/claude-code)
-and a Codex-compatible skill pack. It packages the patterns that make an AI coding agent
+Forge is a curated, batteries-included configuration for [Claude Code](https://docs.claude.com/en/docs/claude-code),
+[Codex](https://github.com/openai/codex), and [OpenCode](https://opencode.ai). It packages the patterns that make an AI coding agent
 genuinely effective — clear role definitions, disciplined methodologies, task ledgers,
 model routing, the right tools for each job, and guardrails that keep it safe — into one
 installable toolkit. Every artifact is plain Markdown or a small, auditable script: no
@@ -118,9 +118,20 @@ codex plugin marketplace add AlisinaDevelo/md-files
 codex plugin add forge@forge
 ```
 
-Repository marketplace installation is available for both hosts. Forge has not been
-submitted to the public Claude or Codex directories; see [Marketplace readiness](docs/marketplace-readiness.md)
-for the dated publication state, publisher surfaces, and submission evidence.
+**OpenCode (Agent Skills and project instructions):**
+
+```bash
+git clone https://github.com/AlisinaDevelo/md-files.git
+cd md-files
+./scripts/install-opencode.sh --copy
+```
+
+See [OpenCode support](docs/opencode.md) for copy, symlink, verification, and host-boundary details.
+
+Repository marketplace installation is available for Claude Code and Codex, while OpenCode
+uses the Agent Skills installer. Forge has not been submitted to the public Claude or Codex
+directories; see [Marketplace readiness](docs/marketplace-readiness.md) for the dated
+publication state, publisher surfaces, and submission evidence.
 
 **As user-level symlinks (Claude agents, skills, commands):**
 
@@ -129,7 +140,7 @@ git clone https://github.com/AlisinaDevelo/md-files.git && cd md-files
 ./scripts/install.sh        # or --copy / --dry-run
 ```
 
-**As `.agents` skills (Codex and Zed):**
+**As `.agents` skills (Codex, Zed, and OpenCode):**
 
 ```bash
 git clone https://github.com/AlisinaDevelo/md-files.git && cd md-files/zed
