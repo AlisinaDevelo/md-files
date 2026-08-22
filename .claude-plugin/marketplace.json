@@ -8,14 +8,14 @@
   },
   "metadata": {
     "description": "Forge — enterprise-grade agents, orchestration, stacked delivery, catalogs, commands, and hooks for software engineering.",
-    "version": "3.8.0"
+    "version": "3.9.0"
   },
   "plugins": [
     {
       "name": "forge",
       "source": "./plugins/forge",
       "description": "Specialists, orchestration, task ledgers, solve loops, policy-gated effects, async GitHub Stack Merge, GitHub-native stacked delivery, catalogs, commands, and safety hooks.",
-      "version": "3.8.0",
+      "version": "3.9.0",
       "homepage": "https://github.com/AlisinaDevelo/md-files/blob/main/docs/getting-started.md",
       "repository": "https://github.com/AlisinaDevelo/md-files",
       "license": "MIT",
