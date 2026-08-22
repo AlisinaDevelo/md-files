@@ -11,6 +11,7 @@ accepted a public directory submission.
 | GitHub repository marketplace | Available | Install from `AlisinaDevelo/md-files`; tag `v3.8.0` is the current release candidate. |
 | Claude Code repository marketplace | Available | `claude plugin marketplace add AlisinaDevelo/md-files` then `claude plugin install forge@forge`. |
 | Codex local/repository marketplace | Available | `codex plugin marketplace add AlisinaDevelo/md-files` then `codex plugin add forge@forge`. |
+| OpenCode Agent Skills | Available | `./scripts/install-opencode.sh --copy`; OpenCode discovers the installed skills from `~/.agents/skills/`. |
 | Claude public/curated directory | Not submitted | Do not claim listing or approval; submit only after the checklist below is reviewed. |
 | OpenAI universal Plugin Directory (ChatGPT and Codex) | Project portal approval recorded | Owner-provided evidence dated 2026-08-18 shows Forge 3.6.0 as Approved; the 3.8.0 ZIP is the current candidate; public listing and universal availability are not independently verified. |
 | Agent Skills ecosystem directories | Not submitted | The `.agents` bundle is installable and validated, but no third-party directory approval is claimed. |
