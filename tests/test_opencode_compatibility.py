@@ -7,7 +7,6 @@ import os
 import subprocess
 from pathlib import Path
 
-
 REPO = Path(__file__).resolve().parents[1]
 INSTALLER = REPO / "scripts/install-opencode.sh"
 
