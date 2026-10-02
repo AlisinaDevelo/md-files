@@ -33,9 +33,16 @@ projection manifest and enumerates the extracted Zed shim files; it does not dup
 the capability graph or pin a skill count. It checks that every loaded `Skill.content`
 body is non-empty and registers exactly those skills in `AgentContext` with
 `load_public_skills=False`. It calls `discover_skill_resources()` and compares the
-returned paths with `Skill.resources`. The SDK returns resource path metadata, not
-resource bytes in `Skill.content`; the verifier itself reads every returned packaged
-file and confirms it is accessible and non-empty. These APIs are documented in the
+returned paths with `Skill.resources`. The SDK enumerates native `scripts/`,
+`references/`, and `assets/` resources only, returning path metadata rather than resource
+bytes in `Skill.content`; the verifier reads each discovered native-resource file and
+confirms it is accessible and non-empty. Other packaged relative documents, such as
+root-level `REFERENCE.md` or `CHECKS.md`, are not counted as SDK-discovered resources;
+they remain ordinary bundle files for host tools to read where supported. The offline
+release archive validator remains the authenticity/inventory gate. The source comparison
+here only detects skills the SDK skipped; it is a compatibility completeness check, not
+archive authenticity validation. This verifier does not replace archive validation.
+These SDK APIs are documented in the
 [OpenHands skill guide](https://docs.openhands.dev/sdk/guides/skill) and the pinned
 [SDK Skill source](https://github.com/OpenHands/software-agent-sdk/blob/v1.50.1/openhands-sdk/openhands/sdk/skills/skill.py).
 It creates no Agent or Conversation and makes no LLM calls or provider requests.
