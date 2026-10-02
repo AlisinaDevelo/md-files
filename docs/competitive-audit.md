@@ -1,6 +1,6 @@
 # Competitive Audit
 
-Last reviewed: 2026-08-18.
+Last reviewed: 2026-10-02 (UTC).
 
 Reviewed repositories:
 
@@ -10,10 +10,46 @@ Reviewed repositories:
 
 ## Honest Read
 
-Forge is not the biggest skill repository. It should not try to be. The competitors win
-on breadth, directory-style discoverability, and multi-tool installer surface. Forge wins
-on tight engineering defaults, safety hooks, focused specialist agents, evals, and release
-discipline.
+Forge is not the biggest skill repository. The comparators offer substantially broader
+catalogs and discovery surfaces. Forge concentrates on engineering workflows, explicit
+effect boundaries, deterministic tooling, and inspectable release evidence. That is a
+product focus, not a measured claim of superior outcomes or model quality.
+
+## October 2026 Refresh
+
+These are README claims at pinned commits, not independently audited skill counts or
+head-to-head task results:
+
+| Comparator | Pinned source | Relevant scope |
+|---|---|---|
+| Claude Skills | [`19392f7`](https://github.com/alirezarezvani/claude-skills/blob/19392f7a08264ed00486a251f5b2098321771f94/README.md) | Advertises 388 skills, 118 agents, 150 commands, and 13 tool targets; broad engineering and business workflows. |
+| Awesome Agent Skills | [`fd4c28d`](https://github.com/VoltAgent/awesome-agent-skills/blob/fd4c28d3be5576a88b1a0b0c4f5267c448d94ef5/README.md) | Advertises 1,497+ skills; primarily a curated discovery collection. |
+| Agentic Awesome Skills | [`7bb0ab4`](https://github.com/sickn33/agentic-awesome-skills/blob/7bb0ab4f7d5539228c6a8bf34368a3f9b6c7abb8/README.md) | Advertises 2,635+ skills and AAS Core catalog inspection, stack validation, and immutable plan previews; apply and recovery remain experimental. |
+
+AAS Core is the closest product comparator for inspectable planning and explicit selection.
+Forge's ledger, policy, runtime, and release checks cover a different engineering surface.
+No common workload, effectiveness metric, reliability benchmark, or usability study was
+run against these projects. Neither feature lists nor passing Forge tests establish that
+Forge supersedes them.
+
+The concrete release response is portable Agent Plugins 1.0 packaging, inventory-bound
+model selection, and version-specific OpenCode configuration with non-destructive installer
+behavior. The acceptance evidence measures format compatibility, fail-closed inputs,
+archive integrity, and reproducible offline replay. It does not measure agent reasoning,
+live provider availability, connected orchestration quality, or public marketplace reach.
+
+## Standards Decisions
+
+- [Agent Plugins 1.0](https://agent-plugins.org/specification) supplies the portable root
+  manifest and fixed component paths. Keep older host projections and validate each.
+- [OpenAI packaging](https://developers.openai.com/plugins/build/plugins) defines complete
+  inline OpenAI-extension replacement, not partial merging with a compatibility overlay.
+- [OpenAI model guidance](https://learn.chatgpt.com/docs/models) and
+  [Claude model configuration](https://code.claude.com/docs/en/model-config) are documentation,
+  not proof of account availability. Bind routing to an explicit host inventory.
+- [OpenCode v2 migration](https://opencode.ai/v2/docs/migrate-v1/) changes plugin and server
+  APIs while retaining supported v1 configuration. A skills projection is not a native
+  JavaScript plugin, and configuration parsing alone is not execution evidence.
 
 ## What They Do Better
 
