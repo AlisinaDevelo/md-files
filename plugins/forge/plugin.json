@@ -1,0 +1,58 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "forge",
+  "version": "3.9.0",
+  "description": "A Codex engineering toolkit with orchestration, task ledgers, solve loops, policy-gated effects, async GitHub Stack Merge, catalogs, and GitHub-native stacked delivery.",
+  "author": {
+    "name": "Alisina Karimi",
+    "email": "alisinakarimi.2003@gmail.com",
+    "url": "https://github.com/AlisinaDevelo"
+  },
+  "homepage": "https://github.com/AlisinaDevelo/md-files/blob/main/docs/getting-started.md",
+  "repository": "https://github.com/AlisinaDevelo/md-files",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "orchestration",
+    "skills",
+    "task-ledger",
+    "stacked-prs",
+    "stack-merge",
+    "merge-queue",
+    "policy",
+    "authorization",
+    "github",
+    "developer-tooling",
+    "prompt-engineering",
+    "catalog"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Forge",
+        "shortDescription": "Plan, build, and review code",
+        "longDescription": "Forge gives Codex a disciplined software-engineering toolkit: catalogs, orchestration, task ledgers, solve loops, GitHub-native stacked pull requests, code review, testing, debugging, security, architecture, documentation, and release workflows. Claude Code also gets specialist agents, slash commands, and hooks from the same repository.",
+        "developerName": "Alisina Karimi",
+        "category": "Developer Tools",
+        "capabilities": [
+          "Interactive",
+          "Read",
+          "Write"
+        ],
+        "websiteURL": "https://github.com/AlisinaDevelo/md-files",
+        "privacyPolicyURL": "https://github.com/AlisinaDevelo/md-files/blob/main/docs/privacy.md",
+        "termsOfServiceURL": "https://github.com/AlisinaDevelo/md-files/blob/main/docs/terms.md",
+        "defaultPrompt": [
+          "Use Forge orchestration to plan and execute this goal.",
+          "Create a Forge task ledger for this feature.",
+          "Design and verify a stacked PR workflow for this feature."
+        ],
+        "brandColor": "#A66B00",
+        "composerIcon": "./assets/icon.png",
+        "logo": "./assets/logo.png",
+        "logoDark": "./assets/logo-dark.png",
+        "screenshots": []
+      }
+    }
+  }
+}

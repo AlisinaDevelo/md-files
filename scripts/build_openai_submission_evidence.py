@@ -143,7 +143,10 @@ def _case(
 
 
 def _submission_metadata(repo: Path, version: str) -> dict[str, Any]:
-    plugin = _load_json(repo / "plugins/forge/.codex-plugin/plugin.json")
+    errors: list[str] = []
+    plugin = _load_script_module("validate_codex_plugin").load_effective_manifest(repo / "plugins/forge", errors)
+    if plugin is None or errors:
+        raise SubmissionEvidenceError("invalid plugin metadata: " + "; ".join(errors))
     interface = plugin.get("interface")
     author = plugin.get("author")
     if not isinstance(interface, dict) or not isinstance(author, dict):
@@ -227,7 +230,7 @@ def _submission_metadata(repo: Path, version: str) -> dict[str, Any]:
 
 
 def _run_cases(files: dict[str, bytes], release_policy: dict[str, Any], validator: Any) -> list[dict[str, Any]]:
-    manifest_path = "forge/.codex-plugin/plugin.json"
+    manifest_path = "forge/plugin.json" if "forge/plugin.json" in files else "forge/.codex-plugin/plugin.json"
     orchestration = "forge/skills/orchestration/SKILL.md"
     solve_loop = "forge/skills/iterate-to-done/SKILL.md"
     stacked = "forge/skills/stacked-changes/SKILL.md"
@@ -297,7 +300,8 @@ def _run_cases(files: dict[str, bytes], release_policy: dict[str, Any], validato
 
     plugin = json.loads(files[manifest_path].decode("utf-8"))
     skill_paths = [path for path in files if path.startswith("forge/skills/") and path.endswith("/SKILL.md")]
-    if plugin.get("skills") != "./skills/" or len(skill_paths) < 20:
+    skills = "./skills/" if manifest_path == "forge/plugin.json" else plugin.get("skills")
+    if skills != "./skills/" or len(skill_paths) < 20:
         raise SubmissionEvidenceError("positive-codex-discovery failed: skills directory is incomplete")
     results.append(
         _case(
@@ -307,7 +311,7 @@ def _run_cases(files: dict[str, bytes], release_policy: dict[str, Any], validato
             "Codex can discover a valid skills-only plugin with a stable manifest and populated skills directory.",
             "A manifest-backed skill listing rooted at ./skills/.",
             [manifest_path, "forge/skills/"],
-            [f"manifest declares {plugin['skills']}", f"candidate contains {len(skill_paths)} skill entry points"],
+            [f"manifest discovery uses {skills}", f"candidate contains {len(skill_paths)} skill entry points"],
         )
     )
 
@@ -351,9 +355,10 @@ def _run_cases(files: dict[str, bytes], release_policy: dict[str, Any], validato
             target = root / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
-        bad_manifest = json.loads((root / ".codex-plugin/plugin.json").read_text(encoding="utf-8"))
+        bad_path = root / ("plugin.json" if (root / "plugin.json").is_file() else ".codex-plugin/plugin.json")
+        bad_manifest = json.loads(bad_path.read_text(encoding="utf-8"))
         bad_manifest["version"] = "not-semver"
-        (root / ".codex-plugin/plugin.json").write_text(json.dumps(bad_manifest), encoding="utf-8")
+        bad_path.write_text(json.dumps(bad_manifest), encoding="utf-8")
         errors = validator.validate_plugin(root)
     if not any("strict semver" in error for error in errors):
         raise SubmissionEvidenceError("negative-malformed-manifest failed: malformed manifest was accepted")
@@ -400,7 +405,8 @@ def _install_and_replay(
         if first_digest != second_digest or first_cases != second_cases:
             raise SubmissionEvidenceError("installed candidate contract replay is not deterministic")
 
-        manifest = json.loads(installed_files["forge/.codex-plugin/plugin.json"].decode("utf-8"))
+        manifest_key = "forge/plugin.json" if "forge/plugin.json" in installed_files else "forge/.codex-plugin/plugin.json"
+        manifest = json.loads(installed_files[manifest_key].decode("utf-8"))
         skill_paths = [path for path in installed_files if path.startswith("forge/skills/") and path.endswith("/SKILL.md")]
         tree_inventory = {path: hashlib.sha256(data).hexdigest() for path, data in sorted(installed_files.items())}
         installation = {

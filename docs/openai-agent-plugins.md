@@ -1,6 +1,6 @@
 # OpenAI Agent Plugins Compatibility
 
-Last reviewed: 2026-08-20
+Last reviewed: 2026-10-02
 
 Forge is a skills-only OpenAI Agent Plugin candidate. Its local and repository Codex
 marketplace installs are supported today. Owner-provided OpenAI project portal evidence
@@ -20,8 +20,11 @@ Skills-only is a supported shape. Forge does not need an MCP server or custom UI
 be a valid plugin. Hooks and other capabilities may remain surface-specific, so the Claude
 plugin and the Codex plugin are intentionally not identical archives.
 
-The package guide requires `.codex-plugin/plugin.json` and permits a skills-only bundle;
-the submission guide treats the final skill bundle as the upload for that submission type.
+The package guide recommends root `plugin.json` using Agent Plugins 1.0 and permits a
+skills-only bundle. Portable components use fixed `skills/` and optional `mcp.json` paths.
+OpenAI settings live in `extensions.com.openai`; a present inline object replaces the
+entire `.codex-plugin/plugin.json` overlay, while an absent object uses that overlay as
+a compatibility fallback. Root identity remains canonical in both cases.
 Local and repository marketplaces remain separate authoring and team-distribution sources,
 not evidence of universal directory publication.
 
@@ -35,7 +38,8 @@ The current OpenAI contract requires or recognizes the following surfaces:
 
 | Surface | Forge state | Evidence |
 |---|---|---|
-| `.codex-plugin/plugin.json` | Present | `plugins/forge/.codex-plugin/plugin.json` |
+| Portable `plugin.json` | Present | Agent Plugins 1.0 identity and `extensions.com.openai` |
+| `.codex-plugin/plugin.json` | Retained | Compatibility for older clients |
 | Stable name and strict semver | Passing | `forge`, `3.9.0` |
 | Publisher identity and HTTPS metadata | Present | author, homepage, repository, policy URLs |
 | Skills directory | Present | `skills: ./skills/` and 25 validated skills |
@@ -49,6 +53,25 @@ The current OpenAI contract requires or recognizes the following surfaces:
 The Codex marketplace contract is separate from public directory publication. Its entries
 must declare a local source path, installation policy, authentication timing, and category.
 Forge now validates those fields in the local gate and the hosted CI job.
+
+## Portable Release Profile
+
+Run `python3 scripts/compile_agent_plugin.py --write` after editing compatibility metadata.
+The generated root manifest is checked by structure validation and the release builder.
+The OpenAI ZIP and native host projections include it; older manifests remain packaged.
+Validation is offline and does not fetch a remote schema when loading a package.
+
+Forge's validator is a strict release profile, not a general-purpose implementation of
+every Agent Plugins component. It requires release metadata, semver, listing fields,
+square icons, a subtitle of at most 30 characters, and 2:1 brand-color contrast against
+white. Unknown portable core fields are rejected by this profile. Unknown extension
+objects remain uninterpreted. The skills-only ZIP deliberately excludes MCP, app, and
+hook surfaces; adding those requires a separately tested publication decision.
+
+The local tests cover canonical identity, complete inline replacement, overlay fallback,
+malformed and duplicate-key JSON, fixed skill discovery, archive containment, and
+deterministic installation/replay. These checks establish package and contract behavior,
+not model quality, live connected execution, or public directory availability.
 
 ## Public Submission Boundary
 
@@ -114,6 +137,7 @@ public directory listing or universal availability.
 
 - [Plugin architecture](https://developers.openai.com/plugins/concepts/plugins)
 - [Package your plugin](https://developers.openai.com/plugins/build/plugins)
+- [Agent Plugins 1.0 specification](https://agent-plugins.org/specification)
 - [Codex plugin JSON and marketplace specification](https://github.com/openai/codex/blob/main/codex-rs/skills/src/assets/samples/plugin-creator/references/plugin-json-spec.md)
 - [Plugin guidelines](https://developers.openai.com/plugins/app-guidelines)
 - [Submit plugins](https://developers.openai.com/plugins/deploy/submission)
