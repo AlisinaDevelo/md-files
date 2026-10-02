@@ -260,3 +260,23 @@ def test_launcher_resolves_offline_and_emits_bound_selection(tmp_path: Path):
     assert result["model"] == "example/strong-v1"
     assert result["effort"] == "high"
     assert result["inventory_digest"].startswith("sha256:")
+
+
+def test_packaged_resolver_replays_without_repository_imports(tmp_path: Path):
+    from test_codex_plugin_validation import VERSION, load
+
+    builder = load(REPO / "scripts/build_release.py", "forge_models_release_builder")
+    validator = load(REPO / "scripts/validate_codex_plugin.py", "forge_models_package_validator")
+    dist = tmp_path / "dist"
+    builder.build_release(REPO, dist, VERSION, source_epoch=1_754_000_000, enforce_clean=False)
+    root = validator.extract_zip(dist / f"forge-{VERSION}-openai.zip", tmp_path / "installed")
+    installed_script = root / "skills/orchestration/scripts/forge-models.py"
+    inv_path = tmp_path / "inventory.json"
+    profile_path = tmp_path / "profile.json"
+    inv_path.write_text(json.dumps(inventory()), encoding="utf-8")
+    profile_path.write_text(json.dumps(profile()), encoding="utf-8")
+    command = [sys.executable, str(installed_script), "resolve", "--host", "codex", "--inventory", str(inv_path), "--profile", str(profile_path), "--tier", "deep"]
+    expected = load_module().resolve("codex", inventory(), profile(), "deep")
+    for _ in range(2):
+        result = subprocess.run(command, cwd=tmp_path, capture_output=True, text=True, check=True)
+        assert json.loads(result.stdout) == expected

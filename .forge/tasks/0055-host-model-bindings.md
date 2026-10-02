@@ -25,4 +25,5 @@ by a caller-supplied host inventory, without silent provider or availability ass
 
 Inventories are caller-supplied evidence, not live discovery or authenticated availability.
 The resolver does not make model calls, grant effect authority, or establish quality or
-cost superiority. Focused implementation tests: 22 passed on 2026-10-02.
+cost superiority. Ten focused resolver tests passed on 2026-10-02; the release profile
+also checks an extracted resolver in two identical offline attempts without repo imports.
