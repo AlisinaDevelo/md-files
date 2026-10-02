@@ -51,6 +51,9 @@ install_file() {
   if [[ -f "$target" ]] && cmp -s "$source" "$target"; then
     return 0
   fi
+  if [[ -d "$target" ]]; then
+    fail "refusing to replace directory: $target"
+  fi
   if [[ -e "$target" || -L "$target" ]]; then
     $FORCE || fail "refusing to replace existing file: $target (use --force)"
     run rm -f "$target"
