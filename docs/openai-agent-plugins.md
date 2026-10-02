@@ -67,6 +67,8 @@ square icons, a subtitle of at most 30 characters, and 2:1 brand-color contrast 
 white. Unknown portable core fields are rejected by this profile. Unknown extension
 objects remain uninterpreted. The skills-only ZIP deliberately excludes MCP, app, and
 hook surfaces; adding those requires a separately tested publication decision.
+Every retained compatibility manifest is validated independently for older clients;
+that release check does not change the inline settings precedence.
 
 The local tests cover canonical identity, complete inline replacement, overlay fallback,
 malformed and duplicate-key JSON, fixed skill discovery, archive containment, and

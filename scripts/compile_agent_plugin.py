@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 SCHEMA = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
@@ -13,6 +15,10 @@ OPENAI_FIELDS = ("id", "interface", "apps", "mcpServers", "hooks")
 
 
 def render(repo: Path) -> str:
+    subprocess.run(
+        [sys.executable, str(repo / "scripts/validate_codex_plugin.py"), "--legacy", str(repo / "plugins/forge")],
+        check=True, capture_output=True, text=True,
+    )
     source = repo / "plugins/forge/.codex-plugin/plugin.json"
     legacy = json.loads(source.read_text(encoding="utf-8"))
     manifest = {"$schema": SCHEMA}
@@ -31,7 +37,11 @@ def main() -> int:
     mode.add_argument("--check", action="store_true")
     args = parser.parse_args()
     target = args.repo / "plugins/forge/plugin.json"
-    expected = render(args.repo)
+    try:
+        expected = render(args.repo)
+    except subprocess.CalledProcessError as error:
+        print(error.stdout.strip() or "Compatibility plugin validation failed.")
+        return 1
     if args.write:
         target.write_text(expected, encoding="utf-8")
     elif not target.is_file() or target.read_text(encoding="utf-8") != expected:

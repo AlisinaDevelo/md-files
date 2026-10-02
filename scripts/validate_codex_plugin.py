@@ -210,10 +210,13 @@ def _validate_skill(skill_root: Path, errors: list[str]) -> None:
             errors.append(f"skill {skill_root.name} frontmatter needs {field}")
 
 
-def validate_plugin(plugin_root: Path, expected_version: str | None = None) -> list[str]:
+def validate_plugin(plugin_root: Path, expected_version: str | None = None, *, legacy_only: bool = False) -> list[str]:
     errors: list[str] = []
     plugin_root = plugin_root.resolve()
-    manifest = load_effective_manifest(plugin_root, errors)
+    manifest = (
+        _load_json(plugin_root / ".codex-plugin/plugin.json", errors, ".codex-plugin/plugin.json")
+        if legacy_only else load_effective_manifest(plugin_root, errors)
+    )
     if manifest is None:
         return errors
     for value in _walk_strings(manifest):
@@ -422,7 +425,10 @@ def validate_archive(archive_path: Path, expected_version: str | None = None) ->
             root = extract_archive(archive_path.resolve(), Path(directory))
         except (OSError, tarfile.TarError, ValueError) as exc:
             return [str(exc)]
-        return validate_plugin(root, expected_version)
+        errors = validate_plugin(root, expected_version)
+        if (root / "plugin.json").is_file() and (root / ".codex-plugin/plugin.json").is_file():
+            errors.extend(validate_plugin(root, expected_version, legacy_only=True))
+        return errors
 
 
 def _safe_zip_member_name(raw: str) -> str:
@@ -431,7 +437,7 @@ def _safe_zip_member_name(raw: str) -> str:
     if any(ord(char) < 32 or ord(char) == 127 for char in raw):
         raise ValueError(f"archive contains an unsafe member: {raw!r}")
     name = raw.removesuffix("/")
-    if not name or "/" in name and any(part == "" for part in name.split("/")):
+    if not name or any(part in {"", ".", ".."} for part in name.split("/")):
         raise ValueError(f"archive contains an unsafe member: {raw!r}")
     path = PurePosixPath(name)
     if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
@@ -520,6 +526,10 @@ def validate_openai_plugin(plugin_root: Path, expected_version: str | None = Non
 
     errors = validate_plugin(plugin_root, expected_version)
     plugin_root = plugin_root.resolve()
+    legacy = None
+    if (plugin_root / "plugin.json").is_file() and (plugin_root / ".codex-plugin/plugin.json").is_file():
+        errors.extend(validate_plugin(plugin_root, expected_version, legacy_only=True))
+        legacy = _load_json(plugin_root / ".codex-plugin/plugin.json", [], ".codex-plugin/plugin.json")
     manifest = load_effective_manifest(plugin_root, [])
     if manifest is None:
         return errors
@@ -527,6 +537,10 @@ def validate_openai_plugin(plugin_root: Path, expected_version: str | None = Non
         errors.append("skills-only plugin.json must not declare mcpServers")
     if "apps" in manifest:
         errors.append("skills-only plugin.json must not declare apps")
+    if legacy:
+        for field in ("mcpServers", "apps", "hooks"):
+            if field in legacy:
+                errors.append(f"skills-only compatibility plugin.json must not declare {field}")
     interface = manifest.get("interface")
     if isinstance(interface, dict) and interface.get("screenshots"):
         errors.append("skills-only plugin.json must not declare screenshots")
@@ -568,12 +582,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--marketplace", type=Path)
     parser.add_argument("--root", type=Path, help="Repository root for local marketplace source checks")
     parser.add_argument("--version", dest="expected_version")
+    parser.add_argument("--legacy", action="store_true", help="validate the retained Codex manifest independently")
     args = parser.parse_args(argv)
     targets = [bool(args.plugin_path), bool(args.archive), bool(args.zip), bool(args.marketplace)]
     if sum(targets) != 1:
         parser.error("provide exactly one plugin path, --archive, --zip, or --marketplace")
     if args.root and not args.marketplace:
         parser.error("--root is only valid with --marketplace")
+    if args.legacy and not args.plugin_path:
+        parser.error("--legacy requires a plugin directory")
     if args.marketplace:
         errors = validate_marketplace(args.marketplace, args.root)
         success_message = "Codex marketplace validation passed."
@@ -584,7 +601,7 @@ def main(argv: list[str] | None = None) -> int:
         errors = validate_openai_zip(args.zip, args.expected_version)
         success_message = "OpenAI skills-only ZIP validation passed."
     else:
-        errors = validate_plugin(args.plugin_path, args.expected_version)
+        errors = validate_plugin(args.plugin_path, args.expected_version, legacy_only=args.legacy)
         success_message = "Codex plugin validation passed."
     if errors:
         label = "Codex marketplace" if args.marketplace else "OpenAI skills-only ZIP" if args.zip else "Codex plugin"

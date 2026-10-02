@@ -41,6 +41,8 @@ def test_portable_identity_and_inline_settings_replace_overlay(plugin, validator
     overlay["apps"] = "./missing.json"
     write(plugin, ".codex-plugin/plugin.json", overlay)
     assert validator.validate_plugin(plugin, VERSION) == []
+    assert "plugin.json skills must resolve to ./skills/" in validator.validate_openai_plugin(plugin, VERSION)
+    assert validator.validate_plugin(plugin, VERSION, legacy_only=True)
     (plugin / ".codex-plugin/plugin.json").unlink()
     assert validator.validate_plugin(plugin, VERSION) == []
 
@@ -129,3 +131,24 @@ def test_invalid_skill_encoding_is_reported(plugin, validator):
     skill = plugin / "skills/orchestration/SKILL.md"
     skill.write_bytes(b"\xff")
     assert "skill orchestration is not readable" in validator.validate_plugin(plugin, VERSION)
+
+
+@pytest.mark.parametrize("name", ["skills/example/./SKILL.md", "./plugin.json", ".codex-plugin/./plugin.json"])
+def test_zip_rejects_raw_dot_segment_aliases(tmp_path, validator, name):
+    archive_path = tmp_path / "alias.zip"
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("plugin.json", (REPO / "plugins/forge/plugin.json").read_bytes())
+        archive.writestr(name, b"alias")
+    assert any("unsafe member" in error for error in validator.validate_openai_zip(archive_path))
+
+
+def test_compiler_rejects_duplicate_keys_in_compatibility_source(tmp_path):
+    compiler = load(REPO / "scripts/compile_agent_plugin.py", "forge_portable_strict_compiler")
+    repo = tmp_path / "repo"
+    shutil.copytree(REPO / "plugins/forge", repo / "plugins/forge")
+    shutil.copytree(REPO / "scripts", repo / "scripts")
+    source = repo / "plugins/forge/.codex-plugin/plugin.json"
+    source.write_text('{"name":"forge","name":"shadow"}')
+    import subprocess
+    with pytest.raises(subprocess.CalledProcessError):
+        compiler.render(repo)
