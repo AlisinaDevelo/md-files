@@ -24,7 +24,7 @@ def test_canonical_graph_matches_all_sources():
 
     assert module._validate_graph(graph) == []
     assert graph == module.import_graph()
-    assert len(graph["components"]) == 67
+    assert len(graph["components"]) == 68
     assert {component["kind"] for component in graph["components"]} == {"agent", "skill", "command"}
     assert graph["schema_version"] == 2
 
@@ -55,6 +55,13 @@ def test_resource_inventory_includes_nested_skill_files():
     assert len(component["resources"]) >= 4
     assert "skills-progressive-disclosure" in component["evals"]
     assert module._validate_graph(graph) == []
+
+
+def test_contribution_runner_declares_effectful_execution():
+    graph = json.loads((REPO / "data/capabilities.json").read_text(encoding="utf-8"))
+    component = next(item for item in graph["components"] if item["id"] == "open-source-contribution")
+    assert component["permissions"] == {"approval": "required", "effect": "mutating"}
+    assert "scripts/forge-contribute.py" in component["resources"]
 
 
 def test_body_aware_ir_models_triggers_permissions_inputs_outputs_and_extensions():

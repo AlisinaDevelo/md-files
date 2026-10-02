@@ -8,9 +8,9 @@ Generated from the Forge plugin source. Do not hand-edit component rows; run
 | Kind | Count |
 |------|------:|
 | agents | 20 |
-| skills | 25 |
+| skills | 26 |
 | commands | 22 |
-| total | 67 |
+| total | 68 |
 
 ## Components
 
@@ -48,6 +48,7 @@ Generated from the Forge plugin source. Do not hand-edit component rows; run
 | `git-workflow` | skill | safe | - | [plugins/forge/skills/git-workflow/SKILL.md](plugins/forge/skills/git-workflow/SKILL.md) | Use when working with git beyond writing a commit message — branching, rebasing vs merging, resolving conflicts, recovering lost work, and bisecting to find a bad commit. Covers what is safe on shared branches and what is not. |
 | `iterate-to-done` | skill | safe | - | [plugins/forge/skills/iterate-to-done/SKILL.md](plugins/forge/skills/iterate-to-done/SKILL.md) | Use when running a solve-loop over a task ledger — repeatedly pick the next ready task, dispatch it, verify against acceptance criteria, update the ledger, and repeat until done or blocked. Covers the loop, its stop conditions, and how to drive it recurring or in the background with the harness (/loop, the scheduler, background agents). |
 | `observability` | skill | safe | - | [plugins/forge/skills/observability/SKILL.md](plugins/forge/skills/observability/SKILL.md) | Use when adding logging, metrics, or tracing to code, or designing how a service is monitored. Covers the three pillars, structured logging, what to measure (RED/ USE), useful alerts, and the SLO mindset — so failures are debuggable after the fact. |
+| `open-source-contribution` | skill | safe | - | [plugins/forge/skills/open-source-contribution/SKILL.md](plugins/forge/skills/open-source-contribution/SKILL.md) | Use when preparing or reviewing an upstream open-source contribution: reproduce an issue, follow maintainer rules, run exact-head checks, prepare a focused PR and reconcile review feedback. Covers fork identity, DCO/CLA gates and local evidence. |
 | `orchestration` | skill | safe | - | [plugins/forge/skills/orchestration/SKILL.md](plugins/forge/skills/orchestration/SKILL.md) | Use when driving a large, multi-part task end to end with multiple models — planning at a high tier, decomposing into a task ledger, and delegating each piece to the right specialist at the right model (plan with Opus/Fable, implement with Sonnet, mechanical work with Haiku). Covers the conductor loop and how to delegate. See MODEL-ROUTING.md for the tier policy. |
 | `performance-profiling` | skill | safe | - | [plugins/forge/skills/performance-profiling/SKILL.md](plugins/forge/skills/performance-profiling/SKILL.md) | Use when investigating a performance problem — slow endpoints, high latency, memory/CPU pressure, or N+1 queries. A measure-first method to find the real bottleneck and verify the gain, instead of guessing at optimizations. |
 | `policy` | skill | safe | - | [plugins/forge/skills/policy/SKILL.md](plugins/forge/skills/policy/SKILL.md) | Use when an orchestrated run may create an external effect or mutate a protected resource. Defines versioned action envelopes, declarative profiles, scoped one-use approvals, staged previews, pre-effect re-evaluation, and privacy-safe decision receipts for Forge mutation adapters. |

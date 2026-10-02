@@ -131,6 +131,7 @@ PYTHON_LINT_TARGETS=(
   plugins/forge/skills/observability/scripts
   plugins/forge/skills/task-ledger/scripts
   plugins/forge/skills/orchestration/scripts
+  plugins/forge/skills/open-source-contribution/scripts
   scripts/build_release.py
   scripts/forge-attestation.py
   scripts/forge-trajectory-evals.py
@@ -157,6 +158,7 @@ PYTHON_LINT_TARGETS=(
   scripts/forge-gh-aw-provider.py
   scripts/forge-tasks.py
   scripts/forge-models.py
+  scripts/forge-contribute.py
   scripts/forge-stack-sync.py
   evals
   tests

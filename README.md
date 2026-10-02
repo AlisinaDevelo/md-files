@@ -10,9 +10,9 @@ maximize the efficacy of LLMs in software engineering.**
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-d97757.svg)](https://docs.claude.com/en/docs/claude-code)
 [![Agents](https://img.shields.io/badge/agents-20-8b5cf6.svg)](plugins/forge/agents/)
-[![Skills](https://img.shields.io/badge/skills-25-06b6d4.svg)](plugins/forge/skills/)
+[![Skills](https://img.shields.io/badge/skills-26-06b6d4.svg)](plugins/forge/skills/)
 [![Commands](https://img.shields.io/badge/commands-22-22c55e.svg)](plugins/forge/commands/)
-[![Tests](https://img.shields.io/badge/tests-421%20passing-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-local%20release%20gate-success.svg)](docs/release-provenance.md)
 [![Prompt evals](https://img.shields.io/badge/prompt%20evals-333%2F334%20checks-success.svg)](evals/)
 
 </div>
@@ -78,7 +78,7 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   Agent Skills projections so host compatibility is reviewable and drift fails the gate.
   See
   [Capability IR](docs/capability-ir.md).
-- **Methodology on tap.** Twenty-five skills inject battle-tested practices — TDD,
+- **Methodology on tap.** Twenty-six skills inject engineering practices — TDD,
   root-cause debugging, threat modeling, safe migrations, orchestration, catalogs, task
   ledgers, and solve loops — exactly when the situation calls for them.
 - **One-keystroke workflows.** Twenty-two slash commands wrap the everyday loop: forge,
@@ -88,7 +88,7 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   deterministically, without relying on the model to remember.
 - **Proven, not asserted.** A real eval harness scores prompts and high-risk behavior
   contracts (333/334 deterministic checks, one warning, plus cross-host scenarios and an opt-in
-  LLM judge); 421 tests cover safety hooks, task sync, receipts, durable runtime replay, external effect
+  LLM judge); the test suite covers safety hooks, task sync, receipts, durable runtime replay, external effect
   delivery, doctor, policy,
   stacks, marketplace readiness, capability graph, rendering, semantic evidence, and conformance. Run
   them yourself — `just check`.
@@ -100,6 +100,10 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   source-to-lock drift checks. Its optional provider worker adds fenced leases, exact one-use
   approvals, account verification, idempotent recovery, and reference-only GitHub receipts
   without committing credentials.
+- **Upstream contribution evidence.** Review maintainer requirements, run explicit
+  checks and verify digest-only receipts against a clean exact Git revision. The
+  [OSS contribution skill](plugins/forge/skills/open-source-contribution/SKILL.md)
+  separates local verification from publication, legal attestations and merge authority.
 
 ## Install
 
@@ -327,7 +331,7 @@ plugins/forge/         the Forge plugin
   .claude-plugin/        plugin manifest
   .codex-plugin/         Codex plugin manifest
   agents/                20 specialist subagents
-  skills/                25 progressive-disclosure skills
+  skills/                26 progressive-disclosure skills
   commands/              22 slash commands
   hooks/                 5 lifecycle hooks (session-context, guard, secrets, format, notify)
   output-styles/         selectable system-prompt modes
