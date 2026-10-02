@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "host": "codex",
+  "tiers": {
+    "deep": {
+      "model": "example/strong-v1",
+      "effort": "high"
+    },
+    "fast": {
+      "model": "example/fast-v1",
+      "effort": "low"
+    }
+  }
+}

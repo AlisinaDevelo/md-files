@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "host": "codex",
+  "models": [
+    {
+      "id": "example/fast-v1",
+      "reasoning_efforts": ["low", "medium"]
+    },
+    {
+      "id": "example/strong-v1",
+      "reasoning_efforts": ["high", "medium"]
+    }
+  ],
+  "retired_model_ids": ["example/retired-v1"]
+}
