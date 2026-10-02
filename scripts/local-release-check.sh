@@ -140,6 +140,7 @@ PYTHON_LINT_TARGETS=(
   scripts/forge-a2a-task.py
   scripts/build_openai_submission_evidence.py
   scripts/compile_capabilities.py
+  scripts/compile_agent_plugin.py
   scripts/render_capabilities.py
   scripts/diff_capabilities.py
   scripts/migrate_capabilities.py

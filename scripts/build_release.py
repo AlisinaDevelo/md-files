@@ -63,6 +63,7 @@ RENDERED_BUNDLE_SPECS: dict[str, tuple[tuple[str, str], ...]] = {
     ),
 }
 OPENAI_BUNDLE_SPECS: tuple[tuple[str, str], ...] = (
+    ("plugins/forge/plugin.json", ""),
     ("plugins/forge/.codex-plugin", ".codex-plugin"),
     ("plugins/forge/skills", "skills"),
     ("plugins/forge/assets", "assets"),
@@ -271,6 +272,7 @@ def _zip(entries: Iterable[tuple[str, Path, str]], source_epoch: int) -> tuple[b
 def _version_parity(repo: Path, version: str) -> dict[str, str]:
     paths = {
         "claude_plugin": repo / "plugins/forge/.claude-plugin/plugin.json",
+        "portable_plugin": repo / "plugins/forge/plugin.json",
         "codex_plugin": repo / "plugins/forge/.codex-plugin/plugin.json",
         "marketplace": repo / ".claude-plugin/marketplace.json",
     }
@@ -434,6 +436,7 @@ def build_release(
     if not (repo / "LICENSE").is_file():
         raise ReleaseBuildError("MIT LICENSE is required for the release SBOM")
     commit = _git(repo, "rev-parse", "HEAD")
+    subprocess.run([sys.executable, str(repo / "scripts/compile_agent_plugin.py"), "--check"], cwd=repo, check=True)
     subprocess.run([sys.executable, str(repo / "scripts/compile_capabilities.py"), "--check"], cwd=repo, check=True)
     subprocess.run([sys.executable, str(repo / "scripts/render_capabilities.py"), "--check"], cwd=repo, check=True)
     bundles: list[dict[str, Any]] = []

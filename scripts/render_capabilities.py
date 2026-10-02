@@ -131,6 +131,12 @@ def _copy_manifest(repo: Path, root: Path, manifest: str) -> int:
     if not source.is_file():
         raise RenderError(f"host manifest is missing: {source}")
     _copy(source, root / relative)
+    portable = repo / "plugins/forge/plugin.json"
+    if Path(relative).parts[:2] == ("plugins", "forge"):
+        if not portable.is_file():
+            raise RenderError("portable plugin manifest is missing")
+        _copy(portable, root / "plugins/forge/plugin.json")
+        return 2
     return 1
 
 
