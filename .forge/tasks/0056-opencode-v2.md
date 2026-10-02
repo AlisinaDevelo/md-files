@@ -24,5 +24,6 @@ explicit installation behavior.
 ## Evidence boundary
 
 OpenCode 1.18.21 parsed the v1 configuration and discovered the 67 Forge surfaces on
-2026-10-02. V2 profile tests establish its documented shape, not execution on a v2 client.
+2026-10-02. A temporary isolated OpenCode 2.0.22 parsed both configurations in memory;
+v2 skill discovery and activation are separate evidence gates. It has no `debug skill`.
 Focused installer tests: 9 passed. No global installation was changed during development.

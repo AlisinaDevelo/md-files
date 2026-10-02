@@ -69,13 +69,17 @@ does not prune unrelated or stale files. Set `OPENCODE_SKILLS_DIR` or
 
 ## Verify
 
-Restart OpenCode after installation, then run:
+Restart OpenCode after installation. For V1, run:
 
 ```bash
 opencode --version
 opencode debug config
 opencode debug skill
 ```
+
+For V2, use `opencode debug config` to inspect normalized configuration sources.
+V2 does not provide `opencode debug skill`; its experimental read-only `skill.list`
+API is the discovery surface. Skill activation uses the exact path-derived ID.
 
 Ask OpenCode to use `orchestration`, `task-ledger`, `iterate-to-done`, or
 `forge-cmd-review` for a relevant request. Skills load on demand rather than injecting
