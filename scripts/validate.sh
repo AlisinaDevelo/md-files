@@ -157,6 +157,14 @@ else
   err "Codex marketplace policy or source contract is invalid"
 fi
 
+# --- Portable plugin and canonical capability graph are up to date ---
+printf '\nPortable plugin manifest\n'
+if python3 scripts/compile_agent_plugin.py --check >/dev/null 2>&1; then
+  ok "plugin.json matches compatibility metadata"
+else
+  err "portable plugin manifest is stale - run python3 scripts/compile_agent_plugin.py --write"
+fi
+
 # --- Canonical capability graph is up to date ---
 printf '\nCanonical capability graph\n'
 if python3 scripts/compile_capabilities.py --check >/dev/null 2>&1; then

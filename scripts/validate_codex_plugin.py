@@ -43,7 +43,24 @@ PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 ZIP_MAX_ENTRIES = 5_000
 ZIP_MAX_COMPRESSED_BYTES = 100 * 1024 * 1024
 ZIP_MAX_UNCOMPRESSED_BYTES = 512 * 1024 * 1024
-OPENAI_TOP_LEVEL = {".codex-plugin", "skills", "assets", "data", "LICENSE"}
+OPENAI_TOP_LEVEL = {"plugin.json", ".codex-plugin", "skills", "assets", "data", "LICENSE"}
+AGENT_PLUGIN_SCHEMA = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
+AGENT_PLUGIN_NAME = re.compile(r"^(?!.*(?:--|\.\.))[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$")
+PORTABLE_FIELDS = {"$schema", "name", "version", "description", "author", "homepage", "repository", "license", "keywords", "extensions"}
+OPENAI_FIELDS = {"id", "interface", "apps", "mcpServers", "hooks"}
+
+
+def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def _invalid_constant(value: str) -> None:
+    raise ValueError(f"non-JSON number: {value}")
 
 
 def _https(value: Any) -> bool:
@@ -66,14 +83,62 @@ def _load_json(path: Path, errors: list[str], label: str) -> dict[str, Any] | No
         errors.append(f"missing {label}")
         return None
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        value = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_unique_object, parse_constant=_invalid_constant)
+    except (OSError, UnicodeError, ValueError, RecursionError):
         errors.append(f"{label} must contain valid JSON")
         return None
     if not isinstance(value, dict):
         errors.append(f"{label} must contain a JSON object")
         return None
     return value
+
+
+def load_effective_manifest(plugin_root: Path, errors: list[str]) -> dict[str, Any] | None:
+    """Select canonical identity and one complete OpenAI settings source, offline."""
+    portable = plugin_root / "plugin.json"
+    if not portable.exists() and not portable.is_symlink():
+        return _load_json(plugin_root / ".codex-plugin/plugin.json", errors, ".codex-plugin/plugin.json")
+    manifest = _load_json(portable, errors, "plugin.json")
+    if manifest is None:
+        return None
+    for field in sorted(set(manifest) - PORTABLE_FIELDS):
+        errors.append(f"portable plugin.json has unsupported field {field}")
+    if manifest.get("$schema") != AGENT_PLUGIN_SCHEMA:
+        errors.append("portable plugin.json must declare the Agent Plugins 1.0 schema")
+    name = manifest.get("name")
+    if not isinstance(name, str) or not 1 <= len(name) <= 64 or not AGENT_PLUGIN_NAME.fullmatch(name):
+        errors.append("portable plugin.json name must use the Agent Plugins naming contract")
+    for field in ("version", "description", "homepage", "repository", "license"):
+        if field in manifest and not isinstance(manifest[field], str):
+            errors.append(f"portable plugin.json {field} must be a string")
+    author = manifest.get("author")
+    if author is not None and (
+        not isinstance(author, dict) or set(author) - {"name", "email", "url"}
+        or not all(isinstance(value, str) for value in author.values())
+    ):
+        errors.append("portable plugin.json author must contain only name, email, and url strings")
+    keywords = manifest.get("keywords")
+    if "keywords" in manifest and (not isinstance(keywords, list) or not all(isinstance(value, str) for value in keywords)):
+        errors.append("portable plugin.json keywords must be a string array")
+    extensions = manifest.get("extensions", {})
+    if not isinstance(extensions, dict) or not all(isinstance(value, dict) for value in extensions.values()):
+        errors.append("portable plugin.json extensions must contain objects")
+        return None
+    if "com.openai" in extensions:
+        settings = extensions["com.openai"]
+        for field in sorted(set(settings) - OPENAI_FIELDS):
+            errors.append(f"extensions.com.openai has unsupported field {field}")
+    elif (plugin_root / ".codex-plugin/plugin.json").exists():
+        overlay = _load_json(plugin_root / ".codex-plugin/plugin.json", errors, ".codex-plugin/plugin.json")
+        if overlay is None:
+            return None
+        settings = {field: overlay[field] for field in OPENAI_FIELDS if field in overlay}
+    else:
+        settings = {}
+    effective = {key: value for key, value in manifest.items() if key not in {"$schema", "extensions"}}
+    effective.update(settings)
+    effective["skills"] = "./skills/"
+    return effective
 
 
 def _archive_path(root: Path, raw: Any, field: str, errors: list[str]) -> Path | None:
@@ -123,7 +188,7 @@ def _validate_skill(skill_root: Path, errors: list[str]) -> None:
         return
     try:
         contents = skill.read_text(encoding="utf-8")
-    except OSError:
+    except (OSError, UnicodeError):
         errors.append(f"skill {skill_root.name} is not readable")
         return
     if TODO_MARKER in contents:
@@ -145,10 +210,13 @@ def _validate_skill(skill_root: Path, errors: list[str]) -> None:
             errors.append(f"skill {skill_root.name} frontmatter needs {field}")
 
 
-def validate_plugin(plugin_root: Path, expected_version: str | None = None) -> list[str]:
+def validate_plugin(plugin_root: Path, expected_version: str | None = None, *, legacy_only: bool = False) -> list[str]:
     errors: list[str] = []
     plugin_root = plugin_root.resolve()
-    manifest = _load_json(plugin_root / ".codex-plugin/plugin.json", errors, ".codex-plugin/plugin.json")
+    manifest = (
+        _load_json(plugin_root / ".codex-plugin/plugin.json", errors, ".codex-plugin/plugin.json")
+        if legacy_only else load_effective_manifest(plugin_root, errors)
+    )
     if manifest is None:
         return errors
     for value in _walk_strings(manifest):
@@ -193,6 +261,8 @@ def validate_plugin(plugin_root: Path, expected_version: str | None = None) -> l
     for field in ("displayName", "shortDescription", "longDescription", "developerName", "category"):
         if not isinstance(interface.get(field), str) or not interface[field].strip():
             errors.append(f"plugin.json interface.{field} must be a non-empty string")
+    if isinstance(interface.get("shortDescription"), str) and len(interface["shortDescription"]) > 30:
+        errors.append("plugin.json interface.shortDescription must be at most 30 characters")
     category = interface.get("category")
     if isinstance(category, str) and category.strip() and category not in CODEX_INTERFACE_CATEGORIES:
         errors.append("plugin.json interface.category must use a supported Codex category")
@@ -207,6 +277,12 @@ def validate_plugin(plugin_root: Path, expected_version: str | None = None) -> l
             errors.append(f"plugin.json interface.{field} must be an absolute https URL")
     if "brandColor" in interface and (not isinstance(interface["brandColor"], str) or not HEX_COLOR_RE.fullmatch(interface["brandColor"])):
         errors.append("plugin.json interface.brandColor must use #RRGGBB")
+    elif "brandColor" in interface:
+        channels = [int(interface["brandColor"][index:index + 2], 16) / 255 for index in (1, 3, 5)]
+        linear = [channel / 12.92 if channel <= 0.04045 else ((channel + 0.055) / 1.055) ** 2.4 for channel in channels]
+        luminance = sum(channel * weight for channel, weight in zip(linear, (0.2126, 0.7152, 0.0722)))
+        if 1.05 / (luminance + 0.05) < 2:
+            errors.append("plugin.json interface.brandColor must have at least 2:1 contrast against white")
     for field in ("composerIcon", "logo", "logoDark"):
         if field in interface:
             path = _archive_path(plugin_root, interface[field], f"interface.{field}", errors)
@@ -297,8 +373,8 @@ def validate_marketplace(marketplace_path: Path, root: Path | None = None) -> li
                     candidate = (root_path / relative.as_posix()).resolve()
                     if root_path not in candidate.parents:
                         errors.append(f"{label}.source.path must stay inside the marketplace root")
-                    elif not (candidate / ".codex-plugin/plugin.json").is_file():
-                        errors.append(f"{label}.source.path has no .codex-plugin/plugin.json")
+                    elif not any((candidate / name).is_file() for name in ("plugin.json", ".codex-plugin/plugin.json")):
+                        errors.append(f"{label}.source.path has no plugin manifest")
 
         policy = entry.get("policy")
         if not isinstance(policy, dict):
@@ -349,7 +425,10 @@ def validate_archive(archive_path: Path, expected_version: str | None = None) ->
             root = extract_archive(archive_path.resolve(), Path(directory))
         except (OSError, tarfile.TarError, ValueError) as exc:
             return [str(exc)]
-        return validate_plugin(root, expected_version)
+        errors = validate_plugin(root, expected_version)
+        if (root / "plugin.json").is_file() and (root / ".codex-plugin/plugin.json").is_file():
+            errors.extend(validate_plugin(root, expected_version, legacy_only=True))
+        return errors
 
 
 def _safe_zip_member_name(raw: str) -> str:
@@ -358,7 +437,7 @@ def _safe_zip_member_name(raw: str) -> str:
     if any(ord(char) < 32 or ord(char) == 127 for char in raw):
         raise ValueError(f"archive contains an unsafe member: {raw!r}")
     name = raw.removesuffix("/")
-    if not name or "/" in name and any(part == "" for part in name.split("/")):
+    if not name or any(part in {"", ".", ".."} for part in name.split("/")):
         raise ValueError(f"archive contains an unsafe member: {raw!r}")
     path = PurePosixPath(name)
     if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
@@ -405,23 +484,25 @@ def extract_zip(archive_path: Path, destination: Path) -> Path:
             if any("/".join(parts[:index]) in file_names for index in range(1, len(parts))):
                 raise ValueError(f"archive has a file/directory path conflict: {name}")
 
-        manifest_names = [
-            name
-            for _member, name, is_directory in names
-            if not is_directory and (name == ".codex-plugin/plugin.json" or name.endswith("/.codex-plugin/plugin.json"))
-        ]
-        direct_manifest = ".codex-plugin/plugin.json" in manifest_names
-        if direct_manifest:
-            if len(manifest_names) != 1:
-                raise ValueError("archive has multiple plugin roots")
-            root_prefix = ""
-        else:
+        roots: set[str] = set()
+        for _member, name, is_directory in names:
+            if is_directory:
+                continue
+            if name == ".codex-plugin/plugin.json":
+                roots.add("")
+            elif name.endswith("/.codex-plugin/plugin.json"):
+                roots.add(name.removesuffix("/.codex-plugin/plugin.json"))
+            elif name == "plugin.json":
+                roots.add("")
+            elif name.endswith("/plugin.json"):
+                roots.add(name.removesuffix("/plugin.json"))
+        if len(roots) != 1:
+            raise ValueError("archive has no single plugin root" if not roots else "archive has multiple plugin roots")
+        root_prefix = next(iter(roots))
+        if root_prefix:
             top_levels = {PurePosixPath(name).parts[0] for _member, name, _is_directory in names}
-            if len(top_levels) != 1:
+            if top_levels != {root_prefix} or "/" in root_prefix:
                 raise ValueError("archive must contain exactly one top-level plugin directory")
-            root_prefix = next(iter(top_levels))
-            if manifest_names != [f"{root_prefix}/.codex-plugin/plugin.json"]:
-                raise ValueError("archive has no single top-level .codex-plugin/plugin.json")
 
         for member, name, is_directory in names:
             target = destination / name
@@ -445,22 +526,26 @@ def validate_openai_plugin(plugin_root: Path, expected_version: str | None = Non
 
     errors = validate_plugin(plugin_root, expected_version)
     plugin_root = plugin_root.resolve()
-    manifest_path = plugin_root / ".codex-plugin/plugin.json"
-    if not manifest_path.is_file():
-        return errors
-    try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    legacy = None
+    if (plugin_root / "plugin.json").is_file() and (plugin_root / ".codex-plugin/plugin.json").is_file():
+        errors.extend(validate_plugin(plugin_root, expected_version, legacy_only=True))
+        legacy = _load_json(plugin_root / ".codex-plugin/plugin.json", [], ".codex-plugin/plugin.json")
+    manifest = load_effective_manifest(plugin_root, [])
+    if manifest is None:
         return errors
     if "mcpServers" in manifest:
         errors.append("skills-only plugin.json must not declare mcpServers")
     if "apps" in manifest:
         errors.append("skills-only plugin.json must not declare apps")
+    if legacy:
+        for field in ("mcpServers", "apps", "hooks"):
+            if field in legacy:
+                errors.append(f"skills-only compatibility plugin.json must not declare {field}")
     interface = manifest.get("interface")
     if isinstance(interface, dict) and interface.get("screenshots"):
         errors.append("skills-only plugin.json must not declare screenshots")
     for path in plugin_root.rglob("*"):
-        if path.is_file() and path.name in {".mcp.json", ".app.json"}:
+        if path.is_file() and path.name in {"mcp.json", ".mcp.json", ".app.json"}:
             errors.append(f"skills-only plugin must not include {path.name}")
     top_levels = {
         path.relative_to(plugin_root).parts[0]
@@ -497,12 +582,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--marketplace", type=Path)
     parser.add_argument("--root", type=Path, help="Repository root for local marketplace source checks")
     parser.add_argument("--version", dest="expected_version")
+    parser.add_argument("--legacy", action="store_true", help="validate the retained Codex manifest independently")
     args = parser.parse_args(argv)
     targets = [bool(args.plugin_path), bool(args.archive), bool(args.zip), bool(args.marketplace)]
     if sum(targets) != 1:
         parser.error("provide exactly one plugin path, --archive, --zip, or --marketplace")
     if args.root and not args.marketplace:
         parser.error("--root is only valid with --marketplace")
+    if args.legacy and not args.plugin_path:
+        parser.error("--legacy requires a plugin directory")
     if args.marketplace:
         errors = validate_marketplace(args.marketplace, args.root)
         success_message = "Codex marketplace validation passed."
@@ -513,7 +601,7 @@ def main(argv: list[str] | None = None) -> int:
         errors = validate_openai_zip(args.zip, args.expected_version)
         success_message = "OpenAI skills-only ZIP validation passed."
     else:
-        errors = validate_plugin(args.plugin_path, args.expected_version)
+        errors = validate_plugin(args.plugin_path, args.expected_version, legacy_only=args.legacy)
         success_message = "Codex plugin validation passed."
     if errors:
         label = "Codex marketplace" if args.marketplace else "OpenAI skills-only ZIP" if args.zip else "Codex plugin"

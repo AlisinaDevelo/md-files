@@ -69,6 +69,7 @@ def test_codex_plugin_rejects_unsupported_interface_category(tmp_path):
     validate = load(REPO / "scripts/validate_codex_plugin.py", "forge_codex_invalid_category")
     plugin = tmp_path / "plugin"
     shutil.copytree(REPO / "plugins/forge", plugin)
+    (plugin / "plugin.json").unlink()
     manifest_path = plugin / ".codex-plugin/plugin.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["interface"]["category"] = "Engineering"
