@@ -32,8 +32,13 @@ def read_json(path):
     return json.loads(data)
 
 
+def check_environment():
+    return dict({key: value for key, value in os.environ.items() if not key.startswith("GIT_")},
+                GIT_OPTIONAL_LOCKS="0", GIT_LITERAL_PATHSPECS="1")
+
+
 def git(repo, *args):
-    env = dict(os.environ, GIT_OPTIONAL_LOCKS="0")
+    env = check_environment()
     result = subprocess.run(["git", "-c", "core.fsmonitor=false", "-C", str(repo), *args],
                             capture_output=True, text=True, env=env, timeout=15)
     if result.returncode:
@@ -92,6 +97,11 @@ def source(repo, profile):
         raise ValueError("--repo must be the Git repository root")
     if git(repo, "status", "--porcelain=v1", "--untracked-files=all"):
         raise ValueError("source tree must be clean, including untracked files")
+    entries = git(repo, "ls-files", "-v", "-z").split("\0")
+    if any(entry and (entry[0].islower() or entry[0] == "S") for entry in entries):
+        raise ValueError("assume-unchanged and skip-worktree index flags are unsupported")
+    if any(entry.startswith("160000 ") for entry in git(repo, "ls-files", "--stage", "-z").split("\0")):
+        raise ValueError("submodules require a separate recursive evidence contract")
     commit = git(repo, "rev-parse", "HEAD")
     base = git(repo, "rev-parse", "--verify", "--end-of-options", profile["base_ref"] + "^{commit}")
     git(repo, "merge-base", "--is-ancestor", base, commit)
@@ -100,6 +110,8 @@ def source(repo, profile):
         relative = PurePosixPath(name)
         if not name or relative.is_absolute() or ".." in relative.parts or "\0" in name:
             raise ValueError("instruction paths must stay within the repository")
+        if any(repo.joinpath(*relative.parts[:end]).is_symlink() for end in range(1, len(relative.parts) + 1)):
+            raise ValueError("instruction paths must not contain symlinks")
         path = (repo / name).resolve()
         if not within(path, repo) or not path.is_file():
             raise ValueError("instruction path is absent or escapes the repository")
@@ -127,7 +139,8 @@ def execute(repo, check):
               "returncode": None, "output_sha256": hashlib.sha256(b"").hexdigest(), "output_bytes": 0}
     try:
         process = subprocess.Popen(check["argv"], cwd=repo, stdin=subprocess.DEVNULL,
-                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True)
+                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True,
+                                   env=check_environment())
     except OSError:
         return result
     output = hashlib.sha256()

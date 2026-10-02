@@ -40,6 +40,13 @@ groups for execution cleanup. Planning and verification do not execute check vec
 
 - Source must be clean, including untracked files. Ignored build output is not source
   evidence and must be cleaned separately after testing.
+- Hidden index flags (`assume-unchanged`, `skip-worktree`, including sparse checkouts)
+  are rejected. Git environment overrides are cleared for inspection and checks;
+  configure normal host authentication rather than placing it in those overrides.
+- Submodules require their own recursive source/evidence contract and are rejected
+  by this first profile rather than relying on configurable parent status checks.
+- Instruction paths are exact tracked files, not glob/pathspec expressions, and may
+  not traverse symlinks.
 - Checks execute sequentially, stopping on the first failure. Timeout, excessive output,
   spawn failure, nonzero exit or changed source/contracts cannot produce acceptance.
 - Output is bounded and hashed in memory, not retained or printed. Receipts contain IDs,

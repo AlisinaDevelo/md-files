@@ -203,6 +203,53 @@ def test_instruction_symlink_escape_rejected(workspace):
     assert call(workspace, "plan")[0].returncode == 2
 
 
+def test_git_environment_cannot_redirect_identity(workspace, tmp_path, monkeypatch):
+    alternate = tmp_path / "alternate-git"
+    git(workspace[0], "clone", "--bare", str(workspace[0]), str(alternate))
+    git(alternate, "config", "user.name", "Other")
+    git(alternate, "config", "user.email", "other@example.invalid")
+    original = git(workspace[0], "rev-parse", "HEAD")
+    tree = git(workspace[0], "rev-parse", "HEAD^{tree}")
+    alternate_head = git(alternate, "commit-tree", tree, "-m", "Alternate identity")
+    git(alternate, "update-ref", "refs/heads/main", alternate_head)
+    (alternate / "index").write_bytes((workspace[0] / ".git/index").read_bytes())
+    monkeypatch.setenv("GIT_DIR", str(alternate))
+    monkeypatch.setenv("GIT_WORK_TREE", str(workspace[0]))
+    result, plan = call(workspace, "plan")
+    assert result.returncode == 0, result.stdout
+    assert plan["source"]["commit"] == original
+
+
+@pytest.mark.parametrize("flag", ["--assume-unchanged", "--skip-worktree"])
+def test_hidden_worktree_modifications_rejected(workspace, flag):
+    git(workspace[0], "update-index", flag, "source.txt")
+    (workspace[0] / "source.txt").write_text("hidden change")
+    assert git(workspace[0], "status", "--porcelain") == ""
+    assert call(workspace, "plan")[0].returncode == 2
+
+
+def test_instruction_pathspec_is_not_an_exact_tracked_file(workspace):
+    git(workspace[0], "config", "core.excludesfile", str(workspace[1].parent / "ignored"))
+    (workspace[1].parent / "ignored").write_text(":(glob)AGENTS*\n")
+    literal = workspace[0] / ":(glob)AGENTS*"
+    literal.write_text("not tracked instructions")
+    workspace[2]["instruction_paths"] = [literal.name]
+    workspace[1].write_text(json.dumps(workspace[2]))
+    assert git(workspace[0], "status", "--porcelain") == ""
+    assert call(workspace, "plan")[0].returncode == 2
+
+
+def test_ignored_submodule_changes_cannot_claim_exact_head(workspace):
+    child_source = workspace[1].parent / "child-source.git"
+    git(workspace[0], "clone", "--bare", str(workspace[0]), str(child_source))
+    git(workspace[0], "-c", "protocol.file.allow=always", "submodule", "add", str(child_source), "module")
+    git(workspace[0], "commit", "-am", "Add module")
+    git(workspace[0], "config", "submodule.module.ignore", "all")
+    (workspace[0] / "module/source.txt").write_text("unreported change")
+    assert git(workspace[0], "status", "--porcelain") == ""
+    assert call(workspace, "plan")[0].returncode == 2
+
+
 @pytest.mark.parametrize("change", ["empty", "duplicate", "unknown", "escape", "base"])
 def test_invalid_contract_rejected(workspace, change):
     data = workspace[2]
