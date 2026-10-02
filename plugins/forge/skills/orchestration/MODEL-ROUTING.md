@@ -1,53 +1,59 @@
 # Model-Routing Policy
 
-The point of orchestration is to spend model capability where it changes the outcome and
-save it everywhere else. Route each task to a tier by the *kind of thinking it needs*, not
-by how important the overall project feels.
+Route a task by the kind of work it needs, not by the importance of the overall project.
+The tier labels below describe work categories; they are not portable model IDs, aliases, or
+claims that similarly named models behave alike across providers.
 
-## The tiers
+## Tiers
 
-Claude Code accepts these `model` values on an agent's frontmatter and as a per-delegation
-override on the Agent tool: `haiku`, `sonnet`, `opus`, `fable`, a full model id, or
-`inherit`. Rough capability/cost ordering: **Haiku < Sonnet < Opus < Fable**.
+| Forge tier | Use it for | Examples |
+|---|---|---|
+| **Fable / Opus** | High-judgment work where a wrong plan is expensive: architecture, decomposition, difficult root-cause debugging, security analysis, or ambiguous investigations. | Design a migration; trace an intermittent race; plan a multi-part feature. |
+| **Sonnet** | Well-specified implementation, tests, refactors with a safety net, documentation, and code review. | Implement a scoped change; add boundary tests; review a focused diff. |
+| **Haiku** | Mechanical, bounded, high-volume, or parallel work where little judgment is needed. | Rename symbols; scaffold boilerplate; sweep a defined file set. |
 
-| Tier | Use it for | Examples |
-|------|-----------|----------|
-| **Fable / Opus** | Deep reasoning where a wrong plan is expensive: architecture, decomposition, gnarly root-cause debugging, security threat modeling, ambiguous "figure out how" work. | Design the migration; find the intermittent race; plan the whole feature. |
-| **Sonnet** | The bulk of the work: implementing a well-specified task, writing tests, refactoring with a safety net, writing docs, code review. | Implement the ticket; add tests for module X; write the README. |
-| **Haiku** | Mechanical, well-defined, high-volume, or parallel-fan-out work where judgment is minimal. | Rename across files; scaffold boilerplate; wide codebase search; format/lint sweeps; a first-pass triage of many items. |
+These names are retained Forge routing labels only. Do not pass `opus`, `sonnet`, `haiku`, or
+`fable` as if they were universal host model identifiers. Select exact IDs and supported
+effort values from the active host's inventory. Forge makes no shared capability or cost
+ranking claim across providers.
 
-## The routing heuristic
+## Host Selection
 
-Ask of each task: **"If this is done slightly wrong, how expensive is the mistake, and how
-much judgment does getting it right require?"**
+Prefer the model and delegation controls exposed by the current session. Host tools know about
+the current sign-in, workspace policy, client version, provider configuration, and rollout;
+remembered model catalogs and shell aliases do not. When that host supports model inheritance,
+an omitted model (or its explicit `inherit` setting) reuses the parent session's selected model.
+Inheritance is not an exact tier binding.
 
-- High judgment / expensive-if-wrong → **Opus or Fable**. Use **Fable** for the hardest,
-  longest-horizon reasoning and the most ambiguous "own this and figure it out" work; **Opus**
-  for strong reasoning at lower cost.
-- Well-specified, moderate judgment → **Sonnet**. This should be *most* of your delegations.
-- Low judgment, mechanical, or a wide parallel fan-out → **Haiku**.
+A profile maps each task tier to an exact model ID for one host. A caller's explicit model pin
+overrides that mapped model and is never replaced with a fallback. An unavailable or retired
+pin fails closed. An explicit effort overrides the profile's effort; otherwise the mapped
+effort is used when present. If no effort is mapped, the host's existing default or inherited
+effort remains in effect. Every explicit effort must be listed for that exact model in the
+provided inventory.
 
-Default the main conversation (the conductor) to **Opus or Fable** so planning is strong,
-then delegate *down* the tiers for execution. Delegating a boilerplate rename to Fable wastes
-money; planning a system with Haiku wastes the whole run.
+Use the offline helper to inspect and resolve the inventory/profile contract. Its result binds
+the selected ID and optional effort to both input digests; it does not call a provider or prove
+that the inventory was collected from the claimed client. The detailed format and limits are
+in [Host Model Bindings](../../../../docs/model-bindings.md).
 
-## Setting the model
+```bash
+python3 scripts/forge-models.py inspect --inventory INVENTORY.json --host codex
+python3 scripts/forge-models.py inspect --profile PROFILE.json --host codex
+python3 scripts/forge-models.py resolve \
+  --host codex --inventory INVENTORY.json --profile PROFILE.json --tier implementation
+```
 
-- **Per specialist agent** — the `model:` in its frontmatter is its default tier (e.g.
-  `architect` and `tech-lead` default to `opus`; most execution agents to `sonnet`).
-- **Per delegation** — override it on the Agent tool call (`model: "haiku"`) when *this*
-  instance of the task wants a different tier than the agent's default. The override wins.
-- **The conductor** — set the main model with `/model` (e.g. `claude-fable-5` or
-  `claude-opus-4-8`) before an `/orchestrate` run so the planning happens at the right tier.
+Host syntax differs. Codex configuration uses `model` and `model_reasoning_effort`. Claude
+Code uses `/model` or `--model`, and subagent frontmatter uses `model` and `effort`; its family
+aliases resolve according to provider and configuration. OpenCode selects enabled
+`provider/model` IDs through `/models`, with per-agent `model` and provider-specific options
+such as `reasoningEffort`. See [Host Model Bindings](../../../../docs/model-bindings.md) for
+current official references and the 2026-10-02 source check.
 
-## A worked routing
+## Routing Heuristic
 
-Goal: "Add rate limiting to our public API."
-
-- Plan the approach and decompose → **conductor, Opus/Fable**.
-- Design the limiter (algorithm, storage, headers) → `architect`, **Opus**.
-- Implement the middleware → `frontend-specialist`/impl, **Sonnet**.
-- Write tests incl. burst/edge cases → `test-engineer`, **Sonnet**.
-- Threat-model the new surface → `security-auditor`, **Opus**.
-- Update the API docs and changelog → `docs-writer` / `/changelog`, **Haiku or Sonnet**.
-- Sweep call sites that must set the new header → **Haiku** (mechanical, parallel).
+Ask: **"If this is done slightly wrong, how expensive is the mistake, and how much judgment
+does getting it right require?"** Use that answer to choose a Forge tier, then bind that tier
+to a model available to the current host. A tier never grants access to a model or changes
+host permissions.

@@ -156,6 +156,7 @@ PYTHON_LINT_TARGETS=(
   scripts/forge-gh-aw.py
   scripts/forge-gh-aw-provider.py
   scripts/forge-tasks.py
+  scripts/forge-models.py
   scripts/forge-stack-sync.py
   evals
   tests
