@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-context.py"
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/session-context.py\""
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/guard-bash.py"
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/guard-bash.py\""
           }
         ]
       },
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/scan-secrets.py"
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/scan-secrets.py\""
           }
         ]
       }
@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/format-file.sh"
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/format-file.sh\""
           }
         ]
       }
@@ -47,7 +47,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/notify.sh"
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/notify.sh\""
           }
         ]
       }
