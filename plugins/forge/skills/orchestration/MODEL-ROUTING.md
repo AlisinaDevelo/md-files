@@ -35,7 +35,10 @@ provided inventory.
 Use the offline helper to inspect and resolve the inventory/profile contract. Its result binds
 the selected ID and optional effort to both input digests; it does not call a provider or prove
 that the inventory was collected from the claimed client. The detailed format and limits are
-in [Host Model Bindings](../../../../docs/model-bindings.md).
+in [Host Model Bindings](https://github.com/AlisinaDevelo/md-files/blob/main/docs/model-bindings.md).
+
+Run these commands from the installed orchestration skill directory. The same commands
+also work from a Forge checkout's root through its convenience launcher.
 
 ```bash
 python3 scripts/forge-models.py inspect --inventory INVENTORY.json --host codex
@@ -48,7 +51,7 @@ Host syntax differs. Codex configuration uses `model` and `model_reasoning_effor
 Code uses `/model` or `--model`, and subagent frontmatter uses `model` and `effort`; its family
 aliases resolve according to provider and configuration. OpenCode selects enabled
 `provider/model` IDs through `/models`, with per-agent `model` and provider-specific options
-such as `reasoningEffort`. See [Host Model Bindings](../../../../docs/model-bindings.md) for
+such as `reasoningEffort`. See [Host Model Bindings](https://github.com/AlisinaDevelo/md-files/blob/main/docs/model-bindings.md) for
 current official references and the 2026-10-02 source check.
 
 ## Routing Heuristic

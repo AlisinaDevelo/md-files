@@ -6,6 +6,31 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [3.10.0] - 2026-10-03
+
+### Added
+
+- Portable Agent Plugins 1.0 root manifests, retained native host projections, and
+  deterministic skills-only ZIP validation with installed contract replay.
+- Host-specific model bindings with explicit inventories, exact model and effort pins,
+  normalized input digests, fail-closed validation, and packaged offline resolver replay.
+- An opt-in OpenCode v2 reference configuration alongside the supported v1 profile.
+  V2 configuration parsing is verified; v2 skill activation remains unverified.
+
+### Fixed
+
+- Quote Claude hook script paths so installed paths containing spaces or shell
+  metacharacters remain executable.
+- Validate retained plugin manifests independently and reject ZIP path aliases.
+- Refuse OpenCode installer directory replacement, including with `--force`, and preserve
+  unrelated user files.
+
+### Changed
+
+- Refresh the competitive audit against pinned sources without unmeasured superiority claims.
+- Document manual local-only releases separately from hosted workflow attestations.
+- Update the pinned CodeQL upload action to 4.38.2.
+
 ## [3.9.0] — 2026-08-22
 
 ### Added
