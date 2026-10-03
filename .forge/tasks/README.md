@@ -55,4 +55,4 @@
 | 0051 | Add A2A StreamResponse evidence and concurrent-stream checks | done | interoperability-engineer | sonnet | 0020, 0021 |
 | 0052 | Admit gh-aw sandbox runtime profiles and MCP Gateway configuration | done | security-engineer | standard | mainline #106 |
 | 0053 | Enforce MCP Tasks per-request capability admission | done | interoperability-engineer | standard | 0044 |
-| 0057 | Bind OSS contribution checks to an exact source revision | review | tooling-engineer | standard | - |
+| 0057 | Bind OSS contribution checks to an exact source revision | done | tooling-engineer | standard | - |
