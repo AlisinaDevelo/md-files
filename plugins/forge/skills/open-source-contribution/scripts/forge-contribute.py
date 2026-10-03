@@ -12,6 +12,7 @@ from pathlib import Path, PurePosixPath
 import re
 import selectors
 import signal
+import stat
 import subprocess
 import sys
 import time
@@ -34,11 +35,11 @@ def read_json(path):
 
 def check_environment():
     return dict({key: value for key, value in os.environ.items() if not key.startswith("GIT_")},
-                GIT_OPTIONAL_LOCKS="0", GIT_LITERAL_PATHSPECS="1")
+                GIT_OPTIONAL_LOCKS="0")
 
 
 def git(repo, *args):
-    env = check_environment()
+    env = dict(check_environment(), GIT_LITERAL_PATHSPECS="1", GIT_NO_REPLACE_OBJECTS="1")
     result = subprocess.run(["git", "-c", "core.fsmonitor=false", "-C", str(repo), *args],
                             capture_output=True, text=True, env=env, timeout=15)
     if result.returncode:
@@ -92,6 +93,64 @@ def contract(path):
     return value
 
 
+def verify_committed_bytes(repo):
+    algorithm = git(repo, "rev-parse", "--show-object-format")
+    if algorithm not in {"sha1", "sha256"}:
+        raise ValueError("unsupported Git object format (Git 2.29+ required)")
+    entries = [entry for entry in git(repo, "ls-tree", "-r", "-z", "HEAD").split("\0") if entry]
+    if len(entries) > 100000:
+        raise ValueError("tracked source exceeds 100000 files")
+    deadline = time.monotonic() + 30
+    total = 0
+    for entry in entries:
+        if time.monotonic() > deadline:
+            raise ValueError("tracked byte verification exceeded 30 seconds")
+        metadata, name = entry.split("\t", 1)
+        mode, kind, expected = metadata.split()
+        if kind != "blob" or mode not in {"100644", "100755", "120000"}:
+            raise ValueError("tracked source requires an unsupported Git mode")
+        relative = PurePosixPath(name)
+        if relative.is_absolute() or ".." in relative.parts:
+            raise ValueError("tracked path escapes the repository")
+        if any(repo.joinpath(*relative.parts[:end]).is_symlink() for end in range(1, len(relative.parts))):
+            raise ValueError("tracked source traverses a directory symlink")
+        path = repo / name
+        if mode == "120000":
+            content = os.fsencode(os.readlink(path))
+            hasher = hashlib.new(algorithm, f"blob {len(content)}\0".encode() + content)
+            total += len(content)
+        else:
+            fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+            with os.fdopen(fd, "rb") as handle:
+                before = os.fstat(handle.fileno())
+                if not stat.S_ISREG(before.st_mode):
+                    raise ValueError("tracked source is not a regular file")
+                if bool(before.st_mode & stat.S_IXUSR) != (mode == "100755"):
+                    raise ValueError("tracked executable mode differs from HEAD")
+                if total + before.st_size > 512 * LIMIT:
+                    raise ValueError("tracked source exceeds 512 MiB")
+                hasher = hashlib.new(algorithm, f"blob {before.st_size}\0".encode())
+                while True:
+                    if time.monotonic() > deadline:
+                        raise ValueError("tracked byte verification exceeded 30 seconds")
+                    chunk = handle.read(LIMIT)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > 512 * LIMIT:
+                        raise ValueError("tracked source exceeds 512 MiB")
+                    hasher.update(chunk)
+                after = os.fstat(handle.fileno())
+                fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns")
+                if any(getattr(before, field) != getattr(after, field) for field in fields):
+                    raise ValueError("tracked source changed while being read")
+                current = path.lstat()
+                if (current.st_dev, current.st_ino) != (after.st_dev, after.st_ino):
+                    raise ValueError("tracked source was replaced while being read")
+        if hasher.hexdigest() != expected:
+            raise ValueError("tracked bytes differ from HEAD; transformed checkouts are unsupported")
+
+
 def source(repo, profile):
     if Path(git(repo, "rev-parse", "--show-toplevel")).resolve() != repo:
         raise ValueError("--repo must be the Git repository root")
@@ -102,6 +161,7 @@ def source(repo, profile):
         raise ValueError("assume-unchanged and skip-worktree index flags are unsupported")
     if any(entry.startswith("160000 ") for entry in git(repo, "ls-files", "--stage", "-z").split("\0")):
         raise ValueError("submodules require a separate recursive evidence contract")
+    verify_committed_bytes(repo)
     commit = git(repo, "rev-parse", "HEAD")
     base = git(repo, "rev-parse", "--verify", "--end-of-options", profile["base_ref"] + "^{commit}")
     git(repo, "merge-base", "--is-ancestor", base, commit)

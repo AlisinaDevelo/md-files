@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import time
 
 import pytest
 
@@ -248,6 +249,93 @@ def test_ignored_submodule_changes_cannot_claim_exact_head(workspace):
     (workspace[0] / "module/source.txt").write_text("unreported change")
     assert git(workspace[0], "status", "--porcelain") == ""
     assert call(workspace, "plan")[0].returncode == 2
+
+
+def test_stat_cache_cannot_hide_modified_bytes(workspace):
+    path = workspace[0] / "source.txt"
+    git(workspace[0], "config", "core.trustctime", "false")
+    git(workspace[0], "config", "core.checkStat", "minimal")
+    old = time.time() - 5
+    os.utime(path, (old, old))
+    git(workspace[0], "update-index", "--really-refresh")
+    original_stat = path.stat()
+    with path.open("r+b") as handle:
+        handle.write(b"modified\n")
+    os.utime(path, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
+    assert git(workspace[0], "status", "--porcelain") == ""
+    update(workspace, "from pathlib import Path; assert Path('source.txt').read_text() == 'modified\\n'")
+    assert call(workspace, "run", "--yes")[0].returncode == 2
+
+
+def test_check_vectors_keep_normal_git_pathspec_semantics(workspace):
+    expected = subprocess.check_output(["git", "-C", str(workspace[0]), "ls-files", "*.md"])
+    assert expected
+    workspace[2]["checks"][0]["argv"] = ["git", "ls-files", "*.md"]
+    workspace[1].write_text(json.dumps(workspace[2]))
+    result, receipt = call(workspace, "run", "--yes")
+    assert result.returncode == 0
+    assert receipt["checks"][0]["output_sha256"] == hashlib.sha256(expected).hexdigest()
+
+
+def test_git_replace_cannot_change_recorded_source_tree(workspace):
+    original = git(workspace[0], "rev-parse", "HEAD")
+    (workspace[0] / "source.txt").write_text("replaced\n")
+    git(workspace[0], "commit", "-am", "Other tree")
+    replacement = git(workspace[0], "rev-parse", "HEAD")
+    git(workspace[0], "update-ref", "refs/heads/main", original)
+    git(workspace[0], "replace", original, replacement)
+    assert git(workspace[0], "status", "--porcelain") == ""
+    assert call(workspace, "plan")[0].returncode == 2
+
+
+def test_executable_mode_is_checked_even_when_git_ignores_it(workspace):
+    git(workspace[0], "config", "core.filemode", "false")
+    path = workspace[0] / "source.txt"
+    path.chmod(path.stat().st_mode | 0o100)
+    assert git(workspace[0], "status", "--porcelain") == ""
+    assert call(workspace, "plan")[0].returncode == 2
+
+
+def test_symlink_text_is_hashed_without_reading_target(workspace):
+    target = workspace[1].parent / "private-target"
+    target.write_text("private")
+    (workspace[0] / "link").symlink_to(target)
+    git(workspace[0], "add", "link")
+    git(workspace[0], "commit", "-m", "Add symlink")
+    assert call(workspace, "run", "--yes")[0].returncode == 0
+    target.write_text("different private bytes")
+    assert call(workspace, "verify")[0].returncode == 0
+
+
+def test_transformed_checkout_is_explicitly_rejected(workspace):
+    git(workspace[0], "config", "core.autocrlf", "true")
+    (workspace[0] / ".gitattributes").write_text("source.txt text eol=crlf\n")
+    git(workspace[0], "add", ".gitattributes")
+    git(workspace[0], "commit", "-m", "Declare materialized line endings")
+    path = workspace[0] / "source.txt"
+    path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+    git(workspace[0], "add", "source.txt")
+    git(workspace[0], "commit", "--allow-empty", "-m", "Materialize checkout")
+    assert git(workspace[0], "status", "--porcelain") == ""
+    result, report = call(workspace, "plan")
+    assert result.returncode == 2
+    assert "transformed checkouts" in report["error"]
+
+
+def test_sha256_git_repository_is_supported(workspace):
+    repo = workspace[1].parent / "sha256-repo"
+    repo.mkdir()
+    git(repo, "init", "--object-format=sha256", "-b", "main")
+    git(repo, "config", "user.name", "Contributor")
+    git(repo, "config", "user.email", "contributor@example.invalid")
+    (repo / "AGENTS.md").write_text("Reviewed checks only.\n")
+    git(repo, "add", ".")
+    git(repo, "commit", "-m", "SHA256 source")
+    alternate = (repo, *workspace[1:])
+    result, receipt = call(alternate, "run", "--yes")
+    assert result.returncode == 0, result.stdout
+    assert len(receipt["source"]["commit"]) == 64
+    assert call(alternate, "verify")[0].returncode == 0
 
 
 @pytest.mark.parametrize("change", ["empty", "duplicate", "unknown", "escape", "base"])
