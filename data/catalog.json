@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "total": 67,
+  "total": 68,
   "components": [
     {
       "id": "accessibility-auditor",
@@ -255,6 +255,14 @@
       "kind": "skill",
       "path": "plugins/forge/skills/observability/SKILL.md",
       "description": "Use when adding logging, metrics, or tracing to code, or designing how a service is monitored. Covers the three pillars, structured logging, what to measure (RED/ USE), useful alerts, and the SLO mindset \u2014 so failures are debuggable after the fact.",
+      "model": "",
+      "risk": "safe"
+    },
+    {
+      "id": "open-source-contribution",
+      "kind": "skill",
+      "path": "plugins/forge/skills/open-source-contribution/SKILL.md",
+      "description": "Use when preparing or reviewing an upstream open-source contribution: reproduce an issue, follow maintainer rules, run exact-head checks, prepare a focused PR and reconcile review feedback. Covers fork identity, DCO/CLA gates and local evidence.",
       "model": "",
       "risk": "safe"
     },

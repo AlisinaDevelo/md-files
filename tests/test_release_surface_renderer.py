@@ -96,7 +96,7 @@ def test_release_surface_derives_metadata_and_install_inputs(tmp_path):
     assert (tmp_path / "codex/plugins/forge/skills/observability/scripts/forge-lineage.py").is_file()
     assert (tmp_path / "agentskills/zed/install.sh").stat().st_mode & 0o111
     manifest = json.loads((tmp_path / "codex/data/projection-manifest.json").read_text(encoding="utf-8"))
-    assert manifest["hosts"]["codex"]["components"] == 25
+    assert manifest["hosts"]["codex"]["components"] == 26
     assert manifest["metadata"]["bundles"]["count"] == 7
     constellation = next(item for item in bundles["bundles"] if item["id"] == "constellation-integration")
     assert constellation["boundaries"] == {

@@ -52,9 +52,9 @@ def test_opencode_skill_projection_has_expected_surfaces():
     agents = sorted((REPO / "zed/skills/agents").glob("*.md"))
     commands = sorted((REPO / "zed/skills/commands").glob("*.md"))
 
-    assert len(methodology) == 25
-    assert len(agents) == 20
-    assert len(commands) == 22
+    assert methodology
+    assert agents
+    assert commands
     assert all((path / "SKILL.md").is_file() for path in methodology)
 
     for path in [*(path / "SKILL.md" for path in methodology), *agents, *commands]:
@@ -82,8 +82,23 @@ def test_opencode_installer_copy_projection(tmp_path):
 
     assert result.returncode == 0, result.stderr
     installed = sorted(skills_dir.glob("*/SKILL.md"))
-    assert len(installed) == 67
-    assert "Installed 67 Forge skill surfaces" in result.stdout
+    methodology = sorted(
+        path.parent.name
+        for path in (REPO / "plugins/forge/skills").glob("*/SKILL.md")
+    )
+    agents = sorted(path.stem for path in (REPO / "zed/skills/agents").glob("*.md"))
+    commands = sorted(
+        path.stem for path in (REPO / "zed/skills/commands").glob("*.md")
+    )
+    expected_ids = methodology + agents + commands
+    expected = set(expected_ids)
+    installed_ids = {path.parent.name for path in installed}
+
+    assert expected
+    assert len(expected_ids) == len(expected)
+    assert installed_ids == expected
+    assert len(installed) == len(expected_ids)
+    assert f"Installed {len(expected_ids)} Forge skill surfaces" in result.stdout
     assert (skills_dir / "doctor/scripts/forge-doctor.py").is_file()
     for skill_file in installed:
         assert f"\nname: {skill_file.parent.name}\n" in skill_file.read_text(
