@@ -65,4 +65,6 @@ groups for execution cleanup. Planning and verification do not execute check vec
   provenance when an adversarial trust boundary requires it.
 - Pre/post source checks do not detect a mutation that is completely restored before
   the final check. Escaped processes, external effects and ignored data are outside the
-  contract. Tests remain responsible for covering the actual issue acceptance criteria.
+  contract. Do not modify the repository or its Git metadata concurrently with inspection;
+  this is not a transactional filesystem snapshot. Tests remain responsible for covering
+  the actual issue acceptance criteria.

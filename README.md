@@ -2,29 +2,27 @@
 
 # 🔨 Forge
 
-**An enterprise-grade Claude Code, Codex, and OpenCode toolkit — specialized agents,
-progressive-disclosure skills, orchestration loops, slash commands, and safety hooks that
-maximize the efficacy of LLMs in software engineering.**
+**Engineering workflows for Claude Code, Codex, and OpenCode: specialist agents,
+skills, task ledgers, contribution checks, orchestration loops, and safety hooks.**
 
-[![CI](https://github.com/AlisinaDevelo/md-files/actions/workflows/ci.yml/badge.svg)](https://github.com/AlisinaDevelo/md-files/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-d97757.svg)](https://docs.claude.com/en/docs/claude-code)
 [![Agents](https://img.shields.io/badge/agents-20-8b5cf6.svg)](plugins/forge/agents/)
 [![Skills](https://img.shields.io/badge/skills-26-06b6d4.svg)](plugins/forge/skills/)
 [![Commands](https://img.shields.io/badge/commands-22-22c55e.svg)](plugins/forge/commands/)
 [![Tests](https://img.shields.io/badge/tests-local%20release%20gate-success.svg)](docs/release-provenance.md)
-[![Prompt evals](https://img.shields.io/badge/prompt%20evals-333%2F334%20checks-success.svg)](evals/)
+[![Prompt evals](https://img.shields.io/badge/prompt%20evals-336%2F337%20checks-success.svg)](evals/)
 
 </div>
 
 ---
 
-Forge is a curated, batteries-included configuration for [Claude Code](https://docs.claude.com/en/docs/claude-code),
-[Codex](https://github.com/openai/codex), and [OpenCode](https://opencode.ai). It packages the patterns that make an AI coding agent
-genuinely effective — clear role definitions, disciplined methodologies, task ledgers,
-model routing, the right tools for each job, and guardrails that keep it safe — into one
-installable toolkit. Every artifact is plain Markdown or a small, auditable script: no
-build step, no magic, nothing hidden from you.
+Forge is an installable engineering toolkit for [Claude Code](https://docs.claude.com/en/docs/claude-code),
+[Codex](https://github.com/openai/codex), and [OpenCode](https://opencode.ai). It combines
+role definitions, engineering methods, task ledgers, model-routing contracts, and local
+verification scripts. Prompts and source scripts are inspectable; host-specific hooks and
+execution permissions remain separate from portable skills. Local tests establish the
+documented contracts, not a comparative coding-performance score.
 
 ## Table of contents
 
@@ -87,7 +85,7 @@ proven method, scoped tools, and guardrails. Forge encodes that scaffolding:
   auto-format edits, inject repo context at session start, and notify you on completion —
   deterministically, without relying on the model to remember.
 - **Proven, not asserted.** A real eval harness scores prompts and high-risk behavior
-  contracts (333/334 deterministic checks, one warning, plus cross-host scenarios and an opt-in
+  contracts (336/337 deterministic checks, one warning, plus cross-host scenarios and an opt-in
   LLM judge); the test suite covers safety hooks, task sync, receipts, durable runtime replay, external effect
   delivery, doctor, policy,
   stacks, marketplace readiness, capability graph, rendering, semantic evidence, and conformance. Run
@@ -285,8 +283,9 @@ Deterministic guardrails the harness runs on lifecycle events — no model memor
 
 ## Release provenance
 
-Tagged releases publish deterministic Claude, Codex, and `.agents` bundles with SHA-256
-manifests, SPDX SBOMs, GitHub artifact attestations, and an offline verifier. See
+Tagged releases publish deterministic Claude, Codex, `.agents`, and OpenAI skills-only
+bundles with SHA-256 manifests, SPDX SBOMs, and an offline verifier. Hosted releases can
+also supply GitHub artifact attestations; local-only releases do not imply hosted provenance. See
 [release provenance](docs/release-provenance.md) for consumer verification and the
 threat model.
 
@@ -349,6 +348,9 @@ scripts/               validation, installation, release, and marketplace checks
 ## Documentation
 
 - [Getting started](docs/getting-started.md) — install options and first steps
+- [OSS release contract](docs/oss-release-plan.md) — contribution checks, research basis,
+  native compatibility evidence, and release acceptance
+- [OpenHands SDK](docs/openhands.md) — optional native AgentSkills compatibility verification
 - [Usage patterns](docs/usage-patterns.md) — how the components combine in real workflows
 - [Bundles & workflows](docs/bundles-and-workflows.md) — focused capability sets and ordered playbooks
 - [Quality bar](docs/quality-bar.md) — validation and safety standards for Forge components

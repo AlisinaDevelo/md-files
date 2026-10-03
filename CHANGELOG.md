@@ -6,6 +6,32 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [3.11.0] - 2026-10-03
+
+### Added
+
+- An open-source contribution skill covering upstream scope, maintainer rules, identity,
+  legal attestations, review, and publication boundaries.
+- A self-contained contribution check runner with reviewed command vectors, bounded
+  execution, digest-only receipts, and exact-source verification on raw Git checkouts.
+- An optional native OpenHands SDK verifier for packaged AgentSkills registration,
+  content, and script-resource loading, tested with SDK 1.50.1 without model calls.
+
+### Fixed
+
+- Bind contribution evidence to committed bytes and executable modes rather than Git's
+  stat cache; reject hidden index flags, replacement-object inspection, legacy grafts,
+  changed revisions, and transformed checkouts that need a separate contract.
+- Preserve normal Git pathspec behavior for reviewed check commands.
+- Derive OpenCode projection tests from the capability inventory instead of fixed counts.
+
+### Changed
+
+- Expand the methodology catalog to 26 skills and the Agent Skills projection to 68 surfaces.
+- Record native OpenCode 2.0.22 explicit loading and its unresolved empty discovery inventory.
+- Define the OSS release acceptance contract using current primary research, without
+  claiming benchmark leadership, signed provenance, or automatic maintainer acceptance.
+
 ## [3.10.0] - 2026-10-03
 
 ### Added

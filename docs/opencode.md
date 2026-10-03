@@ -52,7 +52,7 @@ From a Forge checkout:
 
 The installer writes only these targets by default:
 
-The global projection contains 67 skills: 25 methodology, 20 specialist, and 22 command
+The global projection contains 68 skills: 26 methodology, 20 specialist, and 22 command
 skills.
 
 | Surface | Default location | Contents |
@@ -84,6 +84,20 @@ API is the discovery surface. Skill activation uses the exact path-derived ID.
 Ask OpenCode to use `orchestration`, `task-ledger`, `iterate-to-done`, or
 `forge-cmd-review` for a relevant request. Skills load on demand rather than injecting
 their full bodies into every prompt.
+
+### Recorded V2 Boundary
+
+On 2026-10-03, an isolated `@opencode/cli` 2.0.22 experiment loaded both Forge's
+`orchestration` skill and a minimal documented `.opencode/skills/probe/SKILL.md` fixture
+through `experimental.session.skill`. `session.message.list` returned instruction bodies
+identical to their source bodies: 26499 and 59 characters respectively. No model or
+provider was invoked.
+
+However, native `skill.list` returned an empty inventory for both projects. This proves
+explicit native loading, not advertised discovery or autonomous skill selection. The
+minimal fixture showed the same limitation, so it does not establish a Forge-specific
+discovery defect. Keep the supported V1 install when reliable discovery is required;
+the optional V2 profile is not a claim that this host limitation is resolved.
 
 ## Host Boundaries
 
