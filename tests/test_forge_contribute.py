@@ -340,6 +340,8 @@ def test_sha256_git_repository_is_supported(workspace):
 
 
 def test_source_snapshot_rejects_head_changes_during_inspection(workspace, monkeypatch):
+    workspace[2]["base_ref"] = git(workspace[0], "rev-parse", "HEAD")
+    workspace[1].write_text(json.dumps(workspace[2]))
     spec = importlib.util.spec_from_file_location("forge_contribute_snapshot", HELPER)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -352,6 +354,19 @@ def test_source_snapshot_rejects_head_changes_during_inspection(workspace, monke
     monkeypatch.setattr(module, "verify_committed_bytes", change_head_after_read)
     with pytest.raises(ValueError, match="HEAD changed"):
         module.source(workspace[0], module.contract(workspace[1]))
+
+
+def test_legacy_grafts_cannot_falsify_base_ancestry(workspace):
+    original = git(workspace[0], "rev-parse", "HEAD")
+    tree = git(workspace[0], "rev-parse", "HEAD^{tree}")
+    unrelated = git(workspace[0], "commit-tree", tree, "-m", "Unrelated root")
+    path = workspace[0] / git(workspace[0], "rev-parse", "--git-path", "info/grafts")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"{original} {unrelated}\n")
+    workspace[2]["base_ref"] = unrelated
+    workspace[1].write_text(json.dumps(workspace[2]))
+    assert git(workspace[0], "merge-base", "--is-ancestor", unrelated, original) == ""
+    assert call(workspace, "run", "--yes")[0].returncode == 2
 
 
 @pytest.mark.parametrize("change", ["empty", "duplicate", "unknown", "escape", "base"])

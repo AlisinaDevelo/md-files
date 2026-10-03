@@ -156,6 +156,9 @@ def verify_committed_bytes(repo, commit):
 def source(repo, profile):
     if Path(git(repo, "rev-parse", "--show-toplevel")).resolve() != repo:
         raise ValueError("--repo must be the Git repository root")
+    grafts = repo / git(repo, "rev-parse", "--git-path", "info/grafts")
+    if grafts.exists() or grafts.is_symlink():
+        raise ValueError("legacy Git grafts are unsupported for source ancestry")
     if git(repo, "status", "--porcelain=v1", "--untracked-files=all"):
         raise ValueError("source tree must be clean, including untracked files")
     entries = git(repo, "ls-files", "-v", "-z").split("\0")
