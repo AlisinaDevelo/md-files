@@ -147,6 +147,7 @@ PYTHON_LINT_TARGETS=(
   scripts/migrate_capabilities.py
   scripts/validate_codex_plugin.py
   scripts/verify_release.py
+  scripts/verify_openhands_skills.py
   scripts/generate_catalog.py
   scripts/forge-doctor.py
   scripts/forge-policy.py

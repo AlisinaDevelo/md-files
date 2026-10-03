@@ -40,6 +40,13 @@ groups for execution cleanup. Planning and verification do not execute check vec
 
 - Source must be clean, including untracked files. Ignored build output is not source
   evidence and must be cleaned separately after testing.
+- Every tracked file is streamed and compared with its committed Git blob, including
+  executable modes and symlink text (never the symlink target). Git replacement objects
+  are disabled for inspection, and legacy Git graft metadata is rejected. This does not
+  rely on Git's file-stat cache.
+- This profile requires Git 2.29+, a raw-byte checkout, at most 100000 tracked files
+  and 512 MiB of source, and a 30-second byte-verification budget. CRLF/smudge/LFS
+  transformations need a separate materialization contract rather than false acceptance.
 - Hidden index flags (`assume-unchanged`, `skip-worktree`, including sparse checkouts)
   are rejected. Git environment overrides are cleared for inspection and checks;
   configure normal host authentication rather than placing it in those overrides.
@@ -58,4 +65,6 @@ groups for execution cleanup. Planning and verification do not execute check vec
   provenance when an adversarial trust boundary requires it.
 - Pre/post source checks do not detect a mutation that is completely restored before
   the final check. Escaped processes, external effects and ignored data are outside the
-  contract. Tests remain responsible for covering the actual issue acceptance criteria.
+  contract. Do not modify the repository or its Git metadata concurrently with inspection;
+  this is not a transactional filesystem snapshot. Tests remain responsible for covering
+  the actual issue acceptance criteria.

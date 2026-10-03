@@ -18,7 +18,9 @@ Primary-source research refreshed on 2026-10-03.
 [SWE-Bench Pro Verified](https://arxiv.org/abs/2609.08149) identifies solution leakage
 and incorrect task/test contracts as threats to benchmark reliability. The concrete
 response here is to retain an explicit check contract and bind its execution evidence
-to the source revision. This does not prevent every form of reward hacking.
+to the source revision. This does not prevent every form of reward hacking. The helper
+does not rebuild or conceal repository history, hide evaluation answers, or block network
+access; those experimental controls require a separate trusted benchmark harness.
 
 [SWE-bench Goes Live](https://arxiv.org/abs/2505.23419) addresses stale task collections
 with refreshed executable tasks. Forge records the selected upstream revision and
