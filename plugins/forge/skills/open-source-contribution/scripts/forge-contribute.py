@@ -93,11 +93,11 @@ def contract(path):
     return value
 
 
-def verify_committed_bytes(repo):
+def verify_committed_bytes(repo, commit):
     algorithm = git(repo, "rev-parse", "--show-object-format")
     if algorithm not in {"sha1", "sha256"}:
         raise ValueError("unsupported Git object format (Git 2.29+ required)")
-    entries = [entry for entry in git(repo, "ls-tree", "-r", "-z", "HEAD").split("\0") if entry]
+    entries = [entry for entry in git(repo, "ls-tree", "-r", "-z", commit).split("\0") if entry]
     if len(entries) > 100000:
         raise ValueError("tracked source exceeds 100000 files")
     deadline = time.monotonic() + 30
@@ -147,6 +147,8 @@ def verify_committed_bytes(repo):
                 current = path.lstat()
                 if (current.st_dev, current.st_ino) != (after.st_dev, after.st_ino):
                     raise ValueError("tracked source was replaced while being read")
+        if total > 512 * LIMIT:
+            raise ValueError("tracked source exceeds 512 MiB")
         if hasher.hexdigest() != expected:
             raise ValueError("tracked bytes differ from HEAD; transformed checkouts are unsupported")
 
@@ -161,8 +163,9 @@ def source(repo, profile):
         raise ValueError("assume-unchanged and skip-worktree index flags are unsupported")
     if any(entry.startswith("160000 ") for entry in git(repo, "ls-files", "--stage", "-z").split("\0")):
         raise ValueError("submodules require a separate recursive evidence contract")
-    verify_committed_bytes(repo)
     commit = git(repo, "rev-parse", "HEAD")
+    tree = git(repo, "rev-parse", commit + "^{tree}")
+    verify_committed_bytes(repo, commit)
     base = git(repo, "rev-parse", "--verify", "--end-of-options", profile["base_ref"] + "^{commit}")
     git(repo, "merge-base", "--is-ancestor", base, commit)
     instructions = {}
@@ -181,7 +184,9 @@ def source(repo, profile):
         if len(data) > LIMIT:
             raise ValueError("instruction file exceeds 1 MiB")
         instructions[name] = hashlib.sha256(data).hexdigest()
-    return {"commit": commit, "tree": git(repo, "rev-parse", "HEAD^{tree}"),
+    if git(repo, "rev-parse", "HEAD") != commit:
+        raise ValueError("HEAD changed during source verification")
+    return {"commit": commit, "tree": tree,
             "base_commit": base, "contract_sha256": digest(profile),
             "instructions_sha256": digest(instructions)}
 

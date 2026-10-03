@@ -1,6 +1,7 @@
 """Real Git and subprocess contracts for portable contribution evidence."""
 
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -336,6 +337,21 @@ def test_sha256_git_repository_is_supported(workspace):
     assert result.returncode == 0, result.stdout
     assert len(receipt["source"]["commit"]) == 64
     assert call(alternate, "verify")[0].returncode == 0
+
+
+def test_source_snapshot_rejects_head_changes_during_inspection(workspace, monkeypatch):
+    spec = importlib.util.spec_from_file_location("forge_contribute_snapshot", HELPER)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    verify_bytes = module.verify_committed_bytes
+
+    def change_head_after_read(*args):
+        verify_bytes(*args)
+        git(workspace[0], "commit", "--allow-empty", "-m", "Concurrent revision")
+
+    monkeypatch.setattr(module, "verify_committed_bytes", change_head_after_read)
+    with pytest.raises(ValueError, match="HEAD changed"):
+        module.source(workspace[0], module.contract(workspace[1]))
 
 
 @pytest.mark.parametrize("change", ["empty", "duplicate", "unknown", "escape", "base"])
